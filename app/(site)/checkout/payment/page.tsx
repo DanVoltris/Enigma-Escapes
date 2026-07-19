@@ -7,7 +7,7 @@ import HoldBanner from "@/components/HoldBanner";
 import ProgressSteps from "@/components/ProgressSteps";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
-import { amountDueCents, computeTotals, PROMO_CODES } from "@/lib/pricing";
+import { amountDueCents, computeTotals } from "@/lib/pricing";
 
 function luhnValid(digits: string): boolean {
   let sum = 0;
@@ -28,11 +28,12 @@ type CardErrors = Partial<Record<"cardName" | "cardNumber" | "expiry" | "cvc", s
 
 export default function PaymentPage() {
   const router = useRouter();
-  const { items, customer, promoCode, paymentOption, setPromoCode, setPaymentOption, clear } = useCart();
+  const { items, customer, promo, paymentOption, setPromo, setPaymentOption, clear } = useCart();
 
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoInput, setPromoInput] = useState("");
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
 
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
@@ -48,17 +49,23 @@ export default function PaymentPage() {
     if (items.length > 0 && !customer) router.replace("/checkout");
   }, [items.length, customer, router]);
 
-  const totals = computeTotals(items, promoCode);
+  const totals = computeTotals(items, promo?.percentOff ?? 0);
   const dueNow = amountDueCents(totals, paymentOption);
 
-  function applyPromo() {
+  async function applyPromo() {
     const code = promoInput.trim().toUpperCase();
-    if (!code) return;
-    if (code in PROMO_CODES) {
-      setPromoCode(code);
-      setPromoError(null);
-    } else {
-      setPromoError("That code is not valid. Check the spelling and try again.");
+    if (!code || promoChecking) return;
+    setPromoChecking(true);
+    setPromoError(null);
+    try {
+      const res = await fetch(`/api/promo?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not check the code. Try again.");
+      setPromo({ code: data.code, percentOff: data.percentOff });
+    } catch (err) {
+      setPromoError(err instanceof Error ? err.message : "Could not check the code. Try again.");
+    } finally {
+      setPromoChecking(false);
     }
   }
 
@@ -90,7 +97,7 @@ export default function PaymentPage() {
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer, paymentOption, promoCode }),
+        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong completing your booking.");
@@ -138,14 +145,14 @@ export default function PaymentPage() {
                     placeholder="Enter code"
                     aria-label="Promo or gift code"
                   />
-                  <button type="button" className="btn" onClick={applyPromo}>
-                    Apply
+                  <button type="button" className="btn" onClick={applyPromo} disabled={promoChecking}>
+                    {promoChecking ? "Checking…" : "Apply"}
                   </button>
                 </div>
-                {promoCode && (
+                {promo && (
                   <p className="promo-note ok">
-                    Code {promoCode} applied — you saved {formatMoney(totals.discountCents)}.{" "}
-                    <button type="button" className="link-button" onClick={() => setPromoCode(null)}>
+                    Code {promo.code} applied — you saved {formatMoney(totals.discountCents)}.{" "}
+                    <button type="button" className="link-button" onClick={() => setPromo(null)}>
                       Remove
                     </button>
                   </p>

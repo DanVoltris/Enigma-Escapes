@@ -1,10 +1,5 @@
-import type { Booking } from "./types";
-
-// Server-only Supabase access via the PostgREST API. Uses the service_role key,
-// which bypasses row level security — it must never be exposed to the browser
-// (only ever read here, inside server code, from environment variables).
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+import { rest, restError } from "./supabase";
+import type { Booking, Promo } from "./types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -18,29 +13,6 @@ type BookingRow = {
   payment_option: Booking["paymentOption"];
   pricing: Booking["pricing"];
 };
-
-async function rest(path: string, init?: RequestInit): Promise<Response> {
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    throw new Error(
-      "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local (see CLAUDE.md)."
-    );
-  }
-  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: {
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-    cache: "no-store",
-  });
-}
-
-async function restError(res: Response, doing: string): Promise<Error> {
-  const body = await res.text().catch(() => "");
-  return new Error(`${doing} failed (Supabase ${res.status}): ${body.slice(0, 300)}`);
-}
 
 function toBooking(row: BookingRow): Booking {
   return {
@@ -82,6 +54,14 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
   return rows[0] ? toBooking(rows[0]) : undefined;
 }
 
+// Every booking, newest first. Fine at this scale; add pagination when the
+// venue has thousands of bookings.
+export async function listBookings(): Promise<Booking[]> {
+  const res = await rest("bookings?select=*&order=created_at.desc");
+  if (!res.ok) throw await restError(res, "Loading bookings");
+  return ((await res.json()) as BookingRow[]).map(toBooking);
+}
+
 // All booked spot counts for one date, keyed "roomId|time". One query per date
 // (the availability page needs every slot) using a jsonb contains filter.
 export async function bookedCountsForDate(date: string): Promise<Map<string, number>> {
@@ -103,4 +83,46 @@ export async function bookedCountsForDate(date: string): Promise<Map<string, num
 export async function bookedCount(roomId: string, date: string, time: string): Promise<number> {
   const counts = await bookedCountsForDate(date);
   return counts.get(`${roomId}|${time}`) ?? 0;
+}
+
+// ---------- promo codes ----------
+
+type PromoRow = { code: string; percent_off: number; active: boolean };
+
+export async function getPromo(code: string): Promise<Promo | undefined> {
+  const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}&select=*&limit=1`);
+  if (!res.ok) throw await restError(res, "Checking the promo code");
+  const rows = (await res.json()) as PromoRow[];
+  return rows[0] ? { code: rows[0].code, percentOff: rows[0].percent_off, active: rows[0].active } : undefined;
+}
+
+export async function listPromos(): Promise<Promo[]> {
+  const res = await rest("promo_codes?select=*&order=code.asc");
+  if (!res.ok) throw await restError(res, "Loading promo codes");
+  return ((await res.json()) as PromoRow[]).map((r) => ({
+    code: r.code,
+    percentOff: r.percent_off,
+    active: r.active,
+  }));
+}
+
+export async function createPromo(promo: Promo): Promise<void> {
+  const res = await rest("promo_codes", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ code: promo.code, percent_off: promo.percentOff, active: promo.active }),
+  });
+  if (!res.ok) throw await restError(res, "Creating the promo code");
+}
+
+export async function updatePromo(code: string, patch: { percentOff?: number; active?: boolean }): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.percentOff !== undefined) row.percent_off = patch.percentOff;
+  if (patch.active !== undefined) row.active = patch.active;
+  const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(row),
+  });
+  if (!res.ok) throw await restError(res, "Updating the promo code");
 }

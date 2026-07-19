@@ -4,7 +4,6 @@ import Link from "next/link";
 import { itemKey, useCart } from "@/lib/cart";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 import { amountDueCents, computeTotals } from "@/lib/pricing";
-import { getRoom } from "@/lib/rooms";
 import RoomBadge from "./RoomBadge";
 
 export default function CartSummary({
@@ -14,8 +13,8 @@ export default function CartSummary({
   editable?: boolean;
   showCustomer?: boolean;
 }) {
-  const { items, customer, promoCode, paymentOption, removeItem } = useCart();
-  const totals = computeTotals(items, promoCode);
+  const { items, customer, promo, paymentOption, removeItem } = useCart();
+  const totals = computeTotals(items, promo?.percentOff ?? 0);
   const dueNow = amountDueCents(totals, paymentOption);
 
   return (
@@ -39,31 +38,28 @@ export default function CartSummary({
 
         <h3 className="summary-heading">Your bookings</h3>
         {items.length === 0 && <p className="summary-empty">No bookings yet. Add one to get started.</p>}
-        {items.map((item) => {
-          const room = getRoom(item.roomId);
-          return (
-            <div className="summary-item" key={itemKey(item)}>
-              <RoomBadge name={item.roomName} bg={room?.badgeBg ?? "#0B2540"} fg={room?.badgeFg ?? "#fff"} />
-              <div className="summary-item-info">
-                <div className="name">{item.roomName}</div>
-                <div className="meta">
-                  {formatDateLong(item.date)} — {formatTime(item.time)}
-                </div>
-                <div className="meta">
-                  {item.quantity} × {formatMoney(item.priceCents)} = {formatMoney(item.quantity * item.priceCents)}
-                </div>
-                {editable && (
-                  <div className="summary-item-actions">
-                    <Link href={`/?date=${item.date}&slot=${item.roomId}|${item.time}`}>Edit booking</Link>
-                    <button type="button" className="link-button danger" onClick={() => removeItem(itemKey(item))}>
-                      Remove booking
-                    </button>
-                  </div>
-                )}
+        {items.map((item) => (
+          <div className="summary-item" key={itemKey(item)}>
+            <RoomBadge name={item.roomName} bg={item.badgeBg} fg={item.badgeFg} />
+            <div className="summary-item-info">
+              <div className="name">{item.roomName}</div>
+              <div className="meta">
+                {formatDateLong(item.date)} — {formatTime(item.time)}
               </div>
+              <div className="meta">
+                {item.quantity} × {formatMoney(item.priceCents)} = {formatMoney(item.quantity * item.priceCents)}
+              </div>
+              {editable && (
+                <div className="summary-item-actions">
+                  <Link href={`/?date=${item.date}&slot=${item.roomId}|${item.time}`}>Edit booking</Link>
+                  <button type="button" className="link-button danger" onClick={() => removeItem(itemKey(item))}>
+                    Remove booking
+                  </button>
+                </div>
+              )}
             </div>
-          );
-        })}
+          </div>
+        ))}
 
         {items.length > 0 && (
           <div className="summary-totals">
@@ -73,7 +69,7 @@ export default function CartSummary({
             </div>
             {totals.discountCents > 0 && (
               <div className="summary-line discount">
-                <span>Promo ({promoCode})</span>
+                <span>Promo ({promo?.code})</span>
                 <span>-{formatMoney(totals.discountCents)}</span>
               </div>
             )}

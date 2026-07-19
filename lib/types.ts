@@ -1,4 +1,4 @@
-export type Room = {
+export type Experience = {
   id: string;
   name: string;
   location: string;
@@ -10,6 +10,8 @@ export type Room = {
   times: string[]; // 24h "HH:MM" start times offered every day
   badgeBg: string;
   badgeFg: string;
+  active: boolean;
+  sort: number;
 };
 
 export type Slot = {
@@ -24,6 +26,8 @@ export type Slot = {
   capacity: number;
   remaining: number;
   priceCents: number;
+  badgeBg: string;
+  badgeFg: string;
 };
 
 export type CartItem = {
@@ -35,6 +39,8 @@ export type CartItem = {
   quantity: number;
   priceCents: number;
   durationMinutes: number;
+  badgeBg: string;
+  badgeFg: string;
 };
 
 export type Customer = {
@@ -46,6 +52,12 @@ export type Customer = {
 };
 
 export type PaymentOption = "full" | "deposit";
+
+export type Promo = {
+  code: string;
+  percentOff: number;
+  active: boolean;
+};
 
 export type BookingPricing = {
   subtotalCents: number;

@@ -16,16 +16,11 @@ import {
   todayISO,
 } from "@/lib/format";
 import { BOOKING_WINDOW_DAYS, MIN_PARTY_SIZE } from "@/lib/pricing";
-import { ROOMS, getRoom } from "@/lib/rooms";
 import type { Slot } from "@/lib/types";
 
-// Unique venue locations, in first-seen order.
-const LOCATIONS = ROOMS.reduce<string[]>((acc, r) => {
-  if (!acc.includes(r.location)) acc.push(r.location);
-  return acc;
-}, []);
-
 const FILTER_ALL_LABEL = "Filter: all experiences";
+
+type ExperienceSummary = { id: string; name: string; location: string };
 
 // Location and experience are two facets combined with AND: a slot must be in
 // one of the selected locations (if any) AND be one of the selected experiences
@@ -38,24 +33,13 @@ function passesFilters(slot: Slot, filters: string[]): boolean {
   return locationOk && roomOk;
 }
 
-// Once a location is chosen, experiences at other locations no longer apply —
-// drop them so a Northside filter can't keep showing a Downtown room.
-function normalizeFilters(filters: string[]): string[] {
-  const locations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
-  if (locations.length === 0) return filters;
-  return filters.filter((f) => {
-    if (!f.startsWith("room:")) return true;
-    const room = getRoom(f.slice(5));
-    return !!room && locations.includes(room.location);
-  });
-}
-
 export default function BrowsePage() {
   const router = useRouter();
   const { items, addItem } = useCart();
 
   const [date, setDate] = useState(todayISO());
   const [filters, setFilters] = useState<string[]>([]);
+  const [experiences, setExperiences] = useState<ExperienceSummary[]>([]);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -79,6 +63,14 @@ export default function BrowsePage() {
     }
   }, []);
 
+  // The experience list (for the filter) rarely changes — load it once.
+  useEffect(() => {
+    fetch("/api/experiences")
+      .then((res) => res.json())
+      .then((data) => setExperiences(data.experiences ?? []))
+      .catch(() => setExperiences([]));
+  }, []);
+
   const loadSlots = useCallback(async () => {
     setSlots(null);
     setError(null);
@@ -96,32 +88,56 @@ export default function BrowsePage() {
     loadSlots();
   }, [loadSlots]);
 
-  const visibleSlots = useMemo(
-    () => (slots ?? []).filter((s) => passesFilters(s, filters)),
-    [slots, filters]
+  const locations = useMemo(
+    () =>
+      experiences.reduce<string[]>((acc, e) => {
+        if (!acc.includes(e.location)) acc.push(e.location);
+        return acc;
+      }, []),
+    [experiences]
+  );
+
+  // Once a location is chosen, experiences at other locations no longer apply —
+  // drop them so a Northside filter can't keep showing a Downtown room.
+  const normalizeFilters = useCallback(
+    (fs: string[]): string[] => {
+      const selectedLocations = fs.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
+      if (selectedLocations.length === 0) return fs;
+      return fs.filter((f) => {
+        if (!f.startsWith("room:")) return true;
+        const exp = experiences.find((e) => e.id === f.slice(5));
+        return !!exp && selectedLocations.includes(exp.location);
+      });
+    },
+    [experiences]
   );
 
   // Experiences shown are scoped to any selected locations, so you can't pick a
   // room from a location you've filtered out.
   const filterItems = useMemo<FilterItem[]>(() => {
     const items: FilterItem[] = [];
-    if (LOCATIONS.length > 1) {
+    if (locations.length > 1) {
       items.push({ heading: "Locations" });
-      for (const loc of LOCATIONS) items.push({ value: `loc:${loc}`, label: loc });
+      for (const loc of locations) items.push({ value: `loc:${loc}`, label: loc });
     }
     const selectedLocations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
-    const rooms = selectedLocations.length
-      ? ROOMS.filter((r) => selectedLocations.includes(r.location))
-      : ROOMS;
+    const scoped = selectedLocations.length
+      ? experiences.filter((e) => selectedLocations.includes(e.location))
+      : experiences;
     items.push({ heading: "Experiences" });
-    for (const r of rooms) items.push({ value: `room:${r.id}`, label: r.name });
+    for (const e of scoped) items.push({ value: `room:${e.id}`, label: e.name });
     return items;
-  }, [filters]);
+  }, [experiences, locations, filters]);
 
   const toggleFilter = (value: string) =>
     setFilters((fs) =>
       normalizeFilters(fs.includes(value) ? fs.filter((v) => v !== value) : [...fs, value])
     );
+
+  const visibleSlots = useMemo(
+    () => (slots ?? []).filter((s) => passesFilters(s, filters)),
+    [slots, filters]
+  );
 
   const today = todayISO();
   const lastBookable = addDaysISO(today, BOOKING_WINDOW_DAYS);
@@ -147,6 +163,8 @@ export default function BrowsePage() {
       quantity,
       priceCents: slot.priceCents,
       durationMinutes: slot.durationMinutes,
+      badgeBg: slot.badgeBg,
+      badgeFg: slot.badgeFg,
     });
     router.push("/checkout");
   }
@@ -238,7 +256,6 @@ export default function BrowsePage() {
       <ul className="slot-list">
         {visibleSlots.map((slot) => {
           const key = itemKey(slot);
-          const room = getRoom(slot.roomId);
           const soldOut = slot.remaining === 0;
           // Fewer spots left than the minimum party size — can't be booked.
           const belowMin = !soldOut && slot.remaining < MIN_PARTY_SIZE;
@@ -254,7 +271,7 @@ export default function BrowsePage() {
                   {timePart}
                   <span className="period">{period}</span>
                 </div>
-                <RoomBadge name={slot.roomName} bg={room?.badgeBg ?? "#0B2540"} fg={room?.badgeFg ?? "#fff"} />
+                <RoomBadge name={slot.roomName} bg={slot.badgeBg} fg={slot.badgeFg} />
                 <div className="slot-info">
                   <div className="slot-name">
                     {slot.roomName} — {slot.location}
@@ -290,10 +307,7 @@ export default function BrowsePage() {
 
               {expanded && bookable && (
                 <div className="booking-panel">
-                  <div
-                    className="panel-poster"
-                    style={{ background: room?.badgeBg ?? "#0B2540", color: room?.badgeFg ?? "#fff" }}
-                  >
+                  <div className="panel-poster" style={{ background: slot.badgeBg, color: slot.badgeFg }}>
                     <span className="date-badge">
                       <span className="weekday">{badge.weekday}</span>
                       <span className="day">{badge.day}</span>

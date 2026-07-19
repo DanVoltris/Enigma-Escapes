@@ -1018,6 +1018,396 @@ a:hover {
   margin-top: 16px;
 }
 
+/* ---------- manager portal ---------- */
+.mgr {
+  min-height: 100vh;
+}
+.mgr-topbar {
+  background: var(--accent-tint);
+  border-bottom: 1px solid var(--border);
+}
+.mgr-topbar-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.mgr-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+.mgr-title::before {
+  content: "Voltris Booking · ";
+  color: var(--link);
+}
+.mgr-view-site {
+  font-size: 14px;
+  font-weight: 600;
+}
+.mgr-nav {
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.mgr-nav-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+.mgr-tab {
+  padding: 14px 14px 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+.mgr-tab:hover {
+  color: var(--text);
+  text-decoration: none;
+  background: var(--accent-tint);
+}
+.mgr-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.mgr-content {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+.mgr-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.mgr-page-sub {
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+}
+.mgr-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+/* stat tiles */
+.mgr-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.mgr-stat {
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  padding: 18px 20px;
+}
+.mgr-stat .label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.mgr-stat .value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 4px 0 2px;
+}
+.mgr-stat .hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* cards & tables */
+.mgr-card {
+  border: 1px solid var(--border);
+  padding: 24px;
+  margin-bottom: 28px;
+}
+.mgr-card h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.mgr-card .card-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+}
+.mgr-table-wrap {
+  overflow-x: auto;
+}
+.mgr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.mgr-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--text);
+  white-space: nowrap;
+}
+.mgr-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.mgr-table tr:hover td {
+  background: var(--accent-tint);
+}
+.mgr-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mgr-empty {
+  padding: 24px 0;
+  color: var(--text-secondary);
+}
+
+/* pills & badges */
+.mgr-pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.mgr-pill.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
+/* bar chart (single series, hover reveals exact value) */
+.mgr-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 180px;
+  padding-top: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.mgr-chart .col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+  min-width: 0;
+}
+.mgr-chart .bar {
+  width: 70%;
+  max-width: 40px;
+  background: #1877b8;
+  min-height: 2px;
+}
+.mgr-chart .col .val {
+  position: absolute;
+  top: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0;
+}
+.mgr-chart .col:hover .val {
+  opacity: 1;
+}
+.mgr-chart .col:hover .bar {
+  background: var(--accent-hover);
+}
+.mgr-chart-labels {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.mgr-chart-labels span {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* calendar occupancy grid */
+.mgr-cal-wrap {
+  overflow-x: auto;
+}
+.mgr-cal {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+.mgr-cal th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--muted-bg);
+}
+.mgr-cal td {
+  border: 1px solid var(--border);
+  padding: 0;
+  text-align: center;
+  min-width: 92px;
+}
+.mgr-cal .cell {
+  display: block;
+  padding: 10px 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mgr-cal .cell.na {
+  background: var(--muted-bg);
+  color: var(--sold-text);
+  font-weight: 400;
+}
+.mgr-cal .cell.some {
+  background: var(--accent-tint);
+}
+.mgr-cal .cell.full {
+  background: var(--accent);
+  color: var(--accent-dark);
+}
+.mgr-cal a.cell:hover {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: -2px;
+  text-decoration: none;
+}
+.mgr-legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+.mgr-legend .chip {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border);
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+/* forms */
+.mgr-form .field-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+.mgr-form textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  min-height: 110px;
+  resize: vertical;
+}
+.mgr-form textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.mgr-swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mgr-swatch {
+  width: 40px;
+  height: 40px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mgr-swatch.selected {
+  border-color: var(--text);
+}
+.mgr-inline-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.mgr-inline-form .field {
+  margin-bottom: 0;
+}
+.mgr-success {
+  background: var(--accent-tint);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+.mgr-range-tabs {
+  display: flex;
+  gap: 0;
+}
+.mgr-range-tabs .btn-outline {
+  padding: 10px 16px;
+  font-size: 12px;
+}
+.mgr-range-tabs .btn-outline + .btn-outline {
+  border-left: none;
+}
+.mgr-range-tabs .btn-outline.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
+/* help page */
+.mgr-help h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 28px 0 8px;
+}
+.mgr-help p,
+.mgr-help li {
+  max-width: 720px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.mgr-help ul {
+  padding-left: 22px;
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .checkout-grid,

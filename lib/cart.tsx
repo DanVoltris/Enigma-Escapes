@@ -6,10 +6,12 @@ import type { CartItem, Customer, PaymentOption } from "./types";
 
 const STORAGE_KEY = "voltris-cart";
 
+type AppliedPromo = { code: string; percentOff: number };
+
 type CartState = {
   items: CartItem[];
   customer: Customer | null;
-  promoCode: string | null;
+  promo: AppliedPromo | null; // validated against the server before being set
   paymentOption: PaymentOption;
   expiresAt: number | null; // epoch ms when the hold lapses
 };
@@ -17,7 +19,7 @@ type CartState = {
 const EMPTY: CartState = {
   items: [],
   customer: null,
-  promoCode: null,
+  promo: null,
   paymentOption: "deposit",
   expiresAt: null,
 };
@@ -30,7 +32,7 @@ type CartContextValue = CartState & {
   addItem: (item: CartItem) => void;
   removeItem: (key: string) => void;
   setCustomer: (customer: Customer) => void;
-  setPromoCode: (code: string | null) => void;
+  setPromo: (promo: AppliedPromo | null) => void;
   setPaymentOption: (option: PaymentOption) => void;
   clear: () => void;
 };
@@ -88,8 +90,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, customer }));
   }, []);
 
-  const setPromoCode = useCallback((promoCode: string | null) => {
-    setState((s) => ({ ...s, promoCode }));
+  const setPromo = useCallback((promo: AppliedPromo | null) => {
+    setState((s) => ({ ...s, promo }));
   }, []);
 
   const setPaymentOption = useCallback((paymentOption: PaymentOption) => {
@@ -100,7 +102,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ ...state, addItem, removeItem, setCustomer, setPromoCode, setPaymentOption, clear }}
+      value={{ ...state, addItem, removeItem, setCustomer, setPromo, setPaymentOption, clear }}
     >
       {children}
     </CartContext.Provider>

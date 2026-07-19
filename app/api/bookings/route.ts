@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { slotRemaining } from "@/lib/availability";
-import { saveBooking } from "@/lib/db";
+import { getPromo, saveBooking, bookedCountsForDate } from "@/lib/db";
+import { getExperience } from "@/lib/experiences";
 import { addDaysISO, formatTime, isValidISODate, todayISO } from "@/lib/format";
-import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals, MIN_PARTY_SIZE, PROMO_CODES } from "@/lib/pricing";
-import { getRoom } from "@/lib/rooms";
+import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals, MIN_PARTY_SIZE } from "@/lib/pricing";
 import type { Booking, CartItem, Customer, PaymentOption } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -53,56 +52,66 @@ export async function POST(req: NextRequest) {
     subscribe: data.customer?.subscribe === true,
   };
 
-  // --- payment option / promo ---
+  // --- payment option ---
   const paymentOption = data.paymentOption as PaymentOption;
   if (paymentOption !== "full" && paymentOption !== "deposit") {
     return bad("Choose whether to pay the full balance or the deposit.");
   }
-  let promoCode: string | null = null;
-  if (data.promoCode != null && data.promoCode !== "") {
-    const code = cleanString(data.promoCode, 40)?.toUpperCase();
-    if (!code || !(code in PROMO_CODES)) {
-      return bad("That promo code is not valid. Remove it or enter a different code.");
-    }
-    promoCode = code;
-  }
 
-  // --- items ---
   if (!Array.isArray(data.items) || data.items.length === 0) {
     return bad("Your cart is empty. Add a booking before checking out.");
   }
+
   const today = todayISO();
   const lastBookable = addDaysISO(today, BOOKING_WINDOW_DAYS);
   const items: CartItem[] = [];
+  let percentOff = 0;
+  let promoCode: string | null = null;
+
   try {
+    // --- promo (validated against the database, never the client) ---
+    if (data.promoCode != null && data.promoCode !== "") {
+      const code = cleanString(data.promoCode, 40)?.toUpperCase();
+      const promo = code ? await getPromo(code) : undefined;
+      if (!promo || !promo.active) {
+        return bad("That promo code is not valid. Remove it or enter a different code.");
+      }
+      promoCode = promo.code;
+      percentOff = promo.percentOff;
+    }
+
+    // --- items ---
     for (const raw of data.items as Partial<CartItem>[]) {
-      const room = typeof raw.roomId === "string" ? getRoom(raw.roomId) : undefined;
-      if (!room) return bad("One of your bookings refers to an unknown experience.");
+      const exp = typeof raw.roomId === "string" ? await getExperience(raw.roomId) : undefined;
+      if (!exp || !exp.active) return bad("One of your bookings refers to an unknown experience.");
       const date = typeof raw.date === "string" ? raw.date : "";
       const time = typeof raw.time === "string" ? raw.time : "";
       if (!isValidISODate(date) || date < today || date > lastBookable) {
-        return bad(`${room.name}: that date can no longer be booked.`);
+        return bad(`${exp.name}: that date can no longer be booked.`);
       }
+      if (!exp.times.includes(time)) return bad(`${exp.name}: that time slot does not exist.`);
       const quantity = raw.quantity;
-      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < MIN_PARTY_SIZE || quantity > room.capacity) {
-        return bad(`${room.name}: quantity must be between ${MIN_PARTY_SIZE} and ${room.capacity}.`);
+      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < MIN_PARTY_SIZE || quantity > exp.capacity) {
+        return bad(`${exp.name}: quantity must be between ${MIN_PARTY_SIZE} and ${exp.capacity}.`);
       }
-      const remaining = await slotRemaining(room.id, date, time);
-      if (remaining === null) return bad(`${room.name}: that time slot does not exist.`);
+      const booked = await bookedCountsForDate(date);
+      const remaining = Math.max(0, exp.capacity - (booked.get(`${exp.id}|${time}`) ?? 0));
       if (remaining < quantity) {
         return bad(
-          `${room.name} at ${formatTime(time)} only has ${remaining} spot(s) left. Reduce the quantity or pick another time.`
+          `${exp.name} at ${formatTime(time)} only has ${remaining} spot(s) left. Reduce the quantity or pick another time.`
         );
       }
       items.push({
-        roomId: room.id,
-        roomName: room.name,
-        location: room.location,
+        roomId: exp.id,
+        roomName: exp.name,
+        location: exp.location,
         date,
         time,
         quantity,
-        priceCents: room.priceCents, // price always from the catalog, never from the client
-        durationMinutes: room.durationMinutes,
+        priceCents: exp.priceCents, // price always from the catalog, never from the client
+        durationMinutes: exp.durationMinutes,
+        badgeBg: exp.badgeBg,
+        badgeFg: exp.badgeFg,
       });
     }
   } catch (err) {
@@ -114,7 +123,7 @@ export async function POST(req: NextRequest) {
   }
 
   // --- totals (recomputed server-side; client numbers are never trusted) ---
-  const totals = computeTotals(items, promoCode);
+  const totals = computeTotals(items, percentOff);
   const paidCents = amountDueCents(totals, paymentOption);
 
   const id = randomUUID();

@@ -4,7 +4,6 @@ import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
 import { getBooking } from "@/lib/db";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
-import { getRoom } from "@/lib/rooms";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +33,9 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
         <div className="form-card">
           <h3>Your bookings</h3>
           {items.map((item, i) => {
-            const room = getRoom(item.roomId);
             return (
               <div className="summary-item" key={i}>
-                <RoomBadge name={item.roomName} bg={room?.badgeBg ?? "#0B2540"} fg={room?.badgeFg ?? "#fff"} />
+                <RoomBadge name={item.roomName} bg={item.badgeBg ?? "#0B2540"} fg={item.badgeFg ?? "#fff"} />
                 <div className="summary-item-info">
                   <div className="name">
                     {item.roomName} — {item.location}

@@ -6,11 +6,6 @@ export const HOLD_MINUTES = 15;
 export const BOOKING_WINDOW_DAYS = 60;
 export const MIN_PARTY_SIZE = 4; // smallest group a single slot can be booked for
 
-// Shared by client (instant feedback) and server (authoritative recalculation).
-export const PROMO_CODES: Record<string, number> = {
-  WELCOME10: 0.1,
-};
-
 export type Totals = {
   subtotalCents: number;
   discountCents: number;
@@ -19,10 +14,11 @@ export type Totals = {
   depositCents: number;
 };
 
-export function computeTotals(items: CartItem[], promoCode: string | null): Totals {
+// percentOff comes from a validated promo code (0 when none applied). Promo
+// codes themselves live in the database; the server revalidates at booking time.
+export function computeTotals(items: CartItem[], percentOff: number): Totals {
   const subtotalCents = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
-  const rate = promoCode ? PROMO_CODES[promoCode] ?? 0 : 0;
-  const discountCents = Math.round(subtotalCents * rate);
+  const discountCents = Math.round((subtotalCents * percentOff) / 100);
   const taxableCents = subtotalCents - discountCents;
   const gstCents = Math.round(taxableCents * GST_RATE);
   const totalCents = taxableCents + gstCents;
