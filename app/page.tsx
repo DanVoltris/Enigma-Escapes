@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
+import FilterMenu, { type FilterItem } from "@/components/FilterMenu";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
-import SelectMenu, { type SelectItem } from "@/components/SelectMenu";
 import { itemKey, useCart } from "@/lib/cart";
 import {
   addDaysISO,
@@ -25,10 +25,11 @@ const LOCATIONS = ROOMS.reduce<string[]>((acc, r) => {
   return acc;
 }, []);
 
-// Filter dropdown items: all, then by location, then by individual experience.
-// Values are prefixed so the same control can filter on either dimension.
-const FILTER_ITEMS: SelectItem[] = [
-  { value: "all", label: "Filter: all experiences" },
+const FILTER_ALL_LABEL = "Filter: all experiences";
+
+// Filter items: by location, then by individual experience. Values are prefixed
+// so one control can filter on either dimension. Multiple can be selected.
+const FILTER_ITEMS: FilterItem[] = [
   ...(LOCATIONS.length > 1
     ? [{ heading: "Locations" as const }, ...LOCATIONS.map((loc) => ({ value: `loc:${loc}`, label: loc }))]
     : []),
@@ -36,11 +37,16 @@ const FILTER_ITEMS: SelectItem[] = [
   ...ROOMS.map((r) => ({ value: `room:${r.id}`, label: r.name })),
 ];
 
-function matchesFilter(slot: Slot, filter: string): boolean {
-  if (filter === "all") return true;
+function matchesOneFilter(slot: Slot, filter: string): boolean {
   if (filter.startsWith("loc:")) return slot.location === filter.slice(4);
   if (filter.startsWith("room:")) return slot.roomId === filter.slice(5);
-  return true;
+  return false;
+}
+
+// No filters selected shows everything; otherwise a slot matches if it satisfies
+// ANY selected filter (union), so mixing locations and experiences is additive.
+function passesFilters(slot: Slot, filters: string[]): boolean {
+  return filters.length === 0 || filters.some((f) => matchesOneFilter(slot, f));
 }
 
 export default function BrowsePage() {
@@ -48,7 +54,7 @@ export default function BrowsePage() {
   const { items, addItem } = useCart();
 
   const [date, setDate] = useState(todayISO());
-  const [filter, setFilter] = useState("all");
+  const [filters, setFilters] = useState<string[]>([]);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -90,9 +96,12 @@ export default function BrowsePage() {
   }, [loadSlots]);
 
   const visibleSlots = useMemo(
-    () => (slots ?? []).filter((s) => matchesFilter(s, filter)),
-    [slots, filter]
+    () => (slots ?? []).filter((s) => passesFilters(s, filters)),
+    [slots, filters]
   );
+
+  const toggleFilter = (value: string) =>
+    setFilters((fs) => (fs.includes(value) ? fs.filter((v) => v !== value) : [...fs, value]));
 
   const today = todayISO();
   const lastBookable = addDaysISO(today, BOOKING_WINDOW_DAYS);
@@ -136,11 +145,13 @@ export default function BrowsePage() {
       <p className="page-subtitle">Select an experience, date and time, then choose your booking options.</p>
 
       <div className="browse-controls">
-        <SelectMenu
-          value={filter}
-          onChange={setFilter}
-          ariaLabel="Filter by location or experience"
+        <FilterMenu
           items={FILTER_ITEMS}
+          selected={filters}
+          onToggle={toggleFilter}
+          onClear={() => setFilters([])}
+          ariaLabel="Filter by location or experience"
+          allLabel={FILTER_ALL_LABEL}
         />
 
         <DatePicker
