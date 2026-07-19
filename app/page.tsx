@@ -27,26 +27,27 @@ const LOCATIONS = ROOMS.reduce<string[]>((acc, r) => {
 
 const FILTER_ALL_LABEL = "Filter: all experiences";
 
-// Filter items: by location, then by individual experience. Values are prefixed
-// so one control can filter on either dimension. Multiple can be selected.
-const FILTER_ITEMS: FilterItem[] = [
-  ...(LOCATIONS.length > 1
-    ? [{ heading: "Locations" as const }, ...LOCATIONS.map((loc) => ({ value: `loc:${loc}`, label: loc }))]
-    : []),
-  { heading: "Experiences" },
-  ...ROOMS.map((r) => ({ value: `room:${r.id}`, label: r.name })),
-];
-
-function matchesOneFilter(slot: Slot, filter: string): boolean {
-  if (filter.startsWith("loc:")) return slot.location === filter.slice(4);
-  if (filter.startsWith("room:")) return slot.roomId === filter.slice(5);
-  return false;
+// Location and experience are two facets combined with AND: a slot must be in
+// one of the selected locations (if any) AND be one of the selected experiences
+// (if any). Within a facet, multiple selections are OR. Empty facets match all.
+function passesFilters(slot: Slot, filters: string[]): boolean {
+  const locations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
+  const rooms = filters.filter((f) => f.startsWith("room:")).map((f) => f.slice(5));
+  const locationOk = locations.length === 0 || locations.includes(slot.location);
+  const roomOk = rooms.length === 0 || rooms.includes(slot.roomId);
+  return locationOk && roomOk;
 }
 
-// No filters selected shows everything; otherwise a slot matches if it satisfies
-// ANY selected filter (union), so mixing locations and experiences is additive.
-function passesFilters(slot: Slot, filters: string[]): boolean {
-  return filters.length === 0 || filters.some((f) => matchesOneFilter(slot, f));
+// Once a location is chosen, experiences at other locations no longer apply —
+// drop them so a Northside filter can't keep showing a Downtown room.
+function normalizeFilters(filters: string[]): string[] {
+  const locations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
+  if (locations.length === 0) return filters;
+  return filters.filter((f) => {
+    if (!f.startsWith("room:")) return true;
+    const room = getRoom(f.slice(5));
+    return !!room && locations.includes(room.location);
+  });
 }
 
 export default function BrowsePage() {
@@ -100,8 +101,27 @@ export default function BrowsePage() {
     [slots, filters]
   );
 
+  // Experiences shown are scoped to any selected locations, so you can't pick a
+  // room from a location you've filtered out.
+  const filterItems = useMemo<FilterItem[]>(() => {
+    const items: FilterItem[] = [];
+    if (LOCATIONS.length > 1) {
+      items.push({ heading: "Locations" });
+      for (const loc of LOCATIONS) items.push({ value: `loc:${loc}`, label: loc });
+    }
+    const selectedLocations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
+    const rooms = selectedLocations.length
+      ? ROOMS.filter((r) => selectedLocations.includes(r.location))
+      : ROOMS;
+    items.push({ heading: "Experiences" });
+    for (const r of rooms) items.push({ value: `room:${r.id}`, label: r.name });
+    return items;
+  }, [filters]);
+
   const toggleFilter = (value: string) =>
-    setFilters((fs) => (fs.includes(value) ? fs.filter((v) => v !== value) : [...fs, value]));
+    setFilters((fs) =>
+      normalizeFilters(fs.includes(value) ? fs.filter((v) => v !== value) : [...fs, value])
+    );
 
   const today = todayISO();
   const lastBookable = addDaysISO(today, BOOKING_WINDOW_DAYS);
@@ -146,7 +166,7 @@ export default function BrowsePage() {
 
       <div className="browse-controls">
         <FilterMenu
-          items={FILTER_ITEMS}
+          items={filterItems}
           selected={filters}
           onToggle={toggleFilter}
           onClear={() => setFilters([])}
