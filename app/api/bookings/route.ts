@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { slotRemaining } from "@/lib/availability";
 import { saveBooking } from "@/lib/db";
 import { addDaysISO, formatTime, isValidISODate, todayISO } from "@/lib/format";
-import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals, PROMO_CODES } from "@/lib/pricing";
+import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals, MIN_PARTY_SIZE, PROMO_CODES } from "@/lib/pricing";
 import { getRoom } from "@/lib/rooms";
 import type { Booking, CartItem, Customer, PaymentOption } from "@/lib/types";
 
@@ -84,8 +84,8 @@ export async function POST(req: NextRequest) {
         return bad(`${room.name}: that date can no longer be booked.`);
       }
       const quantity = raw.quantity;
-      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1 || quantity > room.capacity) {
-        return bad(`${room.name}: quantity must be between 1 and ${room.capacity}.`);
+      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < MIN_PARTY_SIZE || quantity > room.capacity) {
+        return bad(`${room.name}: quantity must be between ${MIN_PARTY_SIZE} and ${room.capacity}.`);
       }
       const remaining = await slotRemaining(room.id, date, time);
       if (remaining === null) return bad(`${room.name}: that time slot does not exist.`);

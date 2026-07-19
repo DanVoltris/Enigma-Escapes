@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
-import SelectMenu from "@/components/SelectMenu";
+import SelectMenu, { type SelectItem } from "@/components/SelectMenu";
 import { itemKey, useCart } from "@/lib/cart";
 import {
   addDaysISO,
@@ -15,9 +15,33 @@ import {
   formatTime,
   todayISO,
 } from "@/lib/format";
-import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
+import { BOOKING_WINDOW_DAYS, MIN_PARTY_SIZE } from "@/lib/pricing";
 import { ROOMS, getRoom } from "@/lib/rooms";
 import type { Slot } from "@/lib/types";
+
+// Unique venue locations, in first-seen order.
+const LOCATIONS = ROOMS.reduce<string[]>((acc, r) => {
+  if (!acc.includes(r.location)) acc.push(r.location);
+  return acc;
+}, []);
+
+// Filter dropdown items: all, then by location, then by individual experience.
+// Values are prefixed so the same control can filter on either dimension.
+const FILTER_ITEMS: SelectItem[] = [
+  { value: "all", label: "Filter: all experiences" },
+  ...(LOCATIONS.length > 1
+    ? [{ heading: "Locations" as const }, ...LOCATIONS.map((loc) => ({ value: `loc:${loc}`, label: loc }))]
+    : []),
+  { heading: "Experiences" },
+  ...ROOMS.map((r) => ({ value: `room:${r.id}`, label: r.name })),
+];
+
+function matchesFilter(slot: Slot, filter: string): boolean {
+  if (filter === "all") return true;
+  if (filter.startsWith("loc:")) return slot.location === filter.slice(4);
+  if (filter.startsWith("room:")) return slot.roomId === filter.slice(5);
+  return true;
+}
 
 export default function BrowsePage() {
   const router = useRouter();
@@ -28,7 +52,7 @@ export default function BrowsePage() {
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(2);
+  const [quantity, setQuantity] = useState(MIN_PARTY_SIZE);
   const [expiredNotice, setExpiredNotice] = useState(false);
 
   // Deep-link support: /?date=YYYY-MM-DD&slot=roomId|HH:MM (used by "Edit booking"),
@@ -66,7 +90,7 @@ export default function BrowsePage() {
   }, [loadSlots]);
 
   const visibleSlots = useMemo(
-    () => (slots ?? []).filter((s) => filter === "all" || s.roomId === filter),
+    () => (slots ?? []).filter((s) => matchesFilter(s, filter)),
     [slots, filter]
   );
 
@@ -80,7 +104,7 @@ export default function BrowsePage() {
       return;
     }
     const existing = items.find((i) => itemKey(i) === key);
-    setQuantity(existing ? existing.quantity : Math.min(2, slot.remaining));
+    setQuantity(existing ? existing.quantity : MIN_PARTY_SIZE);
     setExpandedKey(key);
   }
 
@@ -115,11 +139,8 @@ export default function BrowsePage() {
         <SelectMenu
           value={filter}
           onChange={setFilter}
-          ariaLabel="Filter by experience"
-          options={[
-            { value: "all", label: "Filter: all experiences" },
-            ...ROOMS.map((r) => ({ value: r.id, label: r.name })),
-          ]}
+          ariaLabel="Filter by location or experience"
+          items={FILTER_ITEMS}
         />
 
         <DatePicker
@@ -188,6 +209,9 @@ export default function BrowsePage() {
           const key = itemKey(slot);
           const room = getRoom(slot.roomId);
           const soldOut = slot.remaining === 0;
+          // Fewer spots left than the minimum party size — can't be booked.
+          const belowMin = !soldOut && slot.remaining < MIN_PARTY_SIZE;
+          const bookable = !soldOut && !belowMin;
           const expanded = expandedKey === key;
           const [timePart, period] = formatTime(slot.time).split(" ");
           const badge = dateBadgeParts(slot.date);
@@ -216,6 +240,15 @@ export default function BrowsePage() {
                     <button type="button" className="btn btn-block btn-sold-out" disabled>
                       Sold out
                     </button>
+                  ) : belowMin ? (
+                    <button
+                      type="button"
+                      className="btn btn-block btn-sold-out"
+                      disabled
+                      title={`Bookings need at least ${MIN_PARTY_SIZE} players and only ${slot.remaining} spot(s) remain.`}
+                    >
+                      Only {slot.remaining} left
+                    </button>
                   ) : (
                     <button type="button" className="btn btn-block" onClick={() => toggleSlot(slot)}>
                       {expanded ? "Selected ▾" : "Book now ▾"}
@@ -224,7 +257,7 @@ export default function BrowsePage() {
                 </div>
               </div>
 
-              {expanded && !soldOut && (
+              {expanded && bookable && (
                 <div className="booking-panel">
                   <div
                     className="panel-poster"
@@ -252,13 +285,15 @@ export default function BrowsePage() {
                     <div className="panel-controls">
                       <span className="quantity-label">
                         Quantity
-                        <span className="unit-price">{formatMoney(slot.priceCents)}</span>
+                        <span className="unit-price">
+                          {formatMoney(slot.priceCents)} each · minimum {MIN_PARTY_SIZE}
+                        </span>
                       </span>
                       <div className="stepper">
                         <button
                           type="button"
-                          onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                          disabled={quantity <= 1}
+                          onClick={() => setQuantity((q) => Math.max(MIN_PARTY_SIZE, q - 1))}
+                          disabled={quantity <= MIN_PARTY_SIZE}
                           aria-label="Decrease quantity"
                         >
                           −

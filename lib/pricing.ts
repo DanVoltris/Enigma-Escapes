@@ -4,6 +4,7 @@ export const GST_RATE = 0.05;
 export const DEPOSIT_RATE = 0.25;
 export const HOLD_MINUTES = 15;
 export const BOOKING_WINDOW_DAYS = 60;
+export const MIN_PARTY_SIZE = 4; // smallest group a single slot can be booked for
 
 // Shared by client (instant feedback) and server (authoritative recalculation).
 export const PROMO_CODES: Record<string, number> = {
