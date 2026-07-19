@@ -2,7 +2,12 @@ import fs from "fs";
 import path from "path";
 import type { Booking } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// On Vercel the deployment filesystem is read-only and only /tmp is writable,
+// so bookings there are ephemeral (lost when the serverless instance recycles).
+// Good enough for the demo; swap in a real database before taking live bookings.
+const DATA_DIR =
+  process.env.DATA_DIR ??
+  (process.env.VERCEL ? path.join("/tmp", "voltris-data") : path.join(process.cwd(), "data"));
 const DATA_PATH = path.join(DATA_DIR, "bookings.json");
 
 export function readBookings(): Booking[] {
