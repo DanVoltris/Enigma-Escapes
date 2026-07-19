@@ -1,6 +1,6 @@
 import { ROOMS } from "./rooms";
 import { bookedCount, bookedCountsForDate } from "./db";
-import { todayISO } from "./format";
+import { nowMinutesInBusinessTZ, todayISO } from "./format";
 import type { Slot } from "./types";
 
 function hash(s: string): number {
@@ -23,8 +23,7 @@ function seededBooked(roomId: string, date: string, time: string, capacity: numb
 
 export async function slotsForDate(date: string): Promise<Slot[]> {
   const isToday = date === todayISO();
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowMinutes = nowMinutesInBusinessTZ();
   const booked = await bookedCountsForDate(date);
 
   const slots: Slot[] = [];

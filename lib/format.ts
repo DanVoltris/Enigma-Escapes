@@ -16,12 +16,36 @@ export function parseISODate(date: string): Date {
   return new Date(y, m - 1, d);
 }
 
+// The venue's local timezone. "Today" and the booking window are evaluated
+// here so the browser and the (UTC) server always agree on the date — otherwise
+// an evening visitor requests their local date while the server has already
+// rolled over to tomorrow in UTC, and the request gets rejected as "in the past".
+export const BUSINESS_TIMEZONE = "America/Winnipeg";
+
+function nowPartsInBusinessTZ(): { y: string; m: string; d: string; hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BUSINESS_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return { y: get("year"), m: get("month"), d: get("day"), hour: Number(get("hour")), minute: Number(get("minute")) };
+}
+
 export function todayISO(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
+  const { y, m, d } = nowPartsInBusinessTZ();
   return `${y}-${m}-${d}`;
+}
+
+// Minutes since midnight in the venue's timezone — used to hide start times
+// that have already passed today.
+export function nowMinutesInBusinessTZ(): number {
+  const { hour, minute } = nowPartsInBusinessTZ();
+  return hour * 60 + minute;
 }
 
 export function addDaysISO(date: string, days: number): string {
