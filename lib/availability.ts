@@ -1,5 +1,5 @@
 import { ROOMS } from "./rooms";
-import { bookedCount } from "./db";
+import { bookedCount, bookedCountsForDate } from "./db";
 import { todayISO } from "./format";
 import type { Slot } from "./types";
 
@@ -21,10 +21,11 @@ function seededBooked(roomId: string, date: string, time: string, capacity: numb
   return (h >>> 8) % 6; // otherwise 0-5 spots taken
 }
 
-export function slotsForDate(date: string): Slot[] {
+export async function slotsForDate(date: string): Promise<Slot[]> {
   const isToday = date === todayISO();
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const booked = await bookedCountsForDate(date);
 
   const slots: Slot[] = [];
   for (const room of ROOMS) {
@@ -34,7 +35,7 @@ export function slotsForDate(date: string): Slot[] {
         if (h * 60 + m <= nowMinutes) continue; // hide start times already passed
       }
       const taken =
-        seededBooked(room.id, date, time, room.capacity) + bookedCount(room.id, date, time);
+        seededBooked(room.id, date, time, room.capacity) + (booked.get(`${room.id}|${time}`) ?? 0);
       slots.push({
         roomId: room.id,
         roomName: room.name,
@@ -55,9 +56,9 @@ export function slotsForDate(date: string): Slot[] {
   return slots;
 }
 
-export function slotRemaining(roomId: string, date: string, time: string): number | null {
+export async function slotRemaining(roomId: string, date: string, time: string): Promise<number | null> {
   const room = ROOMS.find((r) => r.id === roomId);
   if (!room || !room.times.includes(time)) return null;
-  const taken = seededBooked(roomId, date, time, room.capacity) + bookedCount(roomId, date, time);
+  const taken = seededBooked(roomId, date, time, room.capacity) + (await bookedCount(roomId, date, time));
   return Math.max(0, room.capacity - taken);
 }

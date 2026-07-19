@@ -3,8 +3,9 @@
 Escape-room booking web app: browse availability → select slot & quantity → cart with 15-minute
 hold → contact details → payment (full or 25% deposit) → confirmation.
 
-Stack: Next.js (App Router) + TypeScript + React. No database — bookings are stored in
-`data/bookings.json` (created automatically; delete the file to reset all bookings).
+Stack: Next.js (App Router) + TypeScript + React. Bookings are stored in Supabase
+(`bookings` table, project ref `naztszcfcbjqxxvyydjr`), accessed server-side only via the
+PostgREST API with plain `fetch` — no Supabase SDK dependency.
 
 ## Run locally
 
@@ -13,7 +14,15 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:3000. Requires `.env.local` (gitignored) with:
+
+```
+SUPABASE_URL=https://naztszcfcbjqxxvyydjr.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service_role key — Supabase dashboard → Settings → API keys>
+```
+
+The same two variables are set on Vercel for production. The service_role key bypasses row
+level security, so it must only ever be used server-side (lib/db.ts) and never committed.
 
 ## How it works
 
@@ -23,6 +32,8 @@ Then open http://localhost:3000.
   or sold out — remove `seededBooked` when real inventory management is added.
 - Bookings are created via `POST /api/bookings`, which revalidates availability and recomputes
   all prices server-side (client totals are never trusted).
+- The `bookings` table has row level security enabled with no policies: the public anon key can
+  touch nothing; all access goes through the service_role key in server code.
 - Payment is simulated: card details are validated in the browser (Luhn + expiry) and never sent
   to the server. Promo code `WELCOME10` gives 10% off.
 - Cart state (items, customer info, hold timer) lives in React context persisted to

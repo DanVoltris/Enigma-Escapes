@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const booking = getBooking(id);
+  const booking = await getBooking(id);
   if (!booking) notFound();
 
   const { customer, items, pricing } = booking;

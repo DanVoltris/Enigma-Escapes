@@ -74,35 +74,43 @@ export async function POST(req: NextRequest) {
   const today = todayISO();
   const lastBookable = addDaysISO(today, BOOKING_WINDOW_DAYS);
   const items: CartItem[] = [];
-  for (const raw of data.items as Partial<CartItem>[]) {
-    const room = typeof raw.roomId === "string" ? getRoom(raw.roomId) : undefined;
-    if (!room) return bad("One of your bookings refers to an unknown experience.");
-    const date = typeof raw.date === "string" ? raw.date : "";
-    const time = typeof raw.time === "string" ? raw.time : "";
-    if (!isValidISODate(date) || date < today || date > lastBookable) {
-      return bad(`${room.name}: that date can no longer be booked.`);
+  try {
+    for (const raw of data.items as Partial<CartItem>[]) {
+      const room = typeof raw.roomId === "string" ? getRoom(raw.roomId) : undefined;
+      if (!room) return bad("One of your bookings refers to an unknown experience.");
+      const date = typeof raw.date === "string" ? raw.date : "";
+      const time = typeof raw.time === "string" ? raw.time : "";
+      if (!isValidISODate(date) || date < today || date > lastBookable) {
+        return bad(`${room.name}: that date can no longer be booked.`);
+      }
+      const quantity = raw.quantity;
+      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1 || quantity > room.capacity) {
+        return bad(`${room.name}: quantity must be between 1 and ${room.capacity}.`);
+      }
+      const remaining = await slotRemaining(room.id, date, time);
+      if (remaining === null) return bad(`${room.name}: that time slot does not exist.`);
+      if (remaining < quantity) {
+        return bad(
+          `${room.name} at ${formatTime(time)} only has ${remaining} spot(s) left. Reduce the quantity or pick another time.`
+        );
+      }
+      items.push({
+        roomId: room.id,
+        roomName: room.name,
+        location: room.location,
+        date,
+        time,
+        quantity,
+        priceCents: room.priceCents, // price always from the catalog, never from the client
+        durationMinutes: room.durationMinutes,
+      });
     }
-    const quantity = raw.quantity;
-    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1 || quantity > room.capacity) {
-      return bad(`${room.name}: quantity must be between 1 and ${room.capacity}.`);
-    }
-    const remaining = slotRemaining(room.id, date, time);
-    if (remaining === null) return bad(`${room.name}: that time slot does not exist.`);
-    if (remaining < quantity) {
-      return bad(
-        `${room.name} at ${formatTime(time)} only has ${remaining} spot(s) left. Reduce the quantity or pick another time.`
-      );
-    }
-    items.push({
-      roomId: room.id,
-      roomName: room.name,
-      location: room.location,
-      date,
-      time,
-      quantity,
-      priceCents: room.priceCents, // price always from the catalog, never from the client
-      durationMinutes: room.durationMinutes,
-    });
+  } catch (err) {
+    console.error("availability check failed:", err);
+    return NextResponse.json(
+      { error: "Could not verify availability right now. Please try again shortly." },
+      { status: 500 }
+    );
   }
 
   // --- totals (recomputed server-side; client numbers are never trusted) ---
@@ -128,6 +136,14 @@ export async function POST(req: NextRequest) {
     },
   };
 
-  saveBooking(booking);
+  try {
+    await saveBooking(booking);
+  } catch (err) {
+    console.error("saving booking failed:", err);
+    return NextResponse.json(
+      { error: "Could not save your booking right now. You have not been charged — please try again shortly." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ id: booking.id, reference: booking.reference }, { status: 201 });
 }

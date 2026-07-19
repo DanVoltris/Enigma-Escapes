@@ -24,5 +24,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ date, slots: slotsForDate(date) });
+  try {
+    return NextResponse.json({ date, slots: await slotsForDate(date) });
+  } catch (err) {
+    console.error("availability lookup failed:", err);
+    return NextResponse.json(
+      { error: "Could not load availability right now. Please try again shortly." },
+      { status: 500 }
+    );
+  }
 }
