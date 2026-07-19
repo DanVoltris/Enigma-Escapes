@@ -312,8 +312,6 @@ a:hover {
   background: var(--accent-tint);
 }
 .selectmenu-option.selected {
-  background: var(--accent);
-  color: var(--accent-dark);
   font-weight: 700;
 }
 
