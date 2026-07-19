@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import DatePicker from "@/components/DatePicker";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
+import SelectMenu from "@/components/SelectMenu";
 import { itemKey, useCart } from "@/lib/cart";
 import {
   addDaysISO,
@@ -110,33 +112,24 @@ export default function BrowsePage() {
       <p className="page-subtitle">Select an experience, date and time, then choose your booking options.</p>
 
       <div className="browse-controls">
-        <select
-          className="control-select"
+        <SelectMenu
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          aria-label="Filter by experience"
-        >
-          <option value="all">Filter: all experiences</option>
-          {ROOMS.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
+          onChange={setFilter}
+          ariaLabel="Filter by experience"
+          options={[
+            { value: "all", label: "Filter: all experiences" },
+            ...ROOMS.map((r) => ({ value: r.id, label: r.name })),
+          ]}
+        />
 
-        <input
-          className="control-date"
-          type="date"
+        <DatePicker
           value={date}
           min={today}
           max={lastBookable}
-          onChange={(e) => {
-            if (e.target.value) {
-              setDate(e.target.value);
-              setExpandedKey(null);
-            }
+          onChange={(d) => {
+            setDate(d);
+            setExpandedKey(null);
           }}
-          aria-label="Choose a date"
         />
 
         <div className="day-nav">

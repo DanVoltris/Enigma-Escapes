@@ -241,8 +241,16 @@ a:hover {
   flex-wrap: wrap;
   margin-bottom: 36px;
 }
-.control-select,
-.control-date {
+/* custom select + date picker (replaces native browser controls) */
+.selectmenu,
+.datepicker {
+  position: relative;
+}
+.selectmenu-trigger,
+.datepicker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -252,11 +260,150 @@ a:hover {
   background: #fff;
   border: 1px solid var(--border);
   padding: 12px 16px;
-  appearance: none;
-  -webkit-appearance: none;
+  cursor: pointer;
+  min-height: 44px;
 }
-.control-date {
+.datepicker-trigger {
   text-transform: none;
+}
+.selectmenu-trigger:hover,
+.datepicker-trigger:hover {
+  border-color: var(--accent);
+}
+.selectmenu-trigger {
+  justify-content: space-between;
+  min-width: 220px;
+}
+.selectmenu-caret {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.datepicker-trigger svg {
+  color: var(--link);
+}
+
+.selectmenu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  list-style: none;
+  min-width: 100%;
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 20px rgba(11, 37, 64, 0.12);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.selectmenu-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: #fff;
+  border: none;
+  padding: 12px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.selectmenu-option:hover {
+  background: var(--accent-tint);
+}
+.selectmenu-option.selected {
+  background: var(--accent);
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
+.calendar {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 20px rgba(11, 37, 64, 0.12);
+  padding: 16px;
+  width: 300px;
+}
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.calendar-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+.calendar-nav {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+}
+.calendar-nav:hover:enabled {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}
+.calendar-nav:disabled {
+  color: var(--sold-text);
+  cursor: not-allowed;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 6px 0;
+}
+.calendar-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.calendar-cell.empty {
+  cursor: default;
+}
+.calendar-cell:hover:enabled {
+  background: var(--accent-tint);
+}
+.calendar-cell.today {
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.calendar-cell.selected {
+  background: var(--accent);
+  color: var(--accent-dark);
+  font-weight: 700;
+  border-color: var(--accent);
+}
+.calendar-cell:disabled {
+  color: var(--sold-text);
+  cursor: not-allowed;
+  background: #fff;
 }
 .day-nav {
   display: flex;
