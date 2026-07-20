@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPromo, logActivity, updatePromo } from "@/lib/db";
+import { deletePromo, getPromo, logActivity, updatePromo } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,25 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
     console.error("updating promo failed:", err);
     return NextResponse.json(
       { error: "Could not update the code right now. Please try again shortly." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(_req: Request, ctx: { params: Promise<{ code: string }> }) {
+  const { code: rawCode } = await ctx.params;
+  const code = decodeURIComponent(rawCode).toUpperCase();
+  try {
+    if (!(await getPromo(code))) {
+      return NextResponse.json({ error: "That code no longer exists." }, { status: 404 });
+    }
+    await deletePromo(code);
+    await logActivity("Removed promo code", code);
+    return NextResponse.json({ code });
+  } catch (err) {
+    console.error("removing promo failed:", err);
+    return NextResponse.json(
+      { error: "Could not remove the code right now. Please try again shortly." },
       { status: 500 }
     );
   }

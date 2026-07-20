@@ -144,6 +144,16 @@ export async function updatePromo(code: string, patch: { percentOff?: number; ac
   if (!res.ok) throw await restError(res, "Updating the promo code");
 }
 
+// Safe to delete: bookings store the promo code as text with the price already
+// applied, so existing bookings are unaffected.
+export async function deletePromo(code: string): Promise<void> {
+  const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+  if (!res.ok) throw await restError(res, "Removing the promo code");
+}
+
 // ---------- staff notes ----------
 
 type StaffNoteRow = { id: string; note: string; created_at: string };

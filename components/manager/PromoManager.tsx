@@ -10,6 +10,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
   const [percent, setPercent] = useState("10");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmCode, setConfirmCode] = useState<string | null>(null); // code pending delete confirmation
 
   async function addPromo(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +46,19 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the code.");
+    }
+  }
+
+  async function remove(codeToRemove: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/manager/promos/${encodeURIComponent(codeToRemove)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not remove the code.");
+      setConfirmCode(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove the code.");
     }
   }
 
@@ -87,7 +101,8 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
       <div className="mgr-card">
         <h2>Your codes</h2>
         <p className="card-sub">
-          Turning a code off stops new uses immediately; bookings already made keep their discount.
+          Turning a code off stops new uses; removing deletes it entirely. Either way, bookings already made
+          keep the discount they were given.
         </p>
         {promos.length === 0 ? (
           <p className="mgr-empty">No codes yet — add your first one above.</p>
@@ -113,9 +128,26 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                       <span className={`mgr-pill${p.active ? " on" : ""}`}>{p.active ? "Active" : "Off"}</span>
                     </td>
                     <td>
-                      <button type="button" className="link-button" onClick={() => toggle(p)}>
-                        {p.active ? "Turn off" : "Turn on"}
-                      </button>
+                      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                        <button type="button" className="link-button" onClick={() => toggle(p)}>
+                          {p.active ? "Turn off" : "Turn on"}
+                        </button>
+                        {confirmCode === p.code ? (
+                          <span style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
+                            <span style={{ color: "var(--text-secondary)" }}>Remove?</span>
+                            <button type="button" className="link-button danger" onClick={() => remove(p.code)}>
+                              Yes, remove
+                            </button>
+                            <button type="button" className="link-button" onClick={() => setConfirmCode(null)}>
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button type="button" className="link-button danger" onClick={() => setConfirmCode(p.code)}>
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
