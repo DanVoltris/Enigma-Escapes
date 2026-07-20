@@ -30,6 +30,10 @@ type RawInput = {
 export async function buildBooking(raw: RawInput, source: BookingSource): Promise<BuildResult> {
   const err = (error: string): BuildResult => ({ error, status: 400 });
 
+  // The public site enforces a minimum party size; staff walk-ins can be any
+  // size (e.g. a couple that turns up), so they only need one guest.
+  const minParty = source === "in_person" ? 1 : MIN_PARTY_SIZE;
+
   const firstName = cleanString(raw.customer?.firstName, 100);
   const lastName = cleanString(raw.customer?.lastName, 100);
   const email = cleanString(raw.customer?.email, 200);
@@ -74,8 +78,8 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       }
       if (!exp.times.includes(time)) return err(`${exp.name}: that time slot does not exist.`);
       const quantity = rawItem.quantity;
-      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < MIN_PARTY_SIZE || quantity > exp.capacity) {
-        return err(`${exp.name}: guests must be between ${MIN_PARTY_SIZE} and ${exp.capacity}.`);
+      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < minParty || quantity > exp.capacity) {
+        return err(`${exp.name}: guests must be between ${minParty} and ${exp.capacity}.`);
       }
       const booked = await bookedCountsForDate(date);
       const remaining = Math.max(0, exp.capacity - (booked.get(`${exp.id}|${time}`) ?? 0));

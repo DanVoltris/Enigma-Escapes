@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatMoney, formatTime, todayISO } from "@/lib/format";
-import { BOOKING_WINDOW_DAYS, MIN_PARTY_SIZE } from "@/lib/pricing";
+import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
+
+// Staff can book walk-ins of any size; the 4-person minimum is customer-only.
+const WALK_IN_MIN = 1;
 
 type Exp = { id: string; name: string; location: string; priceCents: number; capacity: number; times: string[] };
 
@@ -17,7 +20,7 @@ export default function WalkInForm() {
   const [roomId, setRoomId] = useState("");
   const [date, setDate] = useState(today);
   const [time, setTime] = useState("");
-  const [quantity, setQuantity] = useState(MIN_PARTY_SIZE);
+  const [quantity, setQuantity] = useState(2);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -107,12 +110,12 @@ export default function WalkInForm() {
           <DatePicker value={date} min={today} max={addDaysISO(today, BOOKING_WINDOW_DAYS)} onChange={setDate} />
         </div>
         <div className="field">
-          <label>Guests (min {MIN_PARTY_SIZE})</label>
+          <label>Guests</label>
           <div className="stepper">
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.max(MIN_PARTY_SIZE, q - 1))}
-              disabled={quantity <= MIN_PARTY_SIZE}
+              onClick={() => setQuantity((q) => Math.max(WALK_IN_MIN, q - 1))}
+              disabled={quantity <= WALK_IN_MIN}
               aria-label="Fewer guests"
             >
               −
