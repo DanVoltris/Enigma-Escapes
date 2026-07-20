@@ -72,7 +72,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
                 </div>
               )}
               <div className="summary-line">
-                <span>GST (5%)</span>
+                <span>Tax</span>
                 <span>{formatMoney(pricing.gstCents)}</span>
               </div>
               <div className="summary-line total">

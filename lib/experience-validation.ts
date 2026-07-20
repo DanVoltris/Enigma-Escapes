@@ -41,9 +41,19 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
   }
 
   const capacity = Number(d.capacity);
-  if (!Number.isInteger(capacity) || capacity < MIN_PARTY_SIZE || capacity > 50) {
-    return { error: `Capacity must be between ${MIN_PARTY_SIZE} (the minimum party size) and 50.` };
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 50) {
+    return { error: "Capacity must be between 1 and 50." };
   }
+
+  const minParty = Number(d.minParty);
+  if (!Number.isInteger(minParty) || minParty < 1 || minParty > capacity) {
+    return { error: `Minimum guests per booking must be between 1 and the capacity (${capacity}).` };
+  }
+  const maxParty = Number(d.maxParty);
+  if (!Number.isInteger(maxParty) || maxParty < minParty || maxParty > capacity) {
+    return { error: `Maximum guests per booking must be between the minimum (${minParty}) and the capacity (${capacity}).` };
+  }
+  const isPrivate = d.private === true || d.isPrivate === true;
 
   const priceCents = Number(d.priceCents);
   if (!Number.isInteger(priceCents) || priceCents < 0 || priceCents > 100000) {
@@ -123,6 +133,9 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     durationMinutes,
     capacity,
     priceCents,
+    minParty,
+    maxParty,
+    isPrivate,
     scheduleMode,
     times,
     intervalMinutes,

@@ -1,3 +1,4 @@
+import { remainingSpots } from "./capacity";
 import { bookedCount, bookedCountsForDate } from "./db";
 import { getExperience, listExperiences } from "./experiences";
 import { nowMinutesInBusinessTZ, todayISO } from "./format";
@@ -33,8 +34,11 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         time,
         durationMinutes: exp.durationMinutes,
         capacity: exp.capacity,
-        remaining: Math.max(0, exp.capacity - taken),
+        remaining: remainingSpots(exp, taken),
         priceCents: exp.priceCents,
+        minParty: exp.minParty,
+        maxParty: Math.min(exp.maxParty, exp.capacity),
+        isPrivate: exp.isPrivate,
         badgeBg: exp.badgeBg,
         badgeFg: exp.badgeFg,
         imageUrl: exp.imageUrl,
@@ -52,5 +56,5 @@ export async function slotRemaining(roomId: string, date: string, time: string):
   const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
   if (!startTimesFor(exp, date, hours).includes(time)) return null;
   const taken = await bookedCount(roomId, date, time);
-  return Math.max(0, exp.capacity - taken);
+  return remainingSpots(exp, taken);
 }

@@ -70,6 +70,9 @@ export default function ExperienceForm({
   const [duration, setDuration] = useState(String(initial?.durationMinutes ?? 60));
   const [capacity, setCapacity] = useState(String(initial?.capacity ?? 10));
   const [price, setPrice] = useState(initial ? (initial.priceCents / 100).toFixed(2) : "30.00");
+  const [minParty, setMinParty] = useState(String(initial?.minParty ?? 4));
+  const [maxParty, setMaxParty] = useState(String(initial?.maxParty ?? initial?.capacity ?? 10));
+  const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
   // Two visible choices: an opening-hours window (which can follow store hours),
   // and a specific list of times. Internally these map to the three schedule
   // modes: follow-store-hours = "store", custom window = "window", list = "times".
@@ -133,6 +136,9 @@ export default function ExperienceForm({
         durationMinutes: Number(duration),
         capacity: Number(capacity),
         priceCents: Math.round(priceNumber * 100),
+        minParty: Number(minParty),
+        maxParty: Number(maxParty),
+        private: isPrivate,
         scheduleMode,
         times: scheduleMode === "times" ? times : [],
         intervalMinutes: Number(interval),
@@ -226,6 +232,44 @@ export default function ExperienceForm({
           />
         </div>
       </div>
+
+      <div className="field-row-3">
+        <div className="field">
+          <label htmlFor="minParty">
+            Min guests per booking <span className="req">*</span>
+          </label>
+          <input
+            id="minParty"
+            type="text"
+            inputMode="numeric"
+            value={minParty}
+            onChange={(e) => setMinParty(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="maxParty">
+            Max guests per booking <span className="req">*</span>
+          </label>
+          <input
+            id="maxParty"
+            type="text"
+            inputMode="numeric"
+            value={maxParty}
+            onChange={(e) => setMaxParty(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Booking type</label>
+          <label className="checkbox-row" style={{ marginTop: 4 }}>
+            <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+            <span>
+              Private — one booking per time slot (the whole game is exclusive to a single group, instead of filling
+              to capacity with several parties).
+            </span>
+          </label>
+        </div>
+      </div>
+
       <div className="field">
         <label>
           When can people book? <span className="req">*</span>
@@ -271,7 +315,7 @@ export default function ExperienceForm({
               <>
                 {hasHours ? (
                   <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 10 }}>
-                    Showing <strong>{location}</strong>&apos;s store hours (change them on the <strong>Store hours</strong>{" "}
+                    Showing <strong>{location}</strong>&apos;s store hours (change them on the <strong>Settings → Store hours</strong>{" "}
                     tab). The last start each day is closing minus the {duration}-minute game.
                   </p>
                 ) : (
@@ -286,7 +330,7 @@ export default function ExperienceForm({
                     }}
                   >
                     No store hours set for <strong>{location || "this location"}</strong> yet. Set them on the{" "}
-                    <strong>Store hours</strong> tab, or uncheck &ldquo;Follow store hours&rdquo; to set a window here.
+                    <strong>Settings → Store hours</strong> tab, or uncheck &ldquo;Follow store hours&rdquo; to set a window here.
                   </p>
                 )}
                 <div style={{ opacity: 0.55, pointerEvents: "none" }} aria-disabled="true">

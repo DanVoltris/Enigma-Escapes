@@ -29,6 +29,8 @@ export function itemKey(i: { roomId: string; date: string; time: string }): stri
 }
 
 type CartContextValue = CartState & {
+  taxPercent: number;
+  taxLabel: string;
   addItem: (item: CartItem) => void;
   removeItem: (key: string) => void;
   setCustomer: (customer: Customer) => void;
@@ -42,6 +44,19 @@ const CartContext = createContext<CartContextValue | null>(null);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<CartState>(EMPTY);
   const loaded = useRef(false);
+
+  // The active tax rate/label, so totals match what the server will charge.
+  const [taxPercent, setTaxPercent] = useState(5);
+  const [taxLabel, setTaxLabel] = useState("Tax");
+  useEffect(() => {
+    fetch("/api/tax")
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d.percent === "number") setTaxPercent(d.percent);
+        if (typeof d.label === "string") setTaxLabel(d.label);
+      })
+      .catch(() => {});
+  }, []);
 
   // Restore from localStorage after mount (avoids SSR hydration mismatch).
   useEffect(() => {
@@ -102,7 +117,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ ...state, addItem, removeItem, setCustomer, setPromo, setPaymentOption, clear }}
+      value={{ ...state, taxPercent, taxLabel, addItem, removeItem, setCustomer, setPromo, setPaymentOption, clear }}
     >
       {children}
     </CartContext.Provider>

@@ -170,7 +170,7 @@ export default function WalkInForm() {
       <div className="form-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <span className="panel-subtotal">
           Subtotal <span className="amount">{formatMoney(subtotal)}</span>
-          <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-secondary)" }}> + GST</span>
+          <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-secondary)" }}> + tax</span>
         </span>
         <button type="submit" className="btn" disabled={saving}>
           {saving ? "Saving…" : "Create booking"}

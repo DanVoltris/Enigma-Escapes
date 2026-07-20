@@ -13,8 +13,8 @@ export default function CartSummary({
   editable?: boolean;
   showCustomer?: boolean;
 }) {
-  const { items, customer, promo, paymentOption, removeItem } = useCart();
-  const totals = computeTotals(items, promo?.percentOff ?? 0);
+  const { items, customer, promo, paymentOption, taxPercent, taxLabel, removeItem } = useCart();
+  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent);
   const dueNow = amountDueCents(totals, paymentOption);
 
   return (
@@ -74,7 +74,9 @@ export default function CartSummary({
               </div>
             )}
             <div className="summary-line">
-              <span>GST (5%)</span>
+              <span>
+                {taxLabel} ({taxPercent}%)
+              </span>
               <span>{formatMoney(totals.gstCents)}</span>
             </div>
             <div className="summary-line total">

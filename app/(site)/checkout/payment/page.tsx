@@ -28,7 +28,7 @@ type CardErrors = Partial<Record<"cardName" | "cardNumber" | "expiry" | "cvc", s
 
 export default function PaymentPage() {
   const router = useRouter();
-  const { items, customer, promo, paymentOption, setPromo, setPaymentOption, clear } = useCart();
+  const { items, customer, promo, paymentOption, taxPercent, setPromo, setPaymentOption, clear } = useCart();
 
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoInput, setPromoInput] = useState("");
@@ -49,7 +49,7 @@ export default function PaymentPage() {
     if (items.length > 0 && !customer) router.replace("/checkout");
   }, [items.length, customer, router]);
 
-  const totals = computeTotals(items, promo?.percentOff ?? 0);
+  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent);
   const dueNow = amountDueCents(totals, paymentOption);
 
   async function applyPromo() {

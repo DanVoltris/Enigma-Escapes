@@ -19,6 +19,9 @@ export type Experience = {
   durationMinutes: number;
   capacity: number;
   priceCents: number;
+  minParty: number; // smallest party per booking (online); staff walk-ins can go lower
+  maxParty: number; // largest party per booking (<= capacity)
+  isPrivate: boolean; // one booking per time slot (whole game is exclusive)
   scheduleMode: ScheduleMode;
   times: string[]; // "times" mode: explicit 24h "HH:MM" starts, every day
   intervalMinutes: number; // "window"/"store" modes: minutes between starts
@@ -26,6 +29,14 @@ export type Experience = {
   badgeBg: string;
   badgeFg: string;
   imageUrl: string | null; // poster image; when set, shown instead of the colour block
+  active: boolean;
+  sort: number;
+};
+
+export type Tax = {
+  id: string;
+  name: string;
+  percent: number;
   active: boolean;
   sort: number;
 };
@@ -42,6 +53,9 @@ export type Slot = {
   capacity: number;
   remaining: number;
   priceCents: number;
+  minParty: number;
+  maxParty: number;
+  isPrivate: boolean;
   badgeBg: string;
   badgeFg: string;
   imageUrl: string | null;

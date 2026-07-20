@@ -38,7 +38,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
         <div className="mgr-stat">
           <div className="label">Total</div>
           <div className="value">{formatMoney(pricing.totalCents)}</div>
-          <div className="hint">including GST</div>
+          <div className="hint">including tax</div>
         </div>
         <div className="mgr-stat">
           <div className="label">Paid</div>
@@ -116,7 +116,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
             </div>
           )}
           <div className="summary-line">
-            <span>GST (5%)</span>
+            <span>Tax</span>
             <span>{formatMoney(pricing.gstCents)}</span>
           </div>
           <div className="summary-line total">

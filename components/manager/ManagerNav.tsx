@@ -9,9 +9,9 @@ const TABS = [
   { href: "/manager/bookings", label: "Bookings" },
   { href: "/manager/customers", label: "Customers" },
   { href: "/manager/experiences", label: "Experiences" },
-  { href: "/manager/store-hours", label: "Store hours" },
   { href: "/manager/promos", label: "Promo codes" },
   { href: "/manager/reports", label: "Reports" },
+  { href: "/manager/settings", label: "Settings" },
   { href: "/manager/help", label: "Help" },
 ];
 

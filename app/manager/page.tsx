@@ -309,7 +309,7 @@ function PerformanceView({ bookings, today, rangeKey }: { bookings: Booking[]; t
           <div className="value">
             {formatMoney(cur.avgPerBookingCents)} <Delta cur={cur.avgPerBookingCents} prev={prev.avgPerBookingCents} />
           </div>
-          <div className="hint">billed total incl. GST</div>
+          <div className="hint">billed total incl. tax</div>
         </div>
       </div>
 
@@ -327,7 +327,7 @@ function PerformanceView({ bookings, today, rangeKey }: { bookings: Booking[]; t
               <span>-{formatMoney(cur.discountCents)}</span>
             </div>
             <div className="summary-line">
-              <span>GST collected</span>
+              <span>Tax collected</span>
               <span>{formatMoney(cur.gstCents)}</span>
             </div>
             <div className="summary-line total">

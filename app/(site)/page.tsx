@@ -15,7 +15,7 @@ import {
   formatTime,
   todayISO,
 } from "@/lib/format";
-import { BOOKING_WINDOW_DAYS, MIN_PARTY_SIZE } from "@/lib/pricing";
+import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 import type { Slot } from "@/lib/types";
 
 const FILTER_ALL_LABEL = "Filter: all experiences";
@@ -43,7 +43,7 @@ export default function BrowsePage() {
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(MIN_PARTY_SIZE);
+  const [quantity, setQuantity] = useState(1);
   const [expiredNotice, setExpiredNotice] = useState(false);
 
   // Deep-link support: /?date=YYYY-MM-DD&slot=roomId|HH:MM (used by "Edit booking"),
@@ -149,7 +149,7 @@ export default function BrowsePage() {
       return;
     }
     const existing = items.find((i) => itemKey(i) === key);
-    setQuantity(existing ? existing.quantity : MIN_PARTY_SIZE);
+    setQuantity(existing ? existing.quantity : slot.minParty);
     setExpandedKey(key);
   }
 
@@ -257,9 +257,10 @@ export default function BrowsePage() {
         {visibleSlots.map((slot) => {
           const key = itemKey(slot);
           const soldOut = slot.remaining === 0;
-          // Fewer spots left than the minimum party size — can't be booked.
-          const belowMin = !soldOut && slot.remaining < MIN_PARTY_SIZE;
+          // Fewer spots left than this experience's minimum party — can't be booked.
+          const belowMin = !soldOut && slot.remaining < slot.minParty;
           const bookable = !soldOut && !belowMin;
+          const stepMax = Math.min(slot.remaining, slot.maxParty);
           const expanded = expandedKey === key;
           const [timePart, period] = formatTime(slot.time).split(" ");
           const badge = dateBadgeParts(slot.date);
@@ -293,7 +294,7 @@ export default function BrowsePage() {
                       type="button"
                       className="btn btn-block btn-sold-out"
                       disabled
-                      title={`Bookings need at least ${MIN_PARTY_SIZE} players and only ${slot.remaining} spot(s) remain.`}
+                      title={`Bookings need at least ${slot.minParty} players and only ${slot.remaining} spot(s) remain.`}
                     >
                       Only {slot.remaining} left
                     </button>
@@ -335,20 +336,21 @@ export default function BrowsePage() {
                       <span>
                         {slot.remaining}/{slot.capacity} available
                       </span>
+                      {slot.isPrivate && <span>Private — one group per session</span>}
                     </div>
                     <p className="panel-description">{slot.description}</p>
                     <div className="panel-controls">
                       <span className="quantity-label">
                         Quantity
                         <span className="unit-price">
-                          {formatMoney(slot.priceCents)} each · minimum {MIN_PARTY_SIZE}
+                          {formatMoney(slot.priceCents)} each · minimum {slot.minParty}
                         </span>
                       </span>
                       <div className="stepper">
                         <button
                           type="button"
-                          onClick={() => setQuantity((q) => Math.max(MIN_PARTY_SIZE, q - 1))}
-                          disabled={quantity <= MIN_PARTY_SIZE}
+                          onClick={() => setQuantity((q) => Math.max(slot.minParty, q - 1))}
+                          disabled={quantity <= slot.minParty}
                           aria-label="Decrease quantity"
                         >
                           −
@@ -356,8 +358,8 @@ export default function BrowsePage() {
                         <span className="value">{quantity}</span>
                         <button
                           type="button"
-                          onClick={() => setQuantity((q) => Math.min(slot.remaining, q + 1))}
-                          disabled={quantity >= slot.remaining}
+                          onClick={() => setQuantity((q) => Math.min(stepMax, q + 1))}
+                          disabled={quantity >= stepMax}
                           aria-label="Increase quantity"
                         >
                           +

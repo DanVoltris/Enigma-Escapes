@@ -12,6 +12,9 @@ type ExperienceRow = {
   duration_minutes: number;
   capacity: number;
   price_cents: number;
+  min_party: number;
+  max_party: number;
+  private: boolean;
   schedule_mode: ScheduleMode;
   times: string[];
   interval_minutes: number;
@@ -33,6 +36,9 @@ function toExperience(row: ExperienceRow): Experience {
     durationMinutes: row.duration_minutes,
     capacity: row.capacity,
     priceCents: row.price_cents,
+    minParty: row.min_party ?? 4,
+    maxParty: row.max_party ?? row.capacity,
+    isPrivate: row.private ?? false,
     scheduleMode: row.schedule_mode ?? "times",
     times: row.times ?? [],
     intervalMinutes: row.interval_minutes ?? 75,
@@ -55,6 +61,9 @@ function toRow(e: Omit<Experience, "id"> & { id?: string }): Omit<ExperienceRow,
     duration_minutes: e.durationMinutes,
     capacity: e.capacity,
     price_cents: e.priceCents,
+    min_party: e.minParty,
+    max_party: e.maxParty,
+    private: e.isPrivate,
     schedule_mode: e.scheduleMode,
     times: e.times,
     interval_minutes: e.intervalMinutes,
@@ -109,6 +118,9 @@ export async function updateExperience(id: string, patch: Partial<Experience>): 
   if (patch.capacity !== undefined) row.capacity = patch.capacity;
   if (patch.priceCents !== undefined) row.price_cents = patch.priceCents;
   if (patch.times !== undefined) row.times = patch.times;
+  if (patch.minParty !== undefined) row.min_party = patch.minParty;
+  if (patch.maxParty !== undefined) row.max_party = patch.maxParty;
+  if (patch.isPrivate !== undefined) row.private = patch.isPrivate;
   if (patch.scheduleMode !== undefined) row.schedule_mode = patch.scheduleMode;
   if (patch.intervalMinutes !== undefined) row.interval_minutes = patch.intervalMinutes;
   if (patch.windows !== undefined) row.windows = patch.windows;

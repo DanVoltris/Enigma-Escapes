@@ -1,10 +1,12 @@
 import { randomUUID } from "crypto";
+import { maxPerBooking, minPerBooking, remainingSpots } from "./capacity";
 import { bookedCountsForDate, getPromo } from "./db";
 import { getExperience } from "./experiences";
 import { addDaysISO, formatTime, isValidISODate, todayISO } from "./format";
 import { getLocationHours } from "./hours";
 import { startTimesFor } from "./schedule";
-import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals, MIN_PARTY_SIZE } from "./pricing";
+import { activeTaxPercent } from "./taxes";
+import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals } from "./pricing";
 import type { Booking, BookingSource, CartItem, Customer } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,10 +33,6 @@ type RawInput = {
 // the database — never trusted from the caller.
 export async function buildBooking(raw: RawInput, source: BookingSource): Promise<BuildResult> {
   const err = (error: string): BuildResult => ({ error, status: 400 });
-
-  // The public site enforces a minimum party size; staff walk-ins can be any
-  // size (e.g. a couple that turns up), so they only need one guest.
-  const minParty = source === "in_person" ? 1 : MIN_PARTY_SIZE;
 
   const firstName = cleanString(raw.customer?.firstName, 100);
   const lastName = cleanString(raw.customer?.lastName, 100);
@@ -82,14 +80,20 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       if (!startTimesFor(exp, date, hours).includes(time)) {
         return err(`${exp.name}: that time slot is not available on that day.`);
       }
+      const minParty = minPerBooking(exp, source);
+      const maxParty = maxPerBooking(exp);
       const quantity = rawItem.quantity;
-      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < minParty || quantity > exp.capacity) {
-        return err(`${exp.name}: guests must be between ${minParty} and ${exp.capacity}.`);
+      if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < minParty || quantity > maxParty) {
+        return err(`${exp.name}: guests must be between ${minParty} and ${maxParty}.`);
       }
       const booked = await bookedCountsForDate(date);
-      const remaining = Math.max(0, exp.capacity - (booked.get(`${exp.id}|${time}`) ?? 0));
+      const remaining = remainingSpots(exp, booked.get(`${exp.id}|${time}`) ?? 0);
       if (remaining < quantity) {
-        return err(`${exp.name} at ${formatTime(time)} only has ${remaining} spot(s) left.`);
+        return err(
+          exp.isPrivate
+            ? `${exp.name} at ${formatTime(time)} is already booked (private — one booking per slot).`
+            : `${exp.name} at ${formatTime(time)} only has ${remaining} spot(s) left.`
+        );
       }
       items.push({
         roomId: exp.id,
@@ -109,7 +113,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     return { error: "Could not verify availability right now. Please try again shortly.", status: 500 };
   }
 
-  const totals = computeTotals(items, percentOff);
+  const totals = computeTotals(items, percentOff, await activeTaxPercent());
   const paidCents = amountDueCents(totals, paymentOption);
   const id = randomUUID();
   const booking: Booking = {

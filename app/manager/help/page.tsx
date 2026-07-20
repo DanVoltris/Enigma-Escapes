@@ -73,7 +73,10 @@ export default function ManagerHelp() {
 
       <h2>Money</h2>
       <ul>
-        <li>Customers pay online either the full amount or a 25% deposit. GST is 5%.</li>
+        <li>
+          Customers pay online either the full amount or a 25% deposit. Taxes are set on the{" "}
+          <strong>Settings → Taxes</strong> tab (GST 5% by default).
+        </li>
         <li>
           <strong>Reports</strong> totals sales by the date sessions run. &quot;Gross&quot; is ticket
           price × guests before tax and discounts.
