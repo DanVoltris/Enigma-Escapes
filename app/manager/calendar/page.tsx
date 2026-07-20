@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
 import RoomBadge from "@/components/RoomBadge";
 import { bookedCountsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
@@ -21,57 +22,71 @@ function minutesOf(time: string): number {
 export default async function ManagerCalendar({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; view?: string }>;
+  searchParams: Promise<{ date?: string; view?: string; f?: string }>;
 }) {
   const params = await searchParams;
   const today = todayISO();
   const date = params.date && isValidISODate(params.date) ? params.date : today;
   const view = params.view === "list" ? "list" : "calendar";
+  const filters = (params.f ?? "").split(",").filter(Boolean);
 
-  const [experiences, booked] = await Promise.all([
+  const [allExperiences, booked] = await Promise.all([
     listExperiences({ activeOnly: true }),
     bookedCountsForDate(date),
   ]);
+
+  const selectedLocations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
+  const selectedRooms = filters.filter((f) => f.startsWith("room:")).map((f) => f.slice(5));
+  const experiences = allExperiences.filter(
+    (e) =>
+      (selectedLocations.length === 0 || selectedLocations.includes(e.location)) &&
+      (selectedRooms.length === 0 || selectedRooms.includes(e.id))
+  );
 
   const allTimes = Array.from(new Set(experiences.flatMap((e) => e.times))).sort();
   const isToday = date === today;
   const nowMinutes = nowMinutesInBusinessTZ();
 
-  // Preserve the chosen view when changing days.
-  const viewQ = view === "list" ? "&view=list" : "";
-  const todayHref = `/manager/calendar${view === "list" ? "?view=list" : ""}`;
+  // Build hrefs that preserve date, view and filter across navigation.
+  const href = (over: { date?: string; view?: string }): string => {
+    const p = new URLSearchParams();
+    const d = over.date ?? date;
+    if (d !== today) p.set("date", d);
+    const v = over.view ?? view;
+    if (v === "list") p.set("view", "list");
+    if (filters.length) p.set("f", filters.join(","));
+    const s = p.toString();
+    return `/manager/calendar${s ? `?${s}` : ""}`;
+  };
 
   return (
     <>
       <h1 className="mgr-page-title">Calendar</h1>
 
       <nav className="mgr-subtabs" aria-label="Calendar views">
-        <Link
-          href={`/manager/calendar?date=${date}`}
-          className={`mgr-subtab${view === "calendar" ? " active" : ""}`}
-        >
+        <Link href={href({ view: "calendar" })} className={`mgr-subtab${view === "calendar" ? " active" : ""}`}>
           Calendar grid
         </Link>
-        <Link
-          href={`/manager/calendar?date=${date}&view=list`}
-          className={`mgr-subtab${view === "list" ? " active" : ""}`}
-        >
+        <Link href={href({ view: "list" })} className={`mgr-subtab${view === "list" ? " active" : ""}`}>
           List
         </Link>
       </nav>
 
       <div className="mgr-actions-row">
-        <strong style={{ fontSize: 18 }}>
-          {isToday ? `Today — ${formatDateLong(date)}` : formatDateLong(date)}
-        </strong>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <strong style={{ fontSize: 18 }}>
+            {isToday ? `Today — ${formatDateLong(date)}` : formatDateLong(date)}
+          </strong>
+          <CalendarFilterBar experiences={allExperiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))} />
+        </div>
         <div className="day-nav">
-          <Link href={todayHref} className="btn btn-outline">
+          <Link href={href({ date: today })} className="btn btn-outline">
             Today
           </Link>
-          <Link href={`/manager/calendar?date=${addDaysISO(date, -1)}${viewQ}`} className="btn btn-outline">
+          <Link href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline">
             ← Prev
           </Link>
-          <Link href={`/manager/calendar?date=${addDaysISO(date, 1)}${viewQ}`} className="btn btn-outline">
+          <Link href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline">
             Next →
           </Link>
         </div>
