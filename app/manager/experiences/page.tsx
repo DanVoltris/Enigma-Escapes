@@ -61,7 +61,13 @@ export default async function ManagerExperiences({
                 <td className="num">{formatMoney(e.priceCents)}</td>
                 <td className="num">{e.capacity}</td>
                 <td>
-                  {e.times.length} per day ({formatTime(e.times[0])}–{formatTime(e.times[e.times.length - 1])})
+                  {e.scheduleMode === "times"
+                    ? e.times.length > 0
+                      ? `${e.times.length} set times (${formatTime(e.times[0])}–${formatTime(e.times[e.times.length - 1])})`
+                      : "No times set"
+                    : e.scheduleMode === "window"
+                      ? `Weekly window · every ${e.intervalMinutes} min`
+                      : `Store hours · every ${e.intervalMinutes} min`}
                 </td>
                 <td>
                   <span className={`mgr-pill${e.active ? " on" : ""}`}>{e.active ? "Live" : "Hidden"}</span>

@@ -1,19 +1,23 @@
 import { bookedCount, bookedCountsForDate } from "./db";
 import { getExperience, listExperiences } from "./experiences";
 import { nowMinutesInBusinessTZ, todayISO } from "./format";
+import { getLocationHours, locationHoursMap } from "./hours";
+import { startTimesFor } from "./schedule";
 import type { Slot } from "./types";
 
 export async function slotsForDate(date: string): Promise<Slot[]> {
   const isToday = date === todayISO();
   const nowMinutes = nowMinutesInBusinessTZ();
-  const [experiences, booked] = await Promise.all([
+  const [experiences, booked, hoursMap] = await Promise.all([
     listExperiences({ activeOnly: true }),
     bookedCountsForDate(date),
+    locationHoursMap(),
   ]);
 
   const slots: Slot[] = [];
   for (const exp of experiences) {
-    for (const time of exp.times) {
+    const times = startTimesFor(exp, date, hoursMap.get(exp.location) ?? null);
+    for (const time of times) {
       if (isToday) {
         const [h, m] = time.split(":").map(Number);
         if (h * 60 + m <= nowMinutes) continue; // hide start times already passed
@@ -44,7 +48,9 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
 
 export async function slotRemaining(roomId: string, date: string, time: string): Promise<number | null> {
   const exp = await getExperience(roomId);
-  if (!exp || !exp.active || !exp.times.includes(time)) return null;
+  if (!exp || !exp.active) return null;
+  const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
+  if (!startTimesFor(exp, date, hours).includes(time)) return null;
   const taken = await bookedCount(roomId, date, time);
   return Math.max(0, exp.capacity - taken);
 }

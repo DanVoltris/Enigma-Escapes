@@ -1,3 +1,15 @@
+// How an experience's daily start times are determined.
+export type ScheduleMode = "times" | "window" | "store";
+
+// Per-weekday booking window for "window" mode. Keys are day-of-week "0".."6"
+// (0 = Sunday). A day missing or closed offers no sessions.
+export type DayWindow = { first: string; last: string; closed: boolean };
+export type Windows = Record<string, DayWindow>;
+
+// Per-weekday opening hours for a location ("store" mode source).
+export type DayHours = { open: string; close: string; closed: boolean };
+export type LocationHours = { location: string; hours: Record<string, DayHours> };
+
 export type Experience = {
   id: string;
   name: string;
@@ -7,7 +19,10 @@ export type Experience = {
   durationMinutes: number;
   capacity: number;
   priceCents: number;
-  times: string[]; // 24h "HH:MM" start times offered every day
+  scheduleMode: ScheduleMode;
+  times: string[]; // "times" mode: explicit 24h "HH:MM" starts, every day
+  intervalMinutes: number; // "window"/"store" modes: minutes between starts
+  windows: Windows; // "window" mode: per-weekday first/last start
   badgeBg: string;
   badgeFg: string;
   imageUrl: string | null; // poster image; when set, shown instead of the colour block

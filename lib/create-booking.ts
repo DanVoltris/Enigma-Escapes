@@ -2,6 +2,8 @@ import { randomUUID } from "crypto";
 import { bookedCountsForDate, getPromo } from "./db";
 import { getExperience } from "./experiences";
 import { addDaysISO, formatTime, isValidISODate, todayISO } from "./format";
+import { getLocationHours } from "./hours";
+import { startTimesFor } from "./schedule";
 import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals, MIN_PARTY_SIZE } from "./pricing";
 import type { Booking, BookingSource, CartItem, Customer } from "./types";
 
@@ -76,7 +78,10 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       if (!isValidISODate(date) || date < today || date > lastBookable) {
         return err(`${exp.name}: that date can no longer be booked.`);
       }
-      if (!exp.times.includes(time)) return err(`${exp.name}: that time slot does not exist.`);
+      const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
+      if (!startTimesFor(exp, date, hours).includes(time)) {
+        return err(`${exp.name}: that time slot is not available on that day.`);
+      }
       const quantity = rawItem.quantity;
       if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < minParty || quantity > exp.capacity) {
         return err(`${exp.name}: guests must be between ${minParty} and ${exp.capacity}.`);

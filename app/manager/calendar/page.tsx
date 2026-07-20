@@ -3,6 +3,8 @@ import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
 import RoomBadge from "@/components/RoomBadge";
 import { bookedCountsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
+import { locationHoursMap } from "@/lib/hours";
+import { startTimesFor } from "@/lib/schedule";
 import {
   addDaysISO,
   formatDateLong,
@@ -30,9 +32,10 @@ export default async function ManagerCalendar({
   const view = params.view === "list" ? "list" : "calendar";
   const filters = (params.f ?? "").split(",").filter(Boolean);
 
-  const [allExperiences, booked] = await Promise.all([
+  const [allExperiences, booked, hoursMap] = await Promise.all([
     listExperiences({ activeOnly: true }),
     bookedCountsForDate(date),
+    locationHoursMap(),
   ]);
 
   const selectedLocations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
@@ -43,7 +46,9 @@ export default async function ManagerCalendar({
       (selectedRooms.length === 0 || selectedRooms.includes(e.id))
   );
 
-  const allTimes = Array.from(new Set(experiences.flatMap((e) => e.times))).sort();
+  // Each experience's start times for the viewed date, from its schedule.
+  const timesById = new Map(experiences.map((e) => [e.id, startTimesFor(e, date, hoursMap.get(e.location) ?? null)]));
+  const allTimes = Array.from(new Set(experiences.flatMap((e) => timesById.get(e.id) ?? []))).sort();
   const isToday = date === today;
   const nowMinutes = nowMinutesInBusinessTZ();
 
@@ -114,7 +119,7 @@ export default async function ManagerCalendar({
                   <tr key={time}>
                     <th scope="row">{formatTime(time)}</th>
                     {experiences.map((e) => {
-                      if (!e.times.includes(time)) {
+                      if (!(timesById.get(e.id) ?? []).includes(time)) {
                         return (
                           <td key={e.id}>
                             <span className="cell na">—</span>
@@ -168,7 +173,7 @@ export default async function ManagerCalendar({
           nowMinutes={nowMinutes}
           rows={experiences
             .flatMap((e) =>
-              e.times.map((time) => ({
+              (timesById.get(e.id) ?? []).map((time) => ({
                 time,
                 name: e.name,
                 location: e.location,

@@ -1,6 +1,8 @@
 import { rest, restError } from "./supabase";
 import type { Experience } from "./types";
 
+import type { ScheduleMode, Windows } from "./types";
+
 type ExperienceRow = {
   id: string;
   name: string;
@@ -10,7 +12,10 @@ type ExperienceRow = {
   duration_minutes: number;
   capacity: number;
   price_cents: number;
+  schedule_mode: ScheduleMode;
   times: string[];
+  interval_minutes: number;
+  windows: Windows;
   badge_bg: string;
   badge_fg: string;
   image_url: string | null;
@@ -28,7 +33,10 @@ function toExperience(row: ExperienceRow): Experience {
     durationMinutes: row.duration_minutes,
     capacity: row.capacity,
     priceCents: row.price_cents,
-    times: row.times,
+    scheduleMode: row.schedule_mode ?? "times",
+    times: row.times ?? [],
+    intervalMinutes: row.interval_minutes ?? 75,
+    windows: row.windows ?? {},
     badgeBg: row.badge_bg,
     badgeFg: row.badge_fg,
     imageUrl: row.image_url ?? null,
@@ -47,7 +55,10 @@ function toRow(e: Omit<Experience, "id"> & { id?: string }): Omit<ExperienceRow,
     duration_minutes: e.durationMinutes,
     capacity: e.capacity,
     price_cents: e.priceCents,
+    schedule_mode: e.scheduleMode,
     times: e.times,
+    interval_minutes: e.intervalMinutes,
+    windows: e.windows,
     badge_bg: e.badgeBg,
     badge_fg: e.badgeFg,
     image_url: e.imageUrl,
@@ -98,6 +109,9 @@ export async function updateExperience(id: string, patch: Partial<Experience>): 
   if (patch.capacity !== undefined) row.capacity = patch.capacity;
   if (patch.priceCents !== undefined) row.price_cents = patch.priceCents;
   if (patch.times !== undefined) row.times = patch.times;
+  if (patch.scheduleMode !== undefined) row.schedule_mode = patch.scheduleMode;
+  if (patch.intervalMinutes !== undefined) row.interval_minutes = patch.intervalMinutes;
+  if (patch.windows !== undefined) row.windows = patch.windows;
   if (patch.badgeBg !== undefined) row.badge_bg = patch.badgeBg;
   if (patch.badgeFg !== undefined) row.badge_fg = patch.badgeFg;
   if (patch.imageUrl !== undefined) row.image_url = patch.imageUrl;
