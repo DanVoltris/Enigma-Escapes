@@ -307,13 +307,23 @@ export default function BrowsePage() {
 
               {expanded && bookable && (
                 <div className="booking-panel">
-                  <div className="panel-poster" style={{ background: slot.badgeBg, color: slot.badgeFg }}>
+                  <div
+                    className="panel-poster"
+                    style={
+                      slot.imageUrl
+                        ? { padding: 0, color: "#fff" }
+                        : { background: slot.badgeBg, color: slot.badgeFg }
+                    }
+                  >
+                    {slot.imageUrl && (
+                      <img src={slot.imageUrl} alt={slot.roomName} className="panel-poster-img" />
+                    )}
                     <span className="date-badge">
                       <span className="weekday">{badge.weekday}</span>
                       <span className="day">{badge.day}</span>
                       <span className="month">{badge.month}</span>
                     </span>
-                    <span className="poster-title">{slot.roomName}</span>
+                    {!slot.imageUrl && <span className="poster-title">{slot.roomName}</span>}
                   </div>
                   <div className="panel-body">
                     <h3 className="panel-title">

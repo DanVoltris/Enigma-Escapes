@@ -1,4 +1,5 @@
 import { MIN_PARTY_SIZE } from "./pricing";
+import { publicImageBase } from "./storage";
 import type { Experience } from "./types";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -64,6 +65,13 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
   const badgeBg = typeof d.badgeBg === "string" && HEX_RE.test(d.badgeBg) ? d.badgeBg : "#0B2540";
   const badgeFg = typeof d.badgeFg === "string" && HEX_RE.test(d.badgeFg) ? d.badgeFg : "#FFFFFF";
 
+  // Only accept an image URL we produced (from our storage bucket); anything
+  // else — including arbitrary external URLs — is rejected as null.
+  let imageUrl: string | null = null;
+  if (typeof d.imageUrl === "string" && d.imageUrl.startsWith(publicImageBase())) {
+    imageUrl = d.imageUrl;
+  }
+
   return {
     name,
     location,
@@ -75,6 +83,7 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     times,
     badgeBg,
     badgeFg,
+    imageUrl,
     active: d.active !== false,
   };
 }

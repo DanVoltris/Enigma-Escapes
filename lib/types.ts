@@ -10,6 +10,7 @@ export type Experience = {
   times: string[]; // 24h "HH:MM" start times offered every day
   badgeBg: string;
   badgeFg: string;
+  imageUrl: string | null; // poster image; when set, shown instead of the colour block
   active: boolean;
   sort: number;
 };
@@ -28,6 +29,7 @@ export type Slot = {
   priceCents: number;
   badgeBg: string;
   badgeFg: string;
+  imageUrl: string | null;
 };
 
 export type CartItem = {

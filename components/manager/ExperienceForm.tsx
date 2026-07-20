@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ImageUpload from "@/components/manager/ImageUpload";
+import TimesEditor from "@/components/manager/TimesEditor";
 import type { Experience } from "@/lib/types";
 
 // Preset badge colour pairs (background / text) so managers pick from swatches
@@ -17,6 +19,8 @@ const COLOR_PRESETS: { bg: string; fg: string; name: string }[] = [
   { bg: "#5B6770", fg: "#FFFFFF", name: "Gray" },
 ];
 
+const DEFAULT_TIMES = ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00", "20:30"];
+
 export default function ExperienceForm({ initial }: { initial?: Experience }) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
@@ -26,11 +30,13 @@ export default function ExperienceForm({ initial }: { initial?: Experience }) {
   const [duration, setDuration] = useState(String(initial?.durationMinutes ?? 60));
   const [capacity, setCapacity] = useState(String(initial?.capacity ?? 10));
   const [price, setPrice] = useState(initial ? (initial.priceCents / 100).toFixed(2) : "30.00");
-  const [timesText, setTimesText] = useState(initial?.times.join(", ") ?? "10:00, 11:30, 13:00, 14:30, 16:00, 17:30, 19:00, 20:30");
+  const [times, setTimes] = useState<string[]>(initial?.times ?? DEFAULT_TIMES);
   const [colorIdx, setColorIdx] = useState(() => {
     const found = COLOR_PRESETS.findIndex((p) => p.bg.toLowerCase() === (initial?.badgeBg ?? "").toLowerCase());
     return found >= 0 ? found : 0;
   });
+  const [posterMode, setPosterMode] = useState<"colour" | "image">(initial?.imageUrl ? "image" : "colour");
+  const [imageUrl, setImageUrl] = useState<string | null>(initial?.imageUrl ?? null);
   const [active, setActive] = useState(initial?.active ?? true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -44,10 +50,14 @@ export default function ExperienceForm({ initial }: { initial?: Experience }) {
       setError("Enter the price per person in dollars, e.g. 30 or 32.50.");
       return;
     }
-    const times = timesText
-      .split(/[,\n]/)
-      .map((t) => t.trim())
-      .filter(Boolean);
+    if (times.length === 0) {
+      setError("Add at least one daily start time.");
+      return;
+    }
+    if (posterMode === "image" && !imageUrl) {
+      setError("Upload a poster image, or switch to a colour poster.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -62,6 +72,7 @@ export default function ExperienceForm({ initial }: { initial?: Experience }) {
         times,
         badgeBg: COLOR_PRESETS[colorIdx].bg,
         badgeFg: COLOR_PRESETS[colorIdx].fg,
+        imageUrl: posterMode === "image" ? imageUrl : null,
         active,
       };
       const res = await fetch(initial ? `/api/manager/experiences/${initial.id}` : "/api/manager/experiences", {
@@ -155,34 +166,52 @@ export default function ExperienceForm({ initial }: { initial?: Experience }) {
         </div>
       </div>
       <div className="field">
-        <label htmlFor="times">
+        <label>
           Daily start times <span className="req">*</span>
         </label>
-        <input id="times" type="text" value={timesText} onChange={(e) => setTimesText(e.target.value)} />
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6 }}>
-          24-hour times separated by commas, e.g. <strong>10:00, 13:30, 19:00</strong>. These run every day.
-        </p>
+        <TimesEditor value={times} onChange={setTimes} />
       </div>
 
-      <h3>Appearance</h3>
-      <div className="field">
-        <label>Badge colour</label>
-        <div className="mgr-swatches">
-          {COLOR_PRESETS.map((p, i) => (
-            <button
-              key={p.bg}
-              type="button"
-              className={`mgr-swatch${i === colorIdx ? " selected" : ""}`}
-              style={{ background: p.bg, color: p.fg }}
-              onClick={() => setColorIdx(i)}
-              aria-label={`${p.name}${i === colorIdx ? " (selected)" : ""}`}
-              title={p.name}
-            >
-              Aa
-            </button>
-          ))}
-        </div>
+      <h3>Poster</h3>
+      <p style={{ color: "var(--text-secondary)", marginBottom: 14, marginTop: -8 }}>
+        Choose how this experience looks on the booking site — a colour block or an uploaded image.
+      </p>
+      <div className="pay-options" style={{ marginBottom: 18 }}>
+        <label className={`pay-option ${posterMode === "colour" ? "selected" : ""}`}>
+          <input type="radio" checked={posterMode === "colour"} onChange={() => setPosterMode("colour")} />
+          <span>Colour block</span>
+        </label>
+        <label className={`pay-option ${posterMode === "image" ? "selected" : ""}`}>
+          <input type="radio" checked={posterMode === "image"} onChange={() => setPosterMode("image")} />
+          <span>Uploaded image</span>
+        </label>
       </div>
+
+      {posterMode === "colour" ? (
+        <div className="field">
+          <label>Badge colour</label>
+          <div className="mgr-swatches">
+            {COLOR_PRESETS.map((p, i) => (
+              <button
+                key={p.bg}
+                type="button"
+                className={`mgr-swatch${i === colorIdx ? " selected" : ""}`}
+                style={{ background: p.bg, color: p.fg }}
+                onClick={() => setColorIdx(i)}
+                aria-label={`${p.name}${i === colorIdx ? " (selected)" : ""}`}
+                title={p.name}
+              >
+                Aa
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="field">
+          <label>Poster image</label>
+          <ImageUpload value={imageUrl} onChange={setImageUrl} />
+        </div>
+      )}
 
       <label className="checkbox-row">
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />

@@ -33,6 +33,7 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         priceCents: exp.priceCents,
         badgeBg: exp.badgeBg,
         badgeFg: exp.badgeFg,
+        imageUrl: exp.imageUrl,
       });
     }
   }

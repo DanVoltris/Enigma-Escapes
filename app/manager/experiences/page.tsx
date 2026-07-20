@@ -49,7 +49,11 @@ export default async function ManagerExperiences({
               <tr key={e.id}>
                 <td>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <RoomBadge name={e.name} bg={e.badgeBg} fg={e.badgeFg} />
+                    {e.imageUrl ? (
+                      <img src={e.imageUrl} alt="" className="mgr-thumb" />
+                    ) : (
+                      <RoomBadge name={e.name} bg={e.badgeBg} fg={e.badgeFg} />
+                    )}
                     <strong>{e.name}</strong>
                   </span>
                 </td>

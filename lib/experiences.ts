@@ -13,6 +13,7 @@ type ExperienceRow = {
   times: string[];
   badge_bg: string;
   badge_fg: string;
+  image_url: string | null;
   active: boolean;
   sort: number;
 };
@@ -30,6 +31,7 @@ function toExperience(row: ExperienceRow): Experience {
     times: row.times,
     badgeBg: row.badge_bg,
     badgeFg: row.badge_fg,
+    imageUrl: row.image_url ?? null,
     active: row.active,
     sort: row.sort,
   };
@@ -48,6 +50,7 @@ function toRow(e: Omit<Experience, "id"> & { id?: string }): Omit<ExperienceRow,
     times: e.times,
     badge_bg: e.badgeBg,
     badge_fg: e.badgeFg,
+    image_url: e.imageUrl,
     active: e.active,
     sort: e.sort,
   };
@@ -88,6 +91,7 @@ export async function updateExperience(id: string, patch: Partial<Experience>): 
   if (patch.times !== undefined) row.times = patch.times;
   if (patch.badgeBg !== undefined) row.badge_bg = patch.badgeBg;
   if (patch.badgeFg !== undefined) row.badge_fg = patch.badgeFg;
+  if (patch.imageUrl !== undefined) row.image_url = patch.imageUrl;
   if (patch.active !== undefined) row.active = patch.active;
   if (patch.sort !== undefined) row.sort = patch.sort;
   const res = await rest(`experiences?id=eq.${encodeURIComponent(id)}`, {
