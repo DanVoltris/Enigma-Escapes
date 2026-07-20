@@ -48,6 +48,16 @@ export function nowMinutesInBusinessTZ(): number {
   return hour * 60 + minute;
 }
 
+// The venue-local calendar date of an ISO timestamp, e.g. "2026-07-20".
+export function businessDateOf(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIMEZONE }).format(new Date(iso));
+}
+
+// The venue-local weekday name of an ISO timestamp, e.g. "Monday".
+export function businessWeekdayOf(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIMEZONE, weekday: "long" }).format(new Date(iso));
+}
+
 export function addDaysISO(date: string, days: number): string {
   const d = parseISODate(date);
   d.setDate(d.getDate() + days);

@@ -1132,6 +1132,74 @@ a:hover {
   color: var(--text-secondary);
 }
 
+/* period-over-period delta */
+.mgr-delta {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mgr-delta.good {
+  color: #1f7a4d;
+}
+.mgr-delta.bad {
+  color: var(--danger);
+}
+
+/* two-column card layout */
+.mgr-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.mgr-two-col .mgr-card {
+  margin-bottom: 0;
+  height: 100%;
+}
+.mgr-two-col + .mgr-card {
+  margin-top: 28px;
+}
+
+/* paid/outstanding meter */
+.mgr-meter {
+  height: 14px;
+  border: 1px solid var(--border);
+  background: var(--muted-bg);
+  overflow: hidden;
+}
+.mgr-meter .fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+/* highlights grid */
+.mgr-highlights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.mgr-highlight {
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+}
+.mgr-highlight .label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.mgr-highlight .big {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 4px 0 2px;
+}
+.mgr-highlight .hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 /* cards & tables */
 .mgr-card {
   border: 1px solid var(--border);
@@ -1411,7 +1479,11 @@ a:hover {
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .checkout-grid,
-  .confirm-grid {
+  .confirm-grid,
+  .mgr-two-col {
+    grid-template-columns: 1fr;
+  }
+  .mgr-highlights {
     grid-template-columns: 1fr;
   }
   .booking-panel {
