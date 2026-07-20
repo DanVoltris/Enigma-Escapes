@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
+import NoShowToggle from "@/components/manager/NoShowToggle";
 import { getBooking } from "@/lib/db";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
@@ -22,9 +23,16 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
       <h1 className="mgr-page-title">Booking {booking.reference}</h1>
       <p className="mgr-page-sub">
         Placed {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })} ·{" "}
+        {booking.source === "in_person" ? "In-person / walk-in" : "Booked online"} ·{" "}
         {booking.paymentOption === "deposit" ? "Deposit paid" : "Paid in full"}
         {booking.promoCode ? ` · Promo ${booking.promoCode}` : ""}
       </p>
+
+      <div className="mgr-card">
+        <h2>Attendance</h2>
+        <p className="card-sub">Mark this booking as a no-show if the party doesn&apos;t turn up. No-shows feed the dashboard.</p>
+        <NoShowToggle id={booking.id} initial={booking.noShow} />
+      </div>
 
       <div className="mgr-stats">
         <div className="mgr-stat">

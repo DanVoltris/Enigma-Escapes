@@ -51,8 +51,15 @@ export default async function ManagerBookings({
 
   return (
     <>
-      <h1 className="mgr-page-title">Bookings</h1>
-      <p className="mgr-page-sub">Every booking customers have made. Click one for full details.</p>
+      <div className="mgr-actions-row">
+        <div>
+          <h1 className="mgr-page-title">Bookings</h1>
+          <p style={{ color: "var(--text-secondary)" }}>Every booking, online and in-person. Click one for full details.</p>
+        </div>
+        <Link href="/manager/bookings/new" className="btn">
+          + New walk-in booking
+        </Link>
+      </div>
 
       <div className="mgr-actions-row">
         <form action="/manager/bookings" method="get" className="mgr-inline-form">
@@ -113,6 +120,20 @@ export default async function ManagerBookings({
                 <tr key={b.id}>
                   <td>
                     <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
+                    {b.source === "in_person" && (
+                      <>
+                        <br />
+                        <span className="mgr-pill">In-person</span>
+                      </>
+                    )}
+                    {b.noShow && (
+                      <>
+                        <br />
+                        <span className="mgr-pill" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+                          No-show
+                        </span>
+                      </>
+                    )}
                   </td>
                   <td>
                     {b.customer.firstName} {b.customer.lastName}

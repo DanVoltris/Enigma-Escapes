@@ -1,8 +1,9 @@
 import Link from "next/link";
 import BarChart from "@/components/manager/BarChart";
 import Delta from "@/components/manager/Delta";
+import StaffNotes from "@/components/manager/StaffNotes";
 import RoomBadge from "@/components/RoomBadge";
-import { listBookings } from "@/lib/db";
+import { listActivity, listBookings, listStaffNotes } from "@/lib/db";
 import { addDaysISO, formatDateLong, formatMoney, formatTime, nowMinutesInBusinessTZ, todayISO } from "@/lib/format";
 import { computeInsights, repeatCustomerRate } from "@/lib/insights";
 import type { Booking, CartItem } from "@/lib/types";
@@ -25,7 +26,7 @@ export default async function ManagerDashboard({
   const params = await searchParams;
   const range = RANGES.find((r) => r.key === params.range) ?? RANGES[1];
 
-  const bookings = await listBookings();
+  const [bookings, staffNotes, activity] = await Promise.all([listBookings(), listStaffNotes(), listActivity(8)]);
   const today = todayISO();
 
   // ---------- today ----------
@@ -80,6 +81,8 @@ export default async function ManagerDashboard({
   const topExperience = cur.byExperience[0] ?? null;
 
   const collectedPct = cur.totalCents > 0 ? Math.round((cur.collectedCents / cur.totalCents) * 100) : 0;
+  const onlinePct = cur.bookings > 0 ? Math.round((cur.onlineBookings / cur.bookings) * 100) : 0;
+  const noShowRate = cur.guests > 0 ? (cur.noShowGuests / cur.guests) * 100 : 0;
   const recent = bookings.slice(0, 6);
 
   return (
@@ -283,6 +286,74 @@ export default async function ManagerDashboard({
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="mgr-two-col">
+        <div className="mgr-card">
+          <h2>Booking source</h2>
+          <p className="card-sub">Online (self-serve) vs in-person / walk-in, this period.</p>
+          {cur.bookings === 0 ? (
+            <p className="mgr-empty">No bookings placed in this period yet.</p>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
+                <span>Online ({onlinePct}%)</span>
+                <span style={{ color: "var(--text-secondary)" }}>In-person ({100 - onlinePct}%)</span>
+              </div>
+              <div className="mgr-meter" role="img" aria-label={`${onlinePct}% of bookings online`}>
+                <div className="fill" style={{ width: `${onlinePct}%` }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700, marginTop: 6 }}>
+                <span>{cur.onlineBookings} online</span>
+                <span>{cur.inPersonBookings} in-person</span>
+              </div>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
+                Record a walk-in from{" "}
+                <Link href="/manager/bookings/new">New walk-in booking</Link> to grow the in-person share.
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="mgr-card">
+          <h2>No-shows</h2>
+          <p className="card-sub">Parties marked no-show, this period.</p>
+          <div className="mgr-stat" style={{ borderTop: "3px solid var(--danger)" }}>
+            <div className="label">No-show guests</div>
+            <div className="value">{cur.noShowGuests}</div>
+            <div className="hint">
+              {cur.noShowBookings} booking{cur.noShowBookings === 1 ? "" : "s"} · {noShowRate.toFixed(1)}% of guests
+            </div>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
+            Mark a no-show from any booking&apos;s detail page — open one from{" "}
+            <Link href="/manager/bookings">Bookings</Link>.
+          </p>
+        </div>
+      </div>
+
+      <div className="mgr-two-col">
+        <StaffNotes notes={staffNotes} />
+
+        <div className="mgr-card">
+          <h2>Recent activity</h2>
+          <p className="card-sub">Changes made in the portal, newest first.</p>
+          {activity.length === 0 ? (
+            <p className="mgr-empty">Nothing yet. Actions like editing a room or adding a promo show up here.</p>
+          ) : (
+            <ul className="mgr-activity">
+              {activity.map((a) => (
+                <li key={a.id}>
+                  <span className="act">{a.action}</span>
+                  <span className="det">{a.detail}</span>
+                  <span className="when">
+                    {new Date(a.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

@@ -32,6 +32,27 @@ export default function ManagerHelp() {
           <strong>Customers</strong> groups bookings by person, so you can see repeat visitors and who
           agreed to marketing emails.
         </li>
+        <li>
+          <strong>Walk-ins:</strong> take a booking in person or over the phone with{" "}
+          <strong>New walk-in booking</strong> on the Bookings page. It&apos;s tagged in-person and counts
+          toward the online-vs-in-person split on the dashboard.
+        </li>
+        <li>
+          <strong>No-shows:</strong> open a booking and use the Attendance box to mark it a no-show if the
+          party doesn&apos;t arrive. No-show numbers appear on the dashboard.
+        </li>
+      </ul>
+
+      <h2>Your dashboard</h2>
+      <ul>
+        <li>
+          The <strong>Performance</strong> section (7/30/90-day toggle) shows bookings, guests, sales, the
+          money breakdown, best/quietest days, the online-vs-in-person split, and no-shows.
+        </li>
+        <li>
+          <strong>Staff notes</strong> are shared reminders for the team. <strong>Recent activity</strong>{" "}
+          logs changes made in the portal (edited a room, added a promo, marked a no-show, etc.).
+        </li>
       </ul>
 
       <h2>Changing what customers can book</h2>

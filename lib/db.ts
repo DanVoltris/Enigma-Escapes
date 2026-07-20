@@ -1,5 +1,6 @@
+import { randomUUID } from "crypto";
 import { rest, restError } from "./supabase";
-import type { Booking, Promo } from "./types";
+import type { ActivityEntry, Booking, BookingSource, Promo, StaffNote } from "./types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -12,6 +13,8 @@ type BookingRow = {
   promo_code: string | null;
   payment_option: Booking["paymentOption"];
   pricing: Booking["pricing"];
+  source: BookingSource;
+  no_show: boolean;
 };
 
 function toBooking(row: BookingRow): Booking {
@@ -24,6 +27,8 @@ function toBooking(row: BookingRow): Booking {
     promoCode: row.promo_code,
     paymentOption: row.payment_option,
     pricing: row.pricing,
+    source: row.source ?? "online",
+    noShow: row.no_show ?? false,
   };
 }
 
@@ -37,6 +42,8 @@ export async function saveBooking(booking: Booking): Promise<void> {
     promo_code: booking.promoCode,
     payment_option: booking.paymentOption,
     pricing: booking.pricing,
+    source: booking.source,
+    no_show: booking.noShow,
   };
   const res = await rest("bookings", {
     method: "POST",
@@ -44,6 +51,16 @@ export async function saveBooking(booking: Booking): Promise<void> {
     body: JSON.stringify(row),
   });
   if (!res.ok) throw await restError(res, "Saving the booking");
+}
+
+export async function setBookingNoShow(id: string, noShow: boolean): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ no_show: noShow }),
+  });
+  if (!res.ok) throw await restError(res, "Updating the booking");
 }
 
 export async function getBooking(id: string): Promise<Booking | undefined> {
@@ -125,4 +142,58 @@ export async function updatePromo(code: string, patch: { percentOff?: number; ac
     body: JSON.stringify(row),
   });
   if (!res.ok) throw await restError(res, "Updating the promo code");
+}
+
+// ---------- staff notes ----------
+
+type StaffNoteRow = { id: string; note: string; created_at: string };
+
+export async function listStaffNotes(): Promise<StaffNote[]> {
+  const res = await rest("staff_notes?select=*&order=created_at.desc");
+  if (!res.ok) throw await restError(res, "Loading staff notes");
+  return ((await res.json()) as StaffNoteRow[]).map((r) => ({ id: r.id, note: r.note, createdAt: r.created_at }));
+}
+
+export async function addStaffNote(note: string): Promise<void> {
+  const res = await rest("staff_notes", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ id: randomUUID(), note }),
+  });
+  if (!res.ok) throw await restError(res, "Saving the note");
+}
+
+export async function deleteStaffNote(id: string): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid note id.");
+  const res = await rest(`staff_notes?id=eq.${id}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+  if (!res.ok) throw await restError(res, "Deleting the note");
+}
+
+// ---------- activity log ----------
+
+type ActivityRow = { id: string; action: string; detail: string; created_at: string };
+
+// Best-effort audit trail. Never throws — a logging failure must not break the
+// action that triggered it.
+export async function logActivity(action: string, detail: string): Promise<void> {
+  try {
+    await rest("activity_log", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ id: randomUUID(), action, detail }),
+    });
+  } catch (err) {
+    console.error("activity log write failed:", err);
+  }
+}
+
+export async function listActivity(limit = 10): Promise<ActivityEntry[]> {
+  const res = await rest(`activity_log?select=*&order=created_at.desc&limit=${limit}`);
+  if (!res.ok) throw await restError(res, "Loading activity");
+  return ((await res.json()) as ActivityRow[]).map((r) => ({
+    id: r.id,
+    action: r.action,
+    detail: r.detail,
+    createdAt: r.created_at,
+  }));
 }

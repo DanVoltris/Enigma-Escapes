@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createExperience, getExperience, listExperiences } from "@/lib/experiences";
 import { parseExperienceInput, slugify } from "@/lib/experience-validation";
+import { logActivity } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     const all = await listExperiences();
     const sort = Math.max(0, ...all.map((e) => e.sort)) + 1;
     await createExperience({ ...parsed, id, sort });
+    await logActivity("Created experience", parsed.name);
     return NextResponse.json({ id }, { status: 201 });
   } catch (err) {
     console.error("creating experience failed:", err);

@@ -14,6 +14,10 @@ export type PeriodInsights = {
   outstandingCents: number; // balance due at venue
   depositBookings: number;
   fullBookings: number;
+  onlineBookings: number;
+  inPersonBookings: number;
+  noShowBookings: number;
+  noShowGuests: number;
   avgPerBookingCents: number;
   avgGuestsPerBooking: number;
   byWeekday: { weekday: string; totalCents: number; bookings: number }[];
@@ -41,6 +45,10 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
   let outstandingCents = 0;
   let depositBookings = 0;
   let fullBookings = 0;
+  let onlineBookings = 0;
+  let inPersonBookings = 0;
+  let noShowBookings = 0;
+  let noShowGuests = 0;
 
   for (const b of inRange) {
     const bookingGuests = b.items.reduce((s, i) => s + i.quantity, 0);
@@ -53,6 +61,12 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
     outstandingCents += b.pricing.balanceCents;
     if (b.paymentOption === "deposit") depositBookings += 1;
     else fullBookings += 1;
+    if (b.source === "in_person") inPersonBookings += 1;
+    else onlineBookings += 1;
+    if (b.noShow) {
+      noShowBookings += 1;
+      noShowGuests += bookingGuests;
+    }
 
     const wd = businessWeekdayOf(b.createdAt);
     const w = weekday.get(wd) ?? { totalCents: 0, bookings: 0 };
@@ -81,6 +95,10 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
     outstandingCents,
     depositBookings,
     fullBookings,
+    onlineBookings,
+    inPersonBookings,
+    noShowBookings,
+    noShowGuests,
     avgPerBookingCents: bookingsCount ? Math.round(totalCents / bookingsCount) : 0,
     avgGuestsPerBooking: bookingsCount ? guests / bookingsCount : 0,
     byWeekday: WEEKDAYS.map((wd) => ({

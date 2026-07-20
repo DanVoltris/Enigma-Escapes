@@ -68,6 +68,8 @@ export type BookingPricing = {
   balanceCents: number;
 };
 
+export type BookingSource = "online" | "in_person";
+
 export type Booking = {
   id: string;
   reference: string;
@@ -77,4 +79,19 @@ export type Booking = {
   promoCode: string | null;
   paymentOption: PaymentOption;
   pricing: BookingPricing;
+  source: BookingSource; // "online" = customer self-served; "in_person" = staff walk-in
+  noShow: boolean; // party did not turn up
+};
+
+export type StaffNote = {
+  id: string;
+  note: string;
+  createdAt: string;
+};
+
+export type ActivityEntry = {
+  id: string;
+  action: string;
+  detail: string;
+  createdAt: string;
 };

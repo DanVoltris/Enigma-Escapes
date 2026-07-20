@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPromo, getPromo } from "@/lib/db";
+import { createPromo, getPromo, logActivity } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `${code} already exists. Edit it in the list instead.` }, { status: 409 });
     }
     await createPromo({ code, percentOff, active: true });
+    await logActivity("Created promo code", `${code} — ${percentOff}% off`);
     return NextResponse.json({ code }, { status: 201 });
   } catch (err) {
     console.error("creating promo failed:", err);

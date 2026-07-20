@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPromo, updatePromo } from "@/lib/db";
+import { getPromo, logActivity, updatePromo } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
       return NextResponse.json({ error: "That code no longer exists." }, { status: 404 });
     }
     await updatePromo(code, { active: d.active });
+    await logActivity(d.active ? "Turned on promo code" : "Turned off promo code", code);
     return NextResponse.json({ code });
   } catch (err) {
     console.error("updating promo failed:", err);
