@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUpload from "@/components/manager/ImageUpload";
 import LocationPicker from "@/components/manager/LocationPicker";
 import TimesEditor from "@/components/manager/TimesEditor";
 import WeekEditor, { type WeekValue } from "@/components/manager/WeekEditor";
-import type { Experience, ScheduleMode, Windows } from "@/lib/types";
+import { formatTime } from "@/lib/format";
+import { WEEKDAY_NAMES } from "@/lib/schedule";
+import type { DayHours, Experience, ScheduleMode, Windows } from "@/lib/types";
 
 // Preset badge colour pairs (background / text) so managers pick from swatches
 // that already meet contrast, instead of a free-form OS colour picker.
@@ -78,6 +80,18 @@ export default function ExperienceForm({
   const [active, setActive] = useState(initial?.active ?? true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Store hours per location, for the read-only preview shown while a room
+  // follows store hours.
+  const [locationHours, setLocationHours] = useState<Record<string, Record<string, DayHours>>>({});
+  useEffect(() => {
+    fetch("/api/manager/hours")
+      .then((r) => r.json())
+      .then((d) => setLocationHours(d.hours ?? {}))
+      .catch(() => {});
+  }, []);
+  const hoursForLocation = locationHours[location];
+  const hasHours = !!hoursForLocation && Object.keys(hoursForLocation).length > 0;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -244,19 +258,40 @@ export default function ExperienceForm({
               </span>
             </label>
 
-            {followStoreHours && (
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: -4, marginBottom: 12 }}>
-                Set this location&apos;s hours on the <strong>Store hours</strong> tab. Uncheck above to edit the
-                window instead.
-              </p>
-            )}
-
-            <div
-              style={followStoreHours ? { opacity: 0.45, pointerEvents: "none" } : undefined}
-              aria-disabled={followStoreHours}
-            >
+            {followStoreHours ? (
+              hasHours ? (
+                <div className="mgr-hours-readonly">
+                  <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 10 }}>
+                    Using <strong>{location}</strong>&apos;s store hours (change them on the <strong>Store hours</strong>{" "}
+                    tab):
+                  </p>
+                  {WEEKDAY_NAMES.map((name, dow) => {
+                    const h = hoursForLocation?.[String(dow)];
+                    return (
+                      <div className="row" key={dow}>
+                        <span className="day">{name}</span>
+                        <span>{!h || h.closed ? "Closed" : `${formatTime(h.open)} – ${formatTime(h.close)}`}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p
+                  style={{
+                    fontSize: 14,
+                    color: "var(--text-secondary)",
+                    background: "var(--accent-tint)",
+                    padding: "12px 14px",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  No store hours set for <strong>{location || "this location"}</strong> yet. Set them on the{" "}
+                  <strong>Store hours</strong> tab, or uncheck &ldquo;Follow store hours&rdquo; to set a window here.
+                </p>
+              )
+            ) : (
               <WeekEditor value={week} onChange={setWeek} startLabel="First start" endLabel="Last start" />
-            </div>
+            )}
           </>
         )}
 

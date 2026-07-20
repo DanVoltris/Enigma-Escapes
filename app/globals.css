@@ -1540,6 +1540,23 @@ a:hover {
   accent-color: var(--accent);
 }
 
+/* read-only store-hours preview (shown while following store hours) */
+.mgr-hours-readonly {
+  max-width: 360px;
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+}
+.mgr-hours-readonly .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  font-size: 14px;
+}
+.mgr-hours-readonly .row .day {
+  font-weight: 600;
+}
+
 /* image upload preview + thumbnails */
 .mgr-image-preview {
   margin-bottom: 12px;

@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/db";
-import { upsertLocationHours } from "@/lib/hours";
+import { listLocationHours, upsertLocationHours } from "@/lib/hours";
 import { toMinutes } from "@/lib/schedule";
 import type { DayHours } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// All locations' hours as a map, for the experience form's read-only preview.
+export async function GET() {
+  try {
+    const all = await listLocationHours();
+    const hours: Record<string, Record<string, DayHours>> = {};
+    for (const h of all) hours[h.location] = h.hours;
+    return NextResponse.json({ hours });
+  } catch (err) {
+    console.error("loading store hours failed:", err);
+    return NextResponse.json({ error: "Could not load store hours." }, { status: 500 });
+  }
+}
 
 export async function POST(req: NextRequest) {
   let body: unknown;
