@@ -21,15 +21,39 @@ type TodayItem = { booking: Booking; item: CartItem };
 export default async function ManagerDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; view?: string }>;
 }) {
   const params = await searchParams;
-  const range = RANGES.find((r) => r.key === params.range) ?? RANGES[1];
+  const view = params.view === "performance" ? "performance" : "operations";
 
-  const [bookings, staffNotes, activity] = await Promise.all([listBookings(), listStaffNotes(), listActivity(8)]);
+  const bookings = await listBookings();
   const today = todayISO();
 
-  // ---------- today ----------
+  return (
+    <>
+      <h1 className="mgr-page-title">Dashboard</h1>
+
+      <nav className="mgr-subtabs" aria-label="Dashboard views">
+        <Link href="/manager" className={`mgr-subtab${view === "operations" ? " active" : ""}`}>
+          Operations
+        </Link>
+        <Link href="/manager?view=performance" className={`mgr-subtab${view === "performance" ? " active" : ""}`}>
+          Venue performance
+        </Link>
+      </nav>
+
+      {view === "operations" ? (
+        <OperationsView bookings={bookings} today={today} />
+      ) : (
+        <PerformanceView bookings={bookings} today={today} rangeKey={params.range} />
+      )}
+    </>
+  );
+}
+
+async function OperationsView({ bookings, today }: { bookings: Booking[]; today: string }) {
+  const [staffNotes, activity] = await Promise.all([listStaffNotes(), listActivity(8)]);
+
   const todayItems: TodayItem[] = [];
   for (const booking of bookings) {
     for (const item of booking.items) {
@@ -61,33 +85,10 @@ export default async function ManagerDashboard({
     })
     .sort((a, b) => a.item.time.localeCompare(b.item.time));
 
-  // ---------- period insights (this window vs the one before it) ----------
-  const from = addDaysISO(today, -(range.days - 1));
-  const prevTo = addDaysISO(from, -1);
-  const prevFrom = addDaysISO(prevTo, -(range.days - 1));
-  const cur = computeInsights(bookings, from, today);
-  const prev = computeInsights(bookings, prevFrom, prevTo);
-  const repeat = repeatCustomerRate(bookings);
-
-  const activeWeekdays = cur.byWeekday.filter((w) => w.bookings > 0);
-  const bestDay = activeWeekdays.reduce<(typeof activeWeekdays)[number] | null>(
-    (best, w) => (!best || w.totalCents > best.totalCents ? w : best),
-    null
-  );
-  const quietestDay =
-    activeWeekdays.length > 1
-      ? activeWeekdays.reduce((q, w) => (w.totalCents < q.totalCents ? w : q), activeWeekdays[0])
-      : null;
-  const topExperience = cur.byExperience[0] ?? null;
-
-  const collectedPct = cur.totalCents > 0 ? Math.round((cur.collectedCents / cur.totalCents) * 100) : 0;
-  const onlinePct = cur.bookings > 0 ? Math.round((cur.onlineBookings / cur.bookings) * 100) : 0;
-  const noShowRate = cur.guests > 0 ? (cur.noShowGuests / cur.guests) * 100 : 0;
   const recent = bookings.slice(0, 6);
 
   return (
     <>
-      <h1 className="mgr-page-title">Dashboard</h1>
       <p className="mgr-page-sub">What&apos;s happening at your venue today.</p>
 
       <div className="mgr-stats">
@@ -163,10 +164,106 @@ export default async function ManagerDashboard({
         )}
       </div>
 
-      {/* ---------------- performance ---------------- */}
-      <div className="mgr-actions-row" style={{ marginTop: 40 }}>
+      <div className="mgr-two-col">
+        <StaffNotes notes={staffNotes} />
+
+        <div className="mgr-card">
+          <h2>Recent activity</h2>
+          <p className="card-sub">Changes made in the portal, newest first.</p>
+          {activity.length === 0 ? (
+            <p className="mgr-empty">Nothing yet. Actions like editing a room or adding a promo show up here.</p>
+          ) : (
+            <ul className="mgr-activity">
+              {activity.map((a) => (
+                <li key={a.id}>
+                  <span className="act">{a.action}</span>
+                  <span className="det">{a.detail}</span>
+                  <span className="when">
+                    {new Date(a.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="mgr-card">
+        <h2>Latest bookings</h2>
+        <p className="card-sub">The most recent bookings across all dates.</p>
+        {recent.length === 0 ? (
+          <p className="mgr-empty">No bookings yet.</p>
+        ) : (
+          <div className="mgr-table-wrap">
+            <table className="mgr-table">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Customer</th>
+                  <th>Placed</th>
+                  <th className="num">Total</th>
+                  <th className="num">Paid</th>
+                  <th className="num">Balance due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((b) => (
+                  <tr key={b.id}>
+                    <td>
+                      <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
+                    </td>
+                    <td>
+                      {b.customer.firstName} {b.customer.lastName}
+                    </td>
+                    <td>{new Date(b.createdAt).toLocaleDateString("en-CA", { dateStyle: "medium" })}</td>
+                    <td className="num">{formatMoney(b.pricing.totalCents)}</td>
+                    <td className="num">{formatMoney(b.pricing.paidCents)}</td>
+                    <td className="num">
+                      {b.pricing.balanceCents > 0 ? (
+                        <strong style={{ color: "var(--danger)" }}>{formatMoney(b.pricing.balanceCents)}</strong>
+                      ) : (
+                        "Paid in full"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function PerformanceView({ bookings, today, rangeKey }: { bookings: Booking[]; today: string; rangeKey?: string }) {
+  const range = RANGES.find((r) => r.key === rangeKey) ?? RANGES[1];
+  const from = addDaysISO(today, -(range.days - 1));
+  const prevTo = addDaysISO(from, -1);
+  const prevFrom = addDaysISO(prevTo, -(range.days - 1));
+  const cur = computeInsights(bookings, from, today);
+  const prev = computeInsights(bookings, prevFrom, prevTo);
+  const repeat = repeatCustomerRate(bookings);
+
+  const activeWeekdays = cur.byWeekday.filter((w) => w.bookings > 0);
+  const bestDay = activeWeekdays.reduce<(typeof activeWeekdays)[number] | null>(
+    (best, w) => (!best || w.totalCents > best.totalCents ? w : best),
+    null
+  );
+  const quietestDay =
+    activeWeekdays.length > 1
+      ? activeWeekdays.reduce((q, w) => (w.totalCents < q.totalCents ? w : q), activeWeekdays[0])
+      : null;
+  const topExperience = cur.byExperience[0] ?? null;
+
+  const collectedPct = cur.totalCents > 0 ? Math.round((cur.collectedCents / cur.totalCents) * 100) : 0;
+  const onlinePct = cur.bookings > 0 ? Math.round((cur.onlineBookings / cur.bookings) * 100) : 0;
+  const noShowRate = cur.guests > 0 ? (cur.noShowGuests / cur.guests) * 100 : 0;
+
+  return (
+    <>
+      <div className="mgr-actions-row">
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Performance</h2>
           <p style={{ color: "var(--text-secondary)" }}>
             Bookings placed {formatDateLong(from)} — {formatDateLong(today)}. Arrows compare with the previous{" "}
             {range.days} days.
@@ -176,7 +273,7 @@ export default async function ManagerDashboard({
           {RANGES.map((r) => (
             <Link
               key={r.key}
-              href={`/manager?range=${r.key}`}
+              href={`/manager?view=performance&range=${r.key}`}
               className={`btn btn-outline${r.key === range.key ? " active" : ""}`}
             >
               {r.label}
@@ -309,8 +406,8 @@ export default async function ManagerDashboard({
                 <span>{cur.inPersonBookings} in-person</span>
               </div>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
-                Record a walk-in from{" "}
-                <Link href="/manager/bookings/new">New walk-in booking</Link> to grow the in-person share.
+                Record a walk-in from <Link href="/manager/bookings/new">New walk-in booking</Link> to grow the
+                in-person share.
               </p>
             </>
           )}
@@ -331,75 +428,6 @@ export default async function ManagerDashboard({
             <Link href="/manager/bookings">Bookings</Link>.
           </p>
         </div>
-      </div>
-
-      <div className="mgr-two-col">
-        <StaffNotes notes={staffNotes} />
-
-        <div className="mgr-card">
-          <h2>Recent activity</h2>
-          <p className="card-sub">Changes made in the portal, newest first.</p>
-          {activity.length === 0 ? (
-            <p className="mgr-empty">Nothing yet. Actions like editing a room or adding a promo show up here.</p>
-          ) : (
-            <ul className="mgr-activity">
-              {activity.map((a) => (
-                <li key={a.id}>
-                  <span className="act">{a.action}</span>
-                  <span className="det">{a.detail}</span>
-                  <span className="when">
-                    {new Date(a.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      <div className="mgr-card">
-        <h2>Latest bookings</h2>
-        <p className="card-sub">The most recent bookings across all dates.</p>
-        {recent.length === 0 ? (
-          <p className="mgr-empty">No bookings yet.</p>
-        ) : (
-          <div className="mgr-table-wrap">
-            <table className="mgr-table">
-              <thead>
-                <tr>
-                  <th>Reference</th>
-                  <th>Customer</th>
-                  <th>Placed</th>
-                  <th className="num">Total</th>
-                  <th className="num">Paid</th>
-                  <th className="num">Balance due</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((b) => (
-                  <tr key={b.id}>
-                    <td>
-                      <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
-                    </td>
-                    <td>
-                      {b.customer.firstName} {b.customer.lastName}
-                    </td>
-                    <td>{new Date(b.createdAt).toLocaleDateString("en-CA", { dateStyle: "medium" })}</td>
-                    <td className="num">{formatMoney(b.pricing.totalCents)}</td>
-                    <td className="num">{formatMoney(b.pricing.paidCents)}</td>
-                    <td className="num">
-                      {b.pricing.balanceCents > 0 ? (
-                        <strong style={{ color: "var(--danger)" }}>{formatMoney(b.pricing.balanceCents)}</strong>
-                      ) : (
-                        "Paid in full"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </>
   );

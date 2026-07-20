@@ -1089,6 +1089,28 @@ a:hover {
   font-weight: 700;
   margin-bottom: 4px;
 }
+.mgr-subtabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin: 18px 0 28px;
+}
+.mgr-subtab {
+  padding: 10px 2px 12px;
+  margin-right: 28px;
+  margin-bottom: -1px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+}
+.mgr-subtab:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+.mgr-subtab.active {
+  color: var(--link);
+  border-bottom-color: var(--accent);
+}
 .mgr-page-sub {
   color: var(--text-secondary);
   margin-bottom: 28px;
