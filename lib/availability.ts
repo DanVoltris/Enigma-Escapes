@@ -39,6 +39,7 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         minParty: exp.minParty,
         maxParty: Math.min(exp.maxParty, exp.capacity),
         isPrivate: exp.isPrivate,
+        depositPercent: exp.depositPercent,
         badgeBg: exp.badgeBg,
         badgeFg: exp.badgeFg,
         imageUrl: exp.imageUrl,

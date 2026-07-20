@@ -73,6 +73,7 @@ export default function ExperienceForm({
   const [minParty, setMinParty] = useState(String(initial?.minParty ?? 4));
   const [maxParty, setMaxParty] = useState(String(initial?.maxParty ?? initial?.capacity ?? 10));
   const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
+  const [depositPercent, setDepositPercent] = useState(String(initial?.depositPercent ?? 25));
   // Two visible choices: an opening-hours window (which can follow store hours),
   // and a specific list of times. Internally these map to the three schedule
   // modes: follow-store-hours = "store", custom window = "window", list = "times".
@@ -139,6 +140,7 @@ export default function ExperienceForm({
         minParty: Number(minParty),
         maxParty: Number(maxParty),
         private: isPrivate,
+        depositPercent: Number(depositPercent),
         scheduleMode,
         times: scheduleMode === "times" ? times : [],
         intervalMinutes: Number(interval),
@@ -268,6 +270,23 @@ export default function ExperienceForm({
             </span>
           </label>
         </div>
+      </div>
+
+      <div className="field" style={{ maxWidth: 340 }}>
+        <label htmlFor="deposit">
+          Deposit required (%) <span className="req">*</span>
+        </label>
+        <input
+          id="deposit"
+          type="text"
+          inputMode="decimal"
+          value={depositPercent}
+          onChange={(e) => setDepositPercent(e.target.value)}
+        />
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6 }}>
+          The share customers pay online now; the rest is collected at the venue. Set to 100 to require full payment
+          up front.
+        </p>
       </div>
 
       <div className="field">

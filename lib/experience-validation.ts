@@ -55,6 +55,11 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
   }
   const isPrivate = d.private === true || d.isPrivate === true;
 
+  const depositPercent = Number(d.depositPercent);
+  if (!Number.isFinite(depositPercent) || depositPercent < 0 || depositPercent > 100) {
+    return { error: "Deposit must be between 0 and 100 percent (100 = full payment required)." };
+  }
+
   const priceCents = Number(d.priceCents);
   if (!Number.isInteger(priceCents) || priceCents < 0 || priceCents > 100000) {
     return { error: "Price per person must be between $0 and $1000." };
@@ -136,6 +141,7 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     minParty,
     maxParty,
     isPrivate,
+    depositPercent,
     scheduleMode,
     times,
     intervalMinutes,

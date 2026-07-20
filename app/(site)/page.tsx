@@ -163,6 +163,7 @@ export default function BrowsePage() {
       quantity,
       priceCents: slot.priceCents,
       durationMinutes: slot.durationMinutes,
+      depositPercent: slot.depositPercent,
       badgeBg: slot.badgeBg,
       badgeFg: slot.badgeFg,
     });

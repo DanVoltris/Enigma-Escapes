@@ -50,6 +50,12 @@ export default function PaymentPage() {
   }, [items.length, customer, router]);
 
   const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent);
+  // Only offer the deposit option when it's actually less than the full amount
+  // (an all-100%-deposit cart requires full payment up front).
+  const depositOffered = totals.depositCents < totals.totalCents;
+  useEffect(() => {
+    if (!depositOffered && paymentOption === "deposit") setPaymentOption("full");
+  }, [depositOffered, paymentOption, setPaymentOption]);
   const dueNow = amountDueCents(totals, paymentOption);
 
   async function applyPromo() {
@@ -177,17 +183,23 @@ export default function PaymentPage() {
                 Pay full balance — <span className="amount">{formatMoney(totals.totalCents)}</span>
               </span>
             </label>
-            <label className={`pay-option ${paymentOption === "deposit" ? "selected" : ""}`}>
-              <input
-                type="radio"
-                name="paymentOption"
-                checked={paymentOption === "deposit"}
-                onChange={() => setPaymentOption("deposit")}
-              />
-              <span>
-                Pay deposit (25%) — <span className="amount">{formatMoney(totals.depositCents)}</span>
-              </span>
-            </label>
+            {depositOffered && (
+              <label className={`pay-option ${paymentOption === "deposit" ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="paymentOption"
+                  checked={paymentOption === "deposit"}
+                  onChange={() => setPaymentOption("deposit")}
+                />
+                <span>
+                  Pay deposit — <span className="amount">{formatMoney(totals.depositCents)}</span>
+                  <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>
+                    {" "}
+                    (then {formatMoney(totals.totalCents - totals.depositCents)} at the venue)
+                  </span>
+                </span>
+              </label>
+            )}
           </div>
 
           <form className="form-card" onSubmit={completeBooking} noValidate>

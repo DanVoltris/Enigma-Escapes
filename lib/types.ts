@@ -22,6 +22,7 @@ export type Experience = {
   minParty: number; // smallest party per booking (online); staff walk-ins can go lower
   maxParty: number; // largest party per booking (<= capacity)
   isPrivate: boolean; // one booking per time slot (whole game is exclusive)
+  depositPercent: number; // deposit required for this experience (0-100; 100 = full payment)
   scheduleMode: ScheduleMode;
   times: string[]; // "times" mode: explicit 24h "HH:MM" starts, every day
   intervalMinutes: number; // "window"/"store" modes: minutes between starts
@@ -56,6 +57,7 @@ export type Slot = {
   minParty: number;
   maxParty: number;
   isPrivate: boolean;
+  depositPercent: number;
   badgeBg: string;
   badgeFg: string;
   imageUrl: string | null;
@@ -70,6 +72,7 @@ export type CartItem = {
   quantity: number;
   priceCents: number;
   durationMinutes: number;
+  depositPercent: number; // carried from the experience so totals can blend deposits
   badgeBg: string;
   badgeFg: string;
 };

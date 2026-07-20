@@ -104,6 +104,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
         quantity,
         priceCents: exp.priceCents,
         durationMinutes: exp.durationMinutes,
+        depositPercent: exp.depositPercent,
         badgeBg: exp.badgeBg,
         badgeFg: exp.badgeFg,
       });
