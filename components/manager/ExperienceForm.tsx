@@ -59,7 +59,13 @@ export default function ExperienceForm({
   const [duration, setDuration] = useState(String(initial?.durationMinutes ?? 60));
   const [capacity, setCapacity] = useState(String(initial?.capacity ?? 10));
   const [price, setPrice] = useState(initial ? (initial.priceCents / 100).toFixed(2) : "30.00");
-  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>(initial?.scheduleMode ?? "times");
+  // Two visible choices: an opening-hours window (which can follow store hours),
+  // and a specific list of times. Internally these map to the three schedule
+  // modes: follow-store-hours = "store", custom window = "window", list = "times".
+  const [scheduleKind, setScheduleKind] = useState<"opening" | "times">(
+    initial?.scheduleMode === "times" ? "times" : "opening"
+  );
+  const [followStoreHours, setFollowStoreHours] = useState<boolean>(initial?.scheduleMode !== "window");
   const [times, setTimes] = useState<string[]>(initial?.times?.length ? initial.times : DEFAULT_TIMES);
   const [interval, setInterval] = useState(String(initial?.intervalMinutes ?? 75));
   const [week, setWeek] = useState<WeekValue>(initial?.windows ? windowsToWeek(initial.windows) : DEFAULT_WEEK);
@@ -82,7 +88,7 @@ export default function ExperienceForm({
       setError("Enter the price per person in dollars, e.g. 30 or 32.50.");
       return;
     }
-    if (scheduleMode === "times" && times.length === 0) {
+    if (scheduleKind === "times" && times.length === 0) {
       setError("Add at least one daily start time.");
       return;
     }
@@ -90,6 +96,9 @@ export default function ExperienceForm({
       setError("Upload a poster image, or switch to a colour poster.");
       return;
     }
+
+    const scheduleMode: ScheduleMode =
+      scheduleKind === "times" ? "times" : followStoreHours ? "store" : "window";
 
     setSaving(true);
     try {
@@ -199,46 +208,59 @@ export default function ExperienceForm({
           When can people book? <span className="req">*</span>
         </label>
         <div className="pay-options" style={{ marginBottom: 16 }}>
-          <label className={`pay-option ${scheduleMode === "times" ? "selected" : ""}`}>
-            <input type="radio" checked={scheduleMode === "times"} onChange={() => setScheduleMode("times")} />
+          <label className={`pay-option ${scheduleKind === "opening" ? "selected" : ""}`}>
+            <input type="radio" checked={scheduleKind === "opening"} onChange={() => setScheduleKind("opening")} />
+            <span>Daily window — start times generated through the day</span>
+          </label>
+          <label className={`pay-option ${scheduleKind === "times" ? "selected" : ""}`}>
+            <input type="radio" checked={scheduleKind === "times"} onChange={() => setScheduleKind("times")} />
             <span>Specific times — I list the exact start times</span>
-          </label>
-          <label className={`pay-option ${scheduleMode === "window" ? "selected" : ""}`}>
-            <input type="radio" checked={scheduleMode === "window"} onChange={() => setScheduleMode("window")} />
-            <span>Daily window — a first and last start per weekday</span>
-          </label>
-          <label className={`pay-option ${scheduleMode === "store" ? "selected" : ""}`}>
-            <input type="radio" checked={scheduleMode === "store"} onChange={() => setScheduleMode("store")} />
-            <span>Follow store hours — starts run until closing minus the game length</span>
           </label>
         </div>
 
-        {scheduleMode === "times" && <TimesEditor value={times} onChange={setTimes} />}
+        {scheduleKind === "opening" && (
+          <>
+            <div className="field" style={{ maxWidth: 260 }}>
+              <label htmlFor="interval">Minutes between start times</label>
+              <input
+                id="interval"
+                type="text"
+                inputMode="numeric"
+                value={interval}
+                onChange={(e) => setInterval(e.target.value)}
+              />
+            </div>
 
-        {scheduleMode !== "times" && (
-          <div className="field" style={{ maxWidth: 260 }}>
-            <label htmlFor="interval">Minutes between start times</label>
-            <input
-              id="interval"
-              type="text"
-              inputMode="numeric"
-              value={interval}
-              onChange={(e) => setInterval(e.target.value)}
-            />
-          </div>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={followStoreHours}
+                onChange={(e) => setFollowStoreHours(e.target.checked)}
+              />
+              <span>
+                Follow store hours — generate starts from <strong>{location || "this location"}</strong>&apos;s
+                opening hours, up to closing minus the {duration}-minute game length. Uncheck to set your own window
+                per day below.
+              </span>
+            </label>
+
+            {followStoreHours && (
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: -4, marginBottom: 12 }}>
+                Set this location&apos;s hours on the <strong>Store hours</strong> tab. Uncheck above to edit the
+                window instead.
+              </p>
+            )}
+
+            <div
+              style={followStoreHours ? { opacity: 0.45, pointerEvents: "none" } : undefined}
+              aria-disabled={followStoreHours}
+            >
+              <WeekEditor value={week} onChange={setWeek} startLabel="First start" endLabel="Last start" />
+            </div>
+          </>
         )}
 
-        {scheduleMode === "window" && (
-          <WeekEditor value={week} onChange={setWeek} startLabel="First start" endLabel="Last start" />
-        )}
-
-        {scheduleMode === "store" && (
-          <p style={{ fontSize: 14, color: "var(--text-secondary)", background: "var(--accent-tint)", padding: "12px 14px", border: "1px solid var(--border)" }}>
-            Start times are generated from <strong>{location || "this location"}</strong>&apos;s opening hours, up to
-            closing time minus the {duration}-minute game length. Set the opening hours on the{" "}
-            <strong>Store hours</strong> tab.
-          </p>
-        )}
+        {scheduleKind === "times" && <TimesEditor value={times} onChange={setTimes} />}
       </div>
 
       <h3>Poster</h3>
