@@ -6,8 +6,6 @@ import ImageUpload from "@/components/manager/ImageUpload";
 import LocationPicker from "@/components/manager/LocationPicker";
 import TimesEditor from "@/components/manager/TimesEditor";
 import WeekEditor, { type WeekValue } from "@/components/manager/WeekEditor";
-import { formatTime } from "@/lib/format";
-import { WEEKDAY_NAMES } from "@/lib/schedule";
 import type { DayHours, Experience, ScheduleMode, Windows } from "@/lib/types";
 
 // Preset badge colour pairs (background / text) so managers pick from swatches
@@ -44,6 +42,17 @@ function weekToWindows(week: WeekValue): Windows {
     out[k] = { first: v.start, last: v.end, closed: v.closed };
   }
   return out;
+}
+
+// Store hours shown (read-only) in the grid while following them. Days without
+// hours, or marked closed, show as closed.
+function hoursToDisplayWeek(hours?: Record<string, DayHours>): WeekValue {
+  const w: WeekValue = {};
+  for (let d = 0; d < 7; d++) {
+    const h = hours?.[String(d)];
+    w[String(d)] = h && !h.closed ? { start: h.open, end: h.close, closed: false } : { start: "10:00", end: "22:00", closed: true };
+  }
+  return w;
 }
 
 export default function ExperienceForm({
@@ -259,36 +268,36 @@ export default function ExperienceForm({
             </label>
 
             {followStoreHours ? (
-              hasHours ? (
-                <div className="mgr-hours-readonly">
+              <>
+                {hasHours ? (
                   <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 10 }}>
-                    Using <strong>{location}</strong>&apos;s store hours (change them on the <strong>Store hours</strong>{" "}
-                    tab):
+                    Showing <strong>{location}</strong>&apos;s store hours (change them on the <strong>Store hours</strong>{" "}
+                    tab). The last start each day is closing minus the {duration}-minute game.
                   </p>
-                  {WEEKDAY_NAMES.map((name, dow) => {
-                    const h = hoursForLocation?.[String(dow)];
-                    return (
-                      <div className="row" key={dow}>
-                        <span className="day">{name}</span>
-                        <span>{!h || h.closed ? "Closed" : `${formatTime(h.open)} – ${formatTime(h.close)}`}</span>
-                      </div>
-                    );
-                  })}
+                ) : (
+                  <p
+                    style={{
+                      fontSize: 14,
+                      color: "var(--text-secondary)",
+                      background: "var(--accent-tint)",
+                      padding: "12px 14px",
+                      border: "1px solid var(--border)",
+                      marginBottom: 12,
+                    }}
+                  >
+                    No store hours set for <strong>{location || "this location"}</strong> yet. Set them on the{" "}
+                    <strong>Store hours</strong> tab, or uncheck &ldquo;Follow store hours&rdquo; to set a window here.
+                  </p>
+                )}
+                <div style={{ opacity: 0.55, pointerEvents: "none" }} aria-disabled="true">
+                  <WeekEditor
+                    value={hoursToDisplayWeek(hoursForLocation)}
+                    onChange={() => {}}
+                    startLabel="Opens"
+                    endLabel="Closes"
+                  />
                 </div>
-              ) : (
-                <p
-                  style={{
-                    fontSize: 14,
-                    color: "var(--text-secondary)",
-                    background: "var(--accent-tint)",
-                    padding: "12px 14px",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  No store hours set for <strong>{location || "this location"}</strong> yet. Set them on the{" "}
-                  <strong>Store hours</strong> tab, or uncheck &ldquo;Follow store hours&rdquo; to set a window here.
-                </p>
-              )
+              </>
             ) : (
               <WeekEditor value={week} onChange={setWeek} startLabel="First start" endLabel="Last start" />
             )}
