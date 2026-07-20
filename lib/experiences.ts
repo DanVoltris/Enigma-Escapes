@@ -63,6 +63,15 @@ export async function listExperiences(opts?: { activeOnly?: boolean }): Promise<
   return ((await res.json()) as ExperienceRow[]).map(toExperience);
 }
 
+// Distinct location names across all experiences, in first-seen order.
+export async function listLocations(): Promise<string[]> {
+  const experiences = await listExperiences();
+  return experiences.reduce<string[]>((acc, e) => {
+    if (!acc.includes(e.location)) acc.push(e.location);
+    return acc;
+  }, []);
+}
+
 export async function getExperience(id: string): Promise<Experience | undefined> {
   const res = await rest(`experiences?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
   if (!res.ok) throw await restError(res, "Loading the experience");

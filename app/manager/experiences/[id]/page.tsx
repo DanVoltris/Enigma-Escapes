@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ExperienceForm from "@/components/manager/ExperienceForm";
-import { getExperience } from "@/lib/experiences";
+import { getExperience, listLocations } from "@/lib/experiences";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditExperiencePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const experience = await getExperience(id);
+  const [experience, locations] = await Promise.all([getExperience(id), listLocations()]);
   if (!experience) notFound();
 
   return (
@@ -20,7 +20,7 @@ export default async function EditExperiencePage({ params }: { params: Promise<{
         Changes apply to new bookings only — existing bookings keep the price they were sold at. To take
         this room off the booking site without deleting it, untick the box at the bottom.
       </p>
-      <ExperienceForm initial={experience} />
+      <ExperienceForm initial={experience} locations={locations} />
     </>
   );
 }

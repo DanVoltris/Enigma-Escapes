@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUpload from "@/components/manager/ImageUpload";
+import LocationPicker from "@/components/manager/LocationPicker";
 import TimesEditor from "@/components/manager/TimesEditor";
 import type { Experience } from "@/lib/types";
 
@@ -21,10 +22,16 @@ const COLOR_PRESETS: { bg: string; fg: string; name: string }[] = [
 
 const DEFAULT_TIMES = ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00", "20:30"];
 
-export default function ExperienceForm({ initial }: { initial?: Experience }) {
+export default function ExperienceForm({
+  initial,
+  locations = [],
+}: {
+  initial?: Experience;
+  locations?: string[];
+}) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
-  const [location, setLocation] = useState(initial?.location ?? "");
+  const [location, setLocation] = useState(initial?.location ?? locations[0] ?? "");
   const [tagline, setTagline] = useState(initial?.tagline ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [duration, setDuration] = useState(String(initial?.durationMinutes ?? 60));
@@ -103,16 +110,10 @@ export default function ExperienceForm({ initial }: { initial?: Experience }) {
           <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="field">
-          <label htmlFor="location">
+          <label>
             Location <span className="req">*</span>
           </label>
-          <input
-            id="location"
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Downtown location"
-          />
+          <LocationPicker value={location} onChange={setLocation} locations={locations} />
         </div>
       </div>
       <div className="field">
