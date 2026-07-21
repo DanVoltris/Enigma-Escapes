@@ -1,6 +1,6 @@
 import Link from "next/link";
+import CustomerRow from "@/components/manager/CustomerRow";
 import { listBookings } from "@/lib/db";
-import { formatMoney } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -97,24 +97,16 @@ export default async function ManagerCustomers({
             </thead>
             <tbody>
               {customers.map((c) => (
-                <tr key={c.email}>
-                  <td>
-                    <Link href={`/manager/bookings?scope=all&q=${encodeURIComponent(c.email)}`}>{c.name}</Link>
-                  </td>
-                  <td>
-                    {c.email}
-                    <br />
-                    <span style={{ color: "var(--text-secondary)" }}>{c.phone}</span>
-                  </td>
-                  <td className="num">{c.bookings}</td>
-                  <td className="num">{c.guests}</td>
-                  <td className="num">{formatMoney(c.spentCents)}</td>
-                  <td>
-                    <span className={`mgr-pill${c.subscribed ? " on" : ""}`}>
-                      {c.subscribed ? "Subscribed" : "Not subscribed"}
-                    </span>
-                  </td>
-                </tr>
+                <CustomerRow
+                  key={c.email}
+                  name={c.name}
+                  email={c.email}
+                  phone={c.phone}
+                  bookings={c.bookings}
+                  guests={c.guests}
+                  spentCents={c.spentCents}
+                  subscribed={c.subscribed}
+                />
               ))}
             </tbody>
           </table>
