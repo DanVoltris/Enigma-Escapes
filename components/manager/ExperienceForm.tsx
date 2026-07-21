@@ -72,7 +72,9 @@ export default function ExperienceForm({
   const [price, setPrice] = useState(initial ? (initial.priceCents / 100).toFixed(2) : "30.00");
   const [minParty, setMinParty] = useState(String(initial?.minParty ?? 4));
   const [maxParty, setMaxParty] = useState(String(initial?.maxParty ?? initial?.capacity ?? 10));
-  const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
+  // New experiences default to Private (one exclusive group per slot); editing an
+  // existing experience keeps its saved value.
+  const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? true);
   const [depositPercent, setDepositPercent] = useState(String(initial?.depositPercent ?? 25));
   // Two visible choices: an opening-hours window (which can follow store hours),
   // and a specific list of times. Internally these map to the three schedule
