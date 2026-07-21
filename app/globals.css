@@ -245,6 +245,10 @@ a:hover {
 .selectmenu,
 .datepicker {
   position: relative;
+  /* Shrink to the trigger button so the empty flanks of a full-width form cell
+     aren't counted as "inside" the popover — otherwise clicking beside/above the
+     calendar wouldn't dismiss it. */
+  width: fit-content;
 }
 .selectmenu-trigger,
 .datepicker-trigger {
