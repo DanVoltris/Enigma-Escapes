@@ -1400,10 +1400,23 @@ a:hover {
   background: var(--accent);
   color: var(--accent-dark);
 }
-.mgr-cal a.cell:hover {
+/* a booked cell is a <button> that opens the session panel; make it look and
+   behave exactly like the old link cell (backgrounds come from .some/.full). */
+.mgr-cal button.cell {
+  width: 100%;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.mgr-cal a.cell:hover,
+.mgr-cal button.cell:hover {
   outline: 2px solid var(--accent-hover);
   outline-offset: -2px;
   text-decoration: none;
+}
+.mgr-cal button.cell:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: -2px;
 }
 .mgr-legend {
   display: flex;
@@ -1420,6 +1433,150 @@ a:hover {
   border: 1px solid var(--border);
   vertical-align: -2px;
   margin-right: 6px;
+}
+
+/* a button styled as an inline text link (list-view "View bookings") */
+.mgr-linklike {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-dark);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mgr-linklike:hover {
+  color: var(--text);
+}
+
+/* session detail slide-over (calendar) */
+.mgr-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 37, 64, 0.35);
+  z-index: 40;
+}
+.mgr-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 92vw;
+  background: #fff;
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(11, 37, 64, 0.12);
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.mgr-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.mgr-drawer-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.mgr-drawer-head .loc {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.mgr-drawer-head .dt {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.mgr-drawer-close {
+  border: 0;
+  background: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.mgr-drawer-close:hover {
+  color: var(--text);
+}
+.mgr-drawer-body {
+  padding: 16px 20px 24px;
+  overflow-y: auto;
+}
+.mgr-drawer-count {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+.mgr-drawer-card {
+  border: 1px solid var(--border);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.mgr-drawer-cust {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.mgr-drawer-cust .name {
+  display: block;
+  font-weight: 700;
+  font-size: 16px;
+}
+.mgr-drawer-cust .email {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.mgr-drawer-cust:hover .name {
+  text-decoration: underline;
+}
+.mgr-drawer-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.mgr-drawer-money {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.mgr-drawer-money .k {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mgr-drawer-money .due {
+  color: var(--danger);
+  font-weight: 700;
+}
+.mgr-drawer-view {
+  display: inline-block;
+  font-size: 14px;
+}
+.mgr-drawer-all {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 14px;
 }
 
 /* forms */

@@ -102,6 +102,16 @@ export async function bookedCount(roomId: string, date: string, time: string): P
   return counts.get(`${roomId}|${time}`) ?? 0;
 }
 
+// Every booking that touches one date, newest first. Same scoped jsonb-contains
+// query as bookedCountsForDate, but returns the full bookings so the calendar
+// can show each session's customers and balances (and derive its own counts).
+export async function bookingsForDate(date: string): Promise<Booking[]> {
+  const filter = encodeURIComponent(JSON.stringify([{ date }]));
+  const res = await rest(`bookings?select=*&items=cs.${filter}&order=created_at.desc`);
+  if (!res.ok) throw await restError(res, "Loading the day's bookings");
+  return ((await res.json()) as BookingRow[]).map(toBooking);
+}
+
 // ---------- promo codes ----------
 
 type PromoRow = { code: string; percent_off: number; active: boolean };
