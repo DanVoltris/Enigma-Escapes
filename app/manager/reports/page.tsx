@@ -6,7 +6,7 @@ import { listBookings } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { locationHoursMap } from "@/lib/hours";
 import { startTimesFor } from "@/lib/schedule";
-import { addDaysISO, businessDateOf, formatDateLong, formatMoney, isValidISODate, todayISO } from "@/lib/format";
+import { addDaysISO, businessDateOf, dateBadgeParts, formatDateLong, formatMoney, isValidISODate, todayISO } from "@/lib/format";
 import type { Booking } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +43,9 @@ function eachDay(from: string, to: string): string[] {
 }
 
 function shortDay(d: string, span: number): string {
-  return span <= 8 ? formatDateLong(d).slice(0, 6) : d.slice(5);
+  if (span > 8) return d.slice(5); // "07-21"
+  const p = dateBadgeParts(d);
+  return `${p.weekday} ${p.day}`; // "TUE 21"
 }
 
 // Signed percent change vs the previous period; null when there's no baseline.

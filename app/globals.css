@@ -1680,6 +1680,20 @@ a:hover {
   flex-shrink: 0;
   border: 1px solid var(--border);
 }
+/* chart hover tooltip (follows the crosshair / cursor) */
+.chart-tip {
+  position: absolute;
+  transform: translate(-50%, -115%);
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(11, 37, 64, 0.15);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
 
 /* cards & tables */
 .mgr-card {
