@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from "@/components/manager/CustomerTabs";
 import { listBookings } from "@/lib/db";
+import { listExperiences } from "@/lib/experiences";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+function initials(first: string, last: string): string {
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "?";
+}
 
 export default async function ManagerCustomerDetail({
   params,
@@ -13,126 +19,188 @@ export default async function ManagerCustomerDetail({
   const { email: rawEmail } = await params;
   const email = decodeURIComponent(rawEmail).toLowerCase();
 
-  const all = await listBookings();
+  const [all, experiences] = await Promise.all([listBookings(), listExperiences()]);
   const bookings = all
     .filter((b) => b.customer.email.toLowerCase() === email)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   if (bookings.length === 0) notFound();
 
+  const expMap = new Map(experiences.map((e) => [e.id, e]));
+
   // Most recent booking holds the freshest contact details.
   const latest = bookings[0];
   const { customer } = latest;
-  const name = `${customer.firstName} ${customer.lastName}`;
+  const name = `${customer.firstName} ${customer.lastName}`.trim();
+  const since = bookings[bookings.length - 1].createdAt.slice(0, 10);
+  const guests = bookings.reduce((s, b) => s + b.items.reduce((t, i) => t + i.quantity, 0), 0);
 
-  const guests = bookings.reduce(
-    (s, b) => s + b.items.reduce((t, i) => t + i.quantity, 0),
-    0
+  // Lifetime money totals across every booking (real pricing, incl. tax).
+  const sum = (f: (p: (typeof bookings)[number]["pricing"]) => number) =>
+    bookings.reduce((s, b) => s + f(b.pricing), 0);
+  const totals = {
+    subtotal: sum((p) => p.subtotalCents),
+    discount: sum((p) => p.discountCents),
+    tax: sum((p) => p.gstCents),
+    total: sum((p) => p.totalCents),
+    paid: sum((p) => p.paidCents),
+    due: sum((p) => p.balanceCents),
+  };
+
+  const purchases: Purchase[] = bookings.flatMap((b) =>
+    b.items.map((i) => ({
+      bookingId: b.id,
+      reference: b.reference,
+      roomName: i.roomName,
+      imageUrl: expMap.get(i.roomId)?.imageUrl ?? null,
+      badgeBg: i.badgeBg,
+      badgeFg: i.badgeFg,
+      when: `${formatDateLong(i.date)} · ${formatTime(i.time)}`,
+      duration: `${i.durationMinutes} min`,
+      quantity: i.quantity,
+      amountCents: i.priceCents * i.quantity,
+    }))
   );
-  const paidCents = bookings.reduce((s, b) => s + b.pricing.paidCents, 0);
-  const balanceCents = bookings.reduce((s, b) => s + b.pricing.balanceCents, 0);
+  const payments: Payment[] = bookings.map((b) => ({
+    bookingId: b.id,
+    reference: b.reference,
+    method: b.paymentOption === "deposit" ? "Deposit" : "Paid in full",
+    totalCents: b.pricing.totalCents,
+    paidCents: b.pricing.paidCents,
+    balanceCents: b.pricing.balanceCents,
+  }));
+  const taxes: Tax[] = bookings.map((b) => ({
+    bookingId: b.id,
+    reference: b.reference,
+    subtotalCents: b.pricing.subtotalCents,
+    gstCents: b.pricing.gstCents,
+  }));
+  const promos: Promo[] = bookings
+    .filter((b) => b.promoCode)
+    .map((b) => ({ bookingId: b.id, reference: b.reference, code: b.promoCode as string }));
 
   return (
     <>
-      <p style={{ marginBottom: 16 }}>
+      <div className="cust-topbar">
         <Link href="/manager/customers">← Back to all customers</Link>
-      </p>
-      <h1 className="mgr-page-title">{name}</h1>
-      <p className="mgr-page-sub">
-        Customer since {formatDateLong(bookings[bookings.length - 1].createdAt.slice(0, 10))}.
-      </p>
-
-      <div className="mgr-card">
-        <h2>Contact</h2>
-        <p>
-          <a href={`mailto:${customer.email}`}>{customer.email}</a>
-          <br />
-          <a href={`tel:${customer.phone}`}>{customer.phone}</a>
-          <br />
-          <span style={{ color: "var(--text-secondary)" }}>
-            {customer.subscribe ? "Subscribed to marketing emails" : "Not subscribed to marketing emails"}
-          </span>
-        </p>
-      </div>
-
-      <div className="mgr-stats">
-        <div className="mgr-stat">
-          <div className="label">Bookings</div>
-          <div className="value">{bookings.length}</div>
-          <div className="hint">to date</div>
-        </div>
-        <div className="mgr-stat">
-          <div className="label">Guests brought</div>
-          <div className="value">{guests}</div>
-          <div className="hint">across all bookings</div>
-        </div>
-        <div className="mgr-stat">
-          <div className="label">Paid to date</div>
-          <div className="value">{formatMoney(paidCents)}</div>
-          <div className="hint">collected at booking</div>
-        </div>
-        <div className="mgr-stat">
-          <div className="label">Balance due</div>
-          <div className="value">{formatMoney(balanceCents)}</div>
-          <div className="hint">{balanceCents > 0 ? "collect at the venue" : "nothing owing"}</div>
+        <div className="cust-topbar-actions">
+          <a href={`mailto:${customer.email}`} className="btn btn-outline">
+            Email
+          </a>
+          <Link href="/manager/bookings/new" className="btn">
+            + New booking
+          </Link>
         </div>
       </div>
 
-      <div className="mgr-card">
-        <h2>Bookings</h2>
-        <div className="mgr-table-wrap">
-          <table className="mgr-table">
-            <thead>
-              <tr>
-                <th>Reference</th>
-                <th>Sessions</th>
-                <th className="num">Guests</th>
-                <th className="num">Total</th>
-                <th className="num">Paid</th>
-                <th className="num">Balance due</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((b) => (
-                <tr key={b.id}>
-                  <td>
-                    <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
-                    {b.source === "in_person" && (
-                      <>
-                        <br />
-                        <span className="mgr-pill">In-person</span>
-                      </>
-                    )}
-                    {b.noShow && (
-                      <>
-                        <br />
-                        <span className="mgr-pill" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
-                          No-show
-                        </span>
-                      </>
-                    )}
-                  </td>
-                  <td>
-                    {b.items.map((i, idx) => (
-                      <div key={idx}>
-                        {i.roomName} — {formatDateLong(i.date)}, {formatTime(i.time)}
+      <div className="cust-profile">
+        <aside className="cust-side">
+          <div className="cust-avatar" aria-hidden="true">
+            {initials(customer.firstName, customer.lastName)}
+          </div>
+          <h1 className="cust-name">{name}</h1>
+          <p className="cust-since">Customer since {formatDateLong(since)}</p>
+
+          <dl className="cust-facts">
+            <div>
+              <dt>Bookings</dt>
+              <dd>{bookings.length}</dd>
+            </div>
+            <div>
+              <dt>Guests brought</dt>
+              <dd>{guests}</dd>
+            </div>
+          </dl>
+
+          <div className="cust-info">
+            <h2>Information</h2>
+            <p>
+              <span className="cust-info-row">
+                <span className="ico" aria-hidden="true">✉</span>
+                <a href={`mailto:${customer.email}`}>{customer.email}</a>
+              </span>
+              <span className="cust-info-row">
+                <span className="ico" aria-hidden="true">☎</span>
+                <a href={`tel:${customer.phone}`}>{customer.phone}</a>
+              </span>
+              <span className="cust-info-row">
+                <span className="ico" aria-hidden="true">✦</span>
+                <span className="sub">
+                  {customer.subscribe ? "Subscribed to marketing emails" : "Not subscribed to marketing emails"}
+                </span>
+              </span>
+            </p>
+          </div>
+        </aside>
+
+        <div className="cust-main">
+          <div className="mgr-card">
+            <CustomerTabs purchases={purchases} payments={payments} taxes={taxes} promos={promos} />
+
+            <div className="cust-totals">
+              <div>
+                <div className="label">Subtotal</div>
+                <div className="value">{formatMoney(totals.subtotal)}</div>
+              </div>
+              {totals.discount > 0 && (
+                <div>
+                  <div className="label">Discounts</div>
+                  <div className="value">−{formatMoney(totals.discount)}</div>
+                </div>
+              )}
+              <div>
+                <div className="label">Taxes</div>
+                <div className="value">{formatMoney(totals.tax)}</div>
+              </div>
+              <div>
+                <div className="label">Total</div>
+                <div className="value">{formatMoney(totals.total)}</div>
+              </div>
+              <div>
+                <div className="label">Total paid</div>
+                <div className="value">{formatMoney(totals.paid)}</div>
+              </div>
+              <div>
+                <div className="label">Total due</div>
+                <div className={`value${totals.due > 0 ? " due" : ""}`}>{formatMoney(totals.due)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mgr-two-col">
+            <div className="mgr-card">
+              <h2>Activity</h2>
+              <ul className="cust-activity">
+                {bookings.map((b) => {
+                  const created = new Date(b.createdAt);
+                  const rooms = Array.from(new Set(b.items.map((i) => i.roomName))).join(", ");
+                  return (
+                    <li key={b.id}>
+                      <span className="dot" aria-hidden="true">
+                        {initials(customer.firstName, customer.lastName)}
+                      </span>
+                      <div className="body">
+                        <div>
+                          {b.source === "in_person" ? "Walk-in booking" : "Online booking"}{" "}
+                          <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link> created for {rooms} —{" "}
+                          {formatMoney(b.pricing.totalCents)}
+                          {b.noShow ? " · marked no-show" : ""}
+                        </div>
+                        <div className="when">
+                          {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                        </div>
                       </div>
-                    ))}
-                  </td>
-                  <td className="num">{b.items.reduce((s, i) => s + i.quantity, 0)}</td>
-                  <td className="num">{formatMoney(b.pricing.totalCents)}</td>
-                  <td className="num">{formatMoney(b.pricing.paidCents)}</td>
-                  <td className="num">
-                    {b.pricing.balanceCents > 0 ? (
-                      <strong style={{ color: "var(--danger)" }}>{formatMoney(b.pricing.balanceCents)}</strong>
-                    ) : (
-                      "Paid in full"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div className="mgr-card">
+              <h2>Notes</h2>
+              <p className="cust-empty">No notes have been created yet.</p>
+            </div>
+          </div>
         </div>
       </div>
     </>
