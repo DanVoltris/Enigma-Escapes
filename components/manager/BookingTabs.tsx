@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
+import SingleSelect from "@/components/SingleSelect";
 import { formatMoney } from "@/lib/format";
 import type { BookingPayment, Participant } from "@/lib/types";
 
@@ -224,16 +225,17 @@ function PromosTab({
             </p>
           ) : (
             <div className="mgr-inline-form">
-              <div className="field">
-                <label htmlFor="bk-promo">Discount code</label>
-                <select id="bk-promo" value={code} onChange={(e) => setCode(e.target.value)}>
-                  <option value="">Choose a code…</option>
-                  {activePromos.map((p) => (
-                    <option key={p.code} value={p.code}>
-                      {p.code} — {p.percentOff}% off
-                    </option>
-                  ))}
-                </select>
+              <div className="field" style={{ minWidth: 240 }}>
+                <label>Discount code</label>
+                <SingleSelect
+                  value={code}
+                  onChange={setCode}
+                  ariaLabel="Choose a discount code"
+                  options={[
+                    { value: "", label: "Choose a code…" },
+                    ...activePromos.map((p) => ({ value: p.code, label: `${p.code} — ${p.percentOff}% off` })),
+                  ]}
+                />
               </div>
               <button type="button" className="btn" onClick={apply} disabled={busy}>
                 {busy ? "Applying…" : "Apply"}
@@ -490,18 +492,19 @@ function PaymentsTab({
             Bookkeeping only — log money already taken in cash or on your card terminal. No card is charged here.
           </p>
           <div className="mgr-inline-form">
-            <div className="field">
-              <label htmlFor="bk-method">Method</label>
-              <select
-                id="bk-method"
+            <div className="field" style={{ minWidth: 160 }}>
+              <label>Method</label>
+              <SingleSelect
                 value={method}
-                onChange={(e) => setMethod(e.target.value as BookingPayment["method"])}
-              >
-                <option value="cash">Cash</option>
-                <option value="card">Card (terminal)</option>
-                <option value="etransfer">E-transfer</option>
-                <option value="other">Other</option>
-              </select>
+                onChange={(v) => setMethod(v as BookingPayment["method"])}
+                ariaLabel="How the payment was taken"
+                options={[
+                  { value: "cash", label: "Cash" },
+                  { value: "card", label: "Card (terminal)" },
+                  { value: "etransfer", label: "E-transfer" },
+                  { value: "other", label: "Other" },
+                ]}
+              />
             </div>
             <div className="field">
               <label htmlFor="bk-amount">Amount ($)</label>

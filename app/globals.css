@@ -754,9 +754,7 @@ a:hover {
 .field input[type="text"],
 .field input[type="email"],
 .field input[type="tel"],
-.field input[type="number"],
-.field input[type="date"],
-.field select {
+.field input[type="number"] {
   width: 100%;
   font-family: inherit;
   font-size: 15px;
@@ -767,12 +765,13 @@ a:hover {
   appearance: none;
   -webkit-appearance: none;
 }
-.field select {
-  appearance: auto;
-  -webkit-appearance: auto;
+/* no native spinners — keep the amount field flat like every other input */
+.field input[type="number"]::-webkit-outer-spin-button,
+.field input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
-.field input:focus,
-.field select:focus {
+.field input:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: var(--accent);
