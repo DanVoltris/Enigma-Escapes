@@ -1,6 +1,7 @@
 import Link from "next/link";
+import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
 import { listBookings } from "@/lib/db";
-import { formatDateLong, formatMoney, formatTime, isValidISODate, todayISO } from "@/lib/format";
+import { addDaysISO, businessDateOf, formatDateLong, formatMoney, formatTime, isValidISODate, todayISO } from "@/lib/format";
 import type { Booking } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -19,35 +20,52 @@ function matchesQuery(b: Booking, q: string): boolean {
   return hay.includes(q.toLowerCase());
 }
 
+const RANGES = ["30d", "7d", "24h", "all", "custom"] as const;
+type Range = (typeof RANGES)[number];
+
 export default async function ManagerBookings({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; date?: string; scope?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    date?: string;
+    range?: string;
+    from?: string;
+    to?: string;
+    status?: string;
+    pay?: string;
+  }>;
 }) {
   const params = await searchParams;
   const q = (params.q ?? "").trim();
   const date = params.date && isValidISODate(params.date) ? params.date : null;
-  const scope = params.scope === "past" ? "past" : params.scope === "all" ? "all" : "upcoming";
+  const range: Range = RANGES.includes(params.range as Range) ? (params.range as Range) : "30d";
+  const from = params.from && isValidISODate(params.from) ? params.from : null;
+  const to = params.to && isValidISODate(params.to) ? params.to : null;
+  const status = params.status === "active" || params.status === "noshow" ? params.status : "all";
+  const pay = params.pay === "paid" || params.pay === "unpaid" ? params.pay : "all";
   const today = todayISO();
 
   let bookings = await listBookings();
   if (q) bookings = bookings.filter((b) => matchesQuery(b, q));
   if (date) bookings = bookings.filter((b) => b.items.some((i) => i.date === date));
-  if (!date && scope !== "all") {
+
+  // Purchase-date range (venue-local dates; "24h" is a true rolling day).
+  if (range === "24h") {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    bookings = bookings.filter((b) => new Date(b.createdAt).getTime() >= cutoff);
+  } else if (range === "7d" || range === "30d") {
+    const first = addDaysISO(today, range === "7d" ? -7 : -30);
+    bookings = bookings.filter((b) => businessDateOf(b.createdAt) >= first);
+  } else if (range === "custom") {
     bookings = bookings.filter((b) => {
-      const lastGame = Math.max(...b.items.map((i) => (i.date >= today ? 1 : 0)));
-      return scope === "upcoming" ? lastGame === 1 : lastGame === 0;
+      const d = businessDateOf(b.createdAt);
+      return (!from || d >= from) && (!to || d <= to);
     });
   }
 
-  const scopeLink = (s: string, label: string) => (
-    <Link
-      href={`/manager/bookings?scope=${s}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-      className={`btn btn-outline${!date && scope === s ? " active" : ""}`}
-    >
-      {label}
-    </Link>
-  );
+  if (status !== "all") bookings = bookings.filter((b) => (status === "noshow" ? b.noShow : !b.noShow));
+  if (pay !== "all") bookings = bookings.filter((b) => (pay === "paid" ? b.pricing.balanceCents <= 0 : b.pricing.balanceCents > 0));
 
   return (
     <>
@@ -61,45 +79,28 @@ export default async function ManagerBookings({
         </Link>
       </div>
 
-      <div className="mgr-actions-row">
-        <form action="/manager/bookings" method="get" className="mgr-inline-form">
-          <div className="field">
-            <label htmlFor="q">Search</label>
-            <input
-              type="text"
-              id="q"
-              name="q"
-              defaultValue={q}
-              placeholder="Name, email, phone, reference or experience"
-              style={{ minWidth: 320 }}
-            />
-          </div>
-          {date && <input type="hidden" name="date" value={date} />}
-          <button type="submit" className="btn">
-            Search
-          </button>
-          {(q || date) && (
-            <Link href="/manager/bookings" className="btn btn-outline">
-              Clear
-            </Link>
-          )}
-        </form>
-        <div className="mgr-range-tabs">
-          {scopeLink("upcoming", "Upcoming")}
-          {scopeLink("past", "Past")}
-          {scopeLink("all", "All")}
-        </div>
-      </div>
+      <BookingsFilterBar />
 
       {date && (
-        <p className="mgr-page-sub">
+        <p className="mgr-page-sub" style={{ marginTop: 14 }}>
           Showing bookings with a session on <strong>{formatDateLong(date)}</strong>.
         </p>
       )}
+      <p className="mgr-page-sub" style={{ marginTop: date ? 0 : 14 }}>
+        {bookings.length} booking{bookings.length === 1 ? "" : "s"}
+        {range === "30d" && " in the last 30 days"}
+        {range === "7d" && " in the last 7 days"}
+        {range === "24h" && " in the last 24 hours"}
+        {range === "custom" && ` from ${from ? formatDateLong(from) : "the beginning"} to ${to ? formatDateLong(to) : "today"}`}
+        {status === "active" && " · attending"}
+        {status === "noshow" && " · no-shows"}
+        {pay === "paid" && " · paid in full"}
+        {pay === "unpaid" && " · with a balance due"}
+      </p>
 
       {bookings.length === 0 ? (
         <p className="mgr-empty">
-          No bookings found{q ? ` for “${q}”` : ""}. Try a different search or scope.
+          No bookings found{q ? ` for “${q}”` : ""}. Widen the purchase-date range or clear the filters.
         </p>
       ) : (
         <div className="mgr-table-wrap">

@@ -755,6 +755,7 @@ a:hover {
 .field input[type="email"],
 .field input[type="tel"],
 .field input[type="number"],
+.field input[type="date"],
 .field select {
   width: 100%;
   font-family: inherit;
