@@ -753,7 +753,9 @@ a:hover {
 }
 .field input[type="text"],
 .field input[type="email"],
-.field input[type="tel"] {
+.field input[type="tel"],
+.field input[type="number"],
+.field select {
   width: 100%;
   font-family: inherit;
   font-size: 15px;
@@ -764,7 +766,12 @@ a:hover {
   appearance: none;
   -webkit-appearance: none;
 }
-.field input:focus {
+.field select {
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+.field input:focus,
+.field select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: var(--accent);
@@ -1461,6 +1468,49 @@ a:hover {
 }
 .cust-totals .value.due {
   color: var(--danger);
+}
+
+/* booking tab rows (customers, payments, applied promo) and add-forms */
+.bk-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.bk-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.bk-add {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.bk-add h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.mgr-linklike.danger {
+  color: var(--danger);
+}
+.cust-activity-avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-tint);
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+/* standalone error line (also used by toggles/forms outside .field) */
+.field-error {
+  color: var(--danger);
+  font-size: 13px;
 }
 
 /* activity feed (from the customer's bookings) */

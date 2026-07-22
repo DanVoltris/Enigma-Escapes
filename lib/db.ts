@@ -63,6 +63,27 @@ export async function setBookingNoShow(id: string, noShow: boolean): Promise<voi
   if (!res.ok) throw await restError(res, "Updating the booking");
 }
 
+// Patch a booking's editable fields (staff actions: promo, payments,
+// participants). Whole-column JSONB writes — last writer wins, fine at this
+// scale with one staff terminal.
+export async function updateBookingFields(
+  id: string,
+  patch: { pricing?: Booking["pricing"]; customer?: Booking["customer"]; promoCode?: string | null }
+): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const row: Partial<BookingRow> = {};
+  if (patch.pricing) row.pricing = patch.pricing;
+  if (patch.customer) row.customer = patch.customer;
+  if (patch.promoCode !== undefined) row.promo_code = patch.promoCode;
+  if (Object.keys(row).length === 0) return;
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(row),
+  });
+  if (!res.ok) throw await restError(res, "Updating the booking");
+}
+
 export async function getBooking(id: string): Promise<Booking | undefined> {
   if (!UUID_RE.test(id)) return undefined;
   const res = await rest(`bookings?id=eq.${id}&select=*&limit=1`);

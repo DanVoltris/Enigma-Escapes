@@ -83,6 +83,17 @@ export type Customer = {
   email: string;
   phone: string;
   subscribe: boolean;
+  participants?: Participant[]; // extra guests staff attach to the booking
+};
+
+// A guest attached to a booking beyond the primary customer. Stored inside the
+// booking's customer JSONB (no separate table yet).
+export type Participant = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  addedAt: string; // ISO timestamp
 };
 
 export type PaymentOption = "full" | "deposit";
@@ -93,6 +104,16 @@ export type Promo = {
   active: boolean;
 };
 
+// A payment staff recorded after booking (cash, terminal, e-transfer). The
+// original online checkout amount is pricing.paidCents minus these records.
+export type BookingPayment = {
+  id: string;
+  method: "cash" | "card" | "etransfer" | "other";
+  amountCents: number;
+  note: string | null;
+  at: string; // ISO timestamp
+};
+
 export type BookingPricing = {
   subtotalCents: number;
   discountCents: number;
@@ -100,6 +121,7 @@ export type BookingPricing = {
   totalCents: number;
   paidCents: number;
   balanceCents: number;
+  payments?: BookingPayment[]; // manual payment records (stored in pricing JSONB)
 };
 
 export type BookingSource = "online" | "in_person";

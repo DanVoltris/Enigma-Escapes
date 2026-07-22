@@ -1,138 +1,201 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import RoomBadge from "@/components/RoomBadge";
+import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
 import NoShowToggle from "@/components/manager/NoShowToggle";
-import { getBooking } from "@/lib/db";
+import { getBooking, listPromos } from "@/lib/db";
+import { listExperiences } from "@/lib/experiences";
+import { listTaxes } from "@/lib/taxes";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
+function initials(first: string, last: string): string {
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "?";
+}
+
 export default async function ManagerBookingDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const booking = await getBooking(id);
+  const [booking, experiences, promos, taxes] = await Promise.all([
+    getBooking(id),
+    listExperiences(),
+    listPromos(),
+    listTaxes(),
+  ]);
   if (!booking) notFound();
 
   const { customer, items, pricing } = booking;
+  const name = `${customer.firstName} ${customer.lastName}`.trim();
   const created = new Date(booking.createdAt);
+  const expMap = new Map(experiences.map((e) => [e.id, e]));
+
+  const purchases: PurchaseLine[] = items.map((i) => ({
+    roomName: i.roomName,
+    imageUrl: expMap.get(i.roomId)?.imageUrl ?? null,
+    badgeBg: i.badgeBg ?? "#0B2540",
+    badgeFg: i.badgeFg ?? "#fff",
+    when: `${formatDateLong(i.date)} · ${formatTime(i.time)}`,
+    duration: `${i.durationMinutes} min`,
+    quantity: i.quantity,
+    amountCents: i.priceCents * i.quantity,
+  }));
+
+  const manualPayments = pricing.payments ?? [];
+  const onlinePaidCents = pricing.paidCents - manualPayments.reduce((s, p) => s + p.amountCents, 0);
+  const participants = customer.participants ?? [];
+  const appliedTo = Array.from(new Set(items.map((i) => i.roomName))).join(", ");
+
+  // Activity, newest first: manual payments (timestamped), then creation.
+  const activity: { text: string; at: string }[] = [
+    ...manualPayments.map((p) => ({
+      text: `Payment of ${formatMoney(p.amountCents)} recorded (${
+        { cash: "Cash", card: "Card (terminal)", etransfer: "E-transfer", other: "Other" }[p.method]
+      })${p.note ? ` — ${p.note}` : ""}`,
+      at: p.at,
+    })),
+    ...participants.map((p) => ({ text: `Participant ${p.firstName} ${p.lastName} added`, at: p.addedAt })),
+    {
+      text: `${booking.source === "in_person" ? "Walk-in" : "Online"} booking created${
+        booking.paymentOption === "deposit" ? " (deposit paid)" : ""
+      }${booking.promoCode ? ` · promo ${booking.promoCode}` : ""}`,
+      at: booking.createdAt,
+    },
+  ].sort((a, b) => b.at.localeCompare(a.at));
 
   return (
     <>
-      <p style={{ marginBottom: 16 }}>
+      <div className="cust-topbar">
         <Link href="/manager/bookings">← Back to all bookings</Link>
-      </p>
-      <h1 className="mgr-page-title">Booking {booking.reference}</h1>
-      <p className="mgr-page-sub">
-        Placed {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })} ·{" "}
-        {booking.source === "in_person" ? "In-person / walk-in" : "Booked online"} ·{" "}
-        {booking.paymentOption === "deposit" ? "Deposit paid" : "Paid in full"}
-        {booking.promoCode ? ` · Promo ${booking.promoCode}` : ""}
-      </p>
-
-      <div className="mgr-card">
-        <h2>Attendance</h2>
-        <p className="card-sub">Mark this booking as a no-show if the party doesn&apos;t turn up. No-shows feed the dashboard.</p>
-        <NoShowToggle id={booking.id} initial={booking.noShow} />
-      </div>
-
-      <div className="mgr-stats">
-        <div className="mgr-stat">
-          <div className="label">Total</div>
-          <div className="value">{formatMoney(pricing.totalCents)}</div>
-          <div className="hint">including tax</div>
-        </div>
-        <div className="mgr-stat">
-          <div className="label">Paid</div>
-          <div className="value">{formatMoney(pricing.paidCents)}</div>
-          <div className="hint">collected at booking</div>
-        </div>
-        <div className="mgr-stat">
-          <div className="label">Balance due</div>
-          <div className="value">{formatMoney(pricing.balanceCents)}</div>
-          <div className="hint">{pricing.balanceCents > 0 ? "collect at the venue" : "nothing owing"}</div>
+        <div className="cust-topbar-actions">
+          <a href={`mailto:${customer.email}`} className="btn btn-outline">
+            Email customer
+          </a>
+          <NoShowToggle id={booking.id} initial={booking.noShow} />
         </div>
       </div>
 
-      <div className="mgr-card">
-        <h2>Customer</h2>
-        <p>
-          {customer.firstName} {customer.lastName}
-          <br />
-          <a href={`mailto:${customer.email}`}>{customer.email}</a>
-          <br />
-          <a href={`tel:${customer.phone}`}>{customer.phone}</a>
-          <br />
-          <span style={{ color: "var(--text-secondary)" }}>
-            {customer.subscribe ? "Subscribed to marketing emails" : "Not subscribed to marketing emails"}
-          </span>
-        </p>
-      </div>
+      <div className="cust-profile">
+        <aside>
+          <div className="cust-side">
+            <div className="cust-avatar" aria-hidden="true">
+              {initials(customer.firstName, customer.lastName)}
+            </div>
+            <h1 className="cust-name">{name}</h1>
+            <p className="cust-since">
+              <Link href={`/manager/customers/${encodeURIComponent(customer.email)}`}>View customer profile</Link>
+            </p>
 
-      <div className="mgr-card">
-        <h2>Sessions</h2>
-        <div className="mgr-table-wrap">
-          <table className="mgr-table">
-            <thead>
-              <tr>
-                <th>Experience</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th className="num">Guests</th>
-                <th className="num">Price each</th>
-                <th className="num">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, i) => (
-                <tr key={i}>
-                  <td>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <RoomBadge name={item.roomName} bg={item.badgeBg ?? "#0B2540"} fg={item.badgeFg ?? "#fff"} />
-                      {item.roomName} — {item.location}
+            <div className="cust-info">
+              <h2>Booking {booking.reference}</h2>
+              <p>
+                Placed {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                <br />
+                {booking.source === "in_person" ? "In-person / walk-in" : "Booked online"}
+                <br />
+                <span className="sub">
+                  {booking.paymentOption === "deposit" ? "Deposit option" : "Full payment option"}
+                </span>
+              </p>
+            </div>
+
+            <div className="cust-info">
+              <h2>Information</h2>
+              <p>
+                <span className="cust-info-row">
+                  <span className="ico" aria-hidden="true">✉</span>
+                  <a href={`mailto:${customer.email}`}>{customer.email}</a>
+                </span>
+                <span className="cust-info-row">
+                  <span className="ico" aria-hidden="true">☎</span>
+                  <a href={`tel:${customer.phone}`}>{customer.phone}</a>
+                </span>
+                <span className="cust-info-row">
+                  <span className="ico" aria-hidden="true">✦</span>
+                  <span className="sub">
+                    {customer.subscribe ? "Subscribed to marketing emails" : "Not subscribed to marketing emails"}
+                  </span>
+                </span>
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        <div className="cust-main">
+          <div className="mgr-card">
+            <BookingTabs
+              bookingId={booking.id}
+              reference={booking.reference}
+              purchases={purchases}
+              promoCode={booking.promoCode}
+              discountCents={pricing.discountCents}
+              activePromos={promos.filter((p) => p.active).map((p) => ({ code: p.code, percentOff: p.percentOff }))}
+              customerName={name}
+              customerEmail={customer.email}
+              participants={participants}
+              taxes={taxes.filter((t) => t.active).map((t) => ({ name: t.name, percent: t.percent }))}
+              gstCents={pricing.gstCents}
+              appliedTo={appliedTo}
+              payments={manualPayments}
+              onlinePaidCents={onlinePaidCents}
+              balanceCents={pricing.balanceCents}
+            />
+
+            <div className="cust-totals">
+              <div>
+                <div className="label">Subtotal</div>
+                <div className="value">{formatMoney(pricing.subtotalCents)}</div>
+              </div>
+              {pricing.discountCents > 0 && (
+                <div>
+                  <div className="label">Discount</div>
+                  <div className="value">−{formatMoney(pricing.discountCents)}</div>
+                </div>
+              )}
+              <div>
+                <div className="label">Taxes</div>
+                <div className="value">{formatMoney(pricing.gstCents)}</div>
+              </div>
+              <div>
+                <div className="label">Total</div>
+                <div className="value">{formatMoney(pricing.totalCents)}</div>
+              </div>
+              <div>
+                <div className="label">Total paid</div>
+                <div className="value">{formatMoney(pricing.paidCents)}</div>
+              </div>
+              <div>
+                <div className="label">Total due</div>
+                <div className={`value${pricing.balanceCents > 0 ? " due" : ""}`}>
+                  {formatMoney(pricing.balanceCents)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mgr-two-col">
+            <div className="mgr-card">
+              <h2>Activity</h2>
+              <ul className="cust-activity">
+                {activity.map((a, i) => (
+                  <li key={i}>
+                    <span className="dot" aria-hidden="true">
+                      {initials(customer.firstName, customer.lastName)}
                     </span>
-                  </td>
-                  <td>{formatDateLong(item.date)}</td>
-                  <td>{formatTime(item.time)}</td>
-                  <td className="num">{item.quantity}</td>
-                  <td className="num">{formatMoney(item.priceCents)}</td>
-                  <td className="num">{formatMoney(item.priceCents * item.quantity)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    <div className="body">
+                      <div>{a.text}</div>
+                      <div className="when">
+                        {new Date(a.at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-      <div className="mgr-card">
-        <h2>Payment breakdown</h2>
-        <div className="summary-totals" style={{ borderTop: "none", paddingTop: 0, maxWidth: 360 }}>
-          <div className="summary-line">
-            <span>Subtotal</span>
-            <span>{formatMoney(pricing.subtotalCents)}</span>
-          </div>
-          {pricing.discountCents > 0 && (
-            <div className="summary-line discount">
-              <span>Promo ({booking.promoCode})</span>
-              <span>-{formatMoney(pricing.discountCents)}</span>
+            <div className="mgr-card">
+              <h2>Notes</h2>
+              <p className="cust-empty">No notes have been created yet.</p>
             </div>
-          )}
-          <div className="summary-line">
-            <span>Tax</span>
-            <span>{formatMoney(pricing.gstCents)}</span>
           </div>
-          <div className="summary-line total">
-            <span>Total</span>
-            <span>{formatMoney(pricing.totalCents)}</span>
-          </div>
-          <div className="summary-line">
-            <span>Paid {booking.paymentOption === "deposit" ? "(deposit)" : ""}</span>
-            <span>{formatMoney(pricing.paidCents)}</span>
-          </div>
-          {pricing.balanceCents > 0 && (
-            <div className="summary-line due">
-              <span>Balance due at venue</span>
-              <span>{formatMoney(pricing.balanceCents)}</span>
-            </div>
-          )}
         </div>
       </div>
     </>
