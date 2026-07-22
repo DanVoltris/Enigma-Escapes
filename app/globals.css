@@ -1549,6 +1549,138 @@ a:hover {
   margin-top: 2px;
 }
 
+/* reports: left sub-nav + content */
+.rpt-layout {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+.rpt-nav {
+  border: 1px solid var(--border);
+  padding: 18px;
+  position: sticky;
+  top: 16px;
+}
+.rpt-nav h3 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 18px 0 8px;
+}
+.rpt-nav div:first-child h3 {
+  margin-top: 0;
+}
+.rpt-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rpt-nav li a {
+  display: block;
+  padding: 7px 10px;
+  text-decoration: none;
+  color: var(--text);
+}
+.rpt-nav li a:hover {
+  background: var(--muted-bg);
+}
+.rpt-nav li a.active {
+  background: var(--accent-tint);
+  border-left: 3px solid var(--accent);
+  padding-left: 7px;
+  font-weight: 700;
+}
+.rpt-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+/* report stat tiles with period-over-period deltas */
+.rpt-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+.rpt-tile {
+  padding: 16px 18px;
+  border-right: 1px solid var(--border);
+}
+.rpt-tile:last-child {
+  border-right: 0;
+}
+.rpt-tile .label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.rpt-tile .value {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 4px 0 2px;
+  line-height: 1.2;
+}
+.rpt-delta {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.rpt-delta.good {
+  color: #1f7a4d;
+}
+.rpt-delta.bad {
+  color: var(--danger);
+}
+.rpt-delta.muted {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* breakdown card grid + donut legend */
+.rpt-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 28px;
+}
+.rpt-cards .mgr-card {
+  margin-bottom: 28px;
+}
+.rpt-donut {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.rpt-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+}
+.rpt-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.rpt-legend li strong {
+  margin-left: auto;
+  padding-left: 14px;
+  white-space: nowrap;
+}
+.rpt-legend .chip {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
 /* cards & tables */
 .mgr-card {
   border: 1px solid var(--border);
@@ -2157,6 +2289,12 @@ a:hover {
   }
   .cust-facts {
     gap: 20px;
+  }
+  .rpt-layout {
+    grid-template-columns: 1fr;
+  }
+  .rpt-nav {
+    position: static;
   }
   .booking-panel {
     flex-direction: column;
