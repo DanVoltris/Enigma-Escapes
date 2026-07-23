@@ -56,8 +56,9 @@ export default function LocaleForm({ initial }: { initial: LocaleConfig }) {
       <div className="mgr-card">
         <h2>Locale</h2>
         <p className="card-sub">
-          Currency, timezone and formats below apply live across the whole app once saved. Language is English only for
-          now.
+          Currency, timezone and formats below apply live across the whole app once saved. Language sets how dates,
+          numbers and currency are formatted (Français shows French dates and money) — it does not translate the
+          interface text yet.
         </p>
         <div className="mgr-form">
           <div className="field-row-3">

@@ -6,7 +6,16 @@ import { DEFAULT_LOCALE, type LocaleConfig } from "./format";
 
 export type Opt = { value: string; label: string };
 
-export const LANGUAGES: Opt[] = [{ value: "en-CA", label: "English (Canada)" }];
+// These set the Intl formatting locale (date/number/currency conventions and
+// month/day names) — NOT interface translation. fr-* really renders French
+// dates and money; the UI copy itself stays English until proper i18n is built.
+export const LANGUAGES: Opt[] = [
+  { value: "en-US", label: "English (United States)" },
+  { value: "en-GB", label: "English (United Kingdom)" },
+  { value: "en-CA", label: "English (Canada)" },
+  { value: "fr-CA", label: "Français (Canada)" },
+  { value: "fr-FR", label: "Français (France)" },
+];
 
 export const DATE_STYLES: Opt[] = [
   { value: "medium", label: "Jul 24, 2026 (medium)" },
