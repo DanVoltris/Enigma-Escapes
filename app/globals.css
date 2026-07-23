@@ -299,6 +299,38 @@ a:hover {
   max-height: 320px;
   overflow-y: auto;
 }
+/* searchable variant (Combobox): fixed search box + scrolling results */
+.selectmenu-list.combobox-list {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  max-width: 360px;
+}
+.combobox-search {
+  margin: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+}
+.combobox-search:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.combobox-scroll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+.combobox-empty {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
 .selectmenu-heading {
   padding: 12px 16px 4px;
   font-size: 11px;

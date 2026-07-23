@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Combobox from "@/components/Combobox";
 import SingleSelect from "@/components/SingleSelect";
 import type { LocaleConfig } from "@/lib/format";
 import {
-  CURRENCIES,
+  currencyOptions,
+  currencySymbolOf,
   DATE_STYLES,
-  DECIMALS,
   FIRST_DAYS,
   LANGUAGES,
   TIME_FORMATS,
-  TIMEZONES,
+  timezoneOptions,
 } from "@/lib/locale-options";
 
 export default function LocaleForm({ initial }: { initial: LocaleConfig }) {
@@ -20,6 +21,10 @@ export default function LocaleForm({ initial }: { initial: LocaleConfig }) {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Full runtime lists (~400 timezones, ~160 currencies) — computed once.
+  const timezones = useMemo(() => timezoneOptions(), []);
+  const currencies = useMemo(() => currencyOptions(), []);
 
   function patch(next: Partial<LocaleConfig>) {
     setC({ ...c, ...next });
@@ -67,24 +72,16 @@ export default function LocaleForm({ initial }: { initial: LocaleConfig }) {
             </div>
             <div className="field">
               <label>Currency</label>
-              <SingleSelect
-                value={`${c.currencyCode}|${c.currencySymbol}`}
-                onChange={(v) => {
-                  const [currencyCode, currencySymbol] = v.split("|");
-                  patch({ currencyCode, currencySymbol });
-                }}
+              <Combobox
+                value={c.currencyCode}
+                onChange={(v) => patch({ currencyCode: v, currencySymbol: currencySymbolOf(v) || c.currencySymbol })}
                 ariaLabel="Currency"
-                options={CURRENCIES}
+                options={currencies}
               />
             </div>
             <div className="field">
               <label>Timezone</label>
-              <SingleSelect
-                value={c.timezone}
-                onChange={(v) => patch({ timezone: v })}
-                ariaLabel="Timezone"
-                options={TIMEZONES}
-              />
+              <Combobox value={c.timezone} onChange={(v) => patch({ timezone: v })} ariaLabel="Timezone" options={timezones} />
             </div>
           </div>
         </div>
@@ -119,17 +116,6 @@ export default function LocaleForm({ initial }: { initial: LocaleConfig }) {
                 onChange={(v) => patch({ firstDay: v === "1" ? 1 : 0 })}
                 ariaLabel="First day of the week"
                 options={FIRST_DAYS}
-              />
-            </div>
-          </div>
-          <div className="field-row-3">
-            <div className="field">
-              <label>Number format</label>
-              <SingleSelect
-                value={c.decimal}
-                onChange={(v) => patch({ decimal: v as LocaleConfig["decimal"] })}
-                ariaLabel="Number format"
-                options={DECIMALS}
               />
             </div>
           </div>

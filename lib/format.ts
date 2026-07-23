@@ -8,24 +8,22 @@ export type TimeFormat = "12" | "24";
 
 export type LocaleConfig = {
   language: string; // BCP-47 tag used for Intl (display only; UI copy stays English)
-  currencySymbol: string; // "$", "£", "€"
-  currencyCode: string; // "CAD", "USD"…
+  currencyCode: string; // ISO 4217, e.g. "CAD", "GBP", "JPY"
+  currencySymbol: string; // fallback symbol if Intl currency formatting fails
   timezone: string; // IANA, e.g. "America/Winnipeg"
   dateStyle: DateStyle;
   timeFormat: TimeFormat;
   firstDay: 0 | 1; // 0 = Sunday, 1 = Monday
-  decimal: "." | ","; // decimal separator for money
 };
 
 export const DEFAULT_LOCALE: LocaleConfig = {
   language: "en-CA",
-  currencySymbol: "$",
   currencyCode: "CAD",
+  currencySymbol: "$",
   timezone: "America/Winnipeg",
   dateStyle: "medium",
   timeFormat: "12",
   firstDay: 0,
-  decimal: ".",
 };
 
 declare global {
@@ -50,8 +48,17 @@ export function localeConfig(): LocaleConfig {
 
 export function formatMoney(cents: number): string {
   const c = localeConfig();
-  const body = (cents / 100).toFixed(2).replace(".", c.decimal);
-  return `${c.currencySymbol}${body}`;
+  // Intl handles the symbol, its placement, grouping and each currency's own
+  // decimal count (e.g. JPY shows none) for any ISO currency worldwide.
+  try {
+    return new Intl.NumberFormat(c.language, {
+      style: "currency",
+      currency: c.currencyCode,
+      currencyDisplay: "narrowSymbol",
+    }).format(cents / 100);
+  } catch {
+    return `${c.currencySymbol}${(cents / 100).toFixed(2)}`;
+  }
 }
 
 // "13:00" -> "1:00 PM" (12-hour) or "13:00" (24-hour), per the locale.
