@@ -20,6 +20,10 @@ const SECTIONS: { heading: string; items: { href: string; label: string }[] }[] 
     items: [{ href: "/manager/settings/team", label: "Team & permissions" }],
   },
   {
+    heading: "Booking site",
+    items: [{ href: "/manager/settings/booking-site", label: "Appearance & basket" }],
+  },
+  {
     heading: "Visitor settings",
     items: [
       { href: "/manager/settings/customer-accounts", label: "Customer accounts" },

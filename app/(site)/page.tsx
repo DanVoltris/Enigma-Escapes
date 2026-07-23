@@ -15,7 +15,7 @@ import {
   formatTime,
   todayISO,
 } from "@/lib/format";
-import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
+import { useSiteConfig } from "@/lib/site-config";
 import type { Slot } from "@/lib/types";
 
 const FILTER_ALL_LABEL = "Filter: all experiences";
@@ -36,6 +36,7 @@ function passesFilters(slot: Slot, filters: string[]): boolean {
 export default function BrowsePage() {
   const router = useRouter();
   const { items, addItem } = useCart();
+  const site = useSiteConfig(); // booking window + slot labels from Settings
 
   const [date, setDate] = useState(todayISO());
   const [filters, setFilters] = useState<string[]>([]);
@@ -140,7 +141,7 @@ export default function BrowsePage() {
   );
 
   const today = todayISO();
-  const lastBookable = addDaysISO(today, BOOKING_WINDOW_DAYS);
+  const lastBookable = addDaysISO(today, site.windowDays);
 
   function toggleSlot(slot: Slot) {
     const key = itemKey(slot);
@@ -281,14 +282,14 @@ export default function BrowsePage() {
                   <div className="slot-tagline">{slot.tagline}</div>
                 </div>
                 <div className="slot-price">
-                  <span className="label">Book now</span>
+                  <span className="label">{site.availableLabel}</span>
                   <span className="amount">{formatMoney(slot.priceCents)}</span>
                   <span className="label">each</span>
                 </div>
                 <div className="slot-action">
                   {soldOut ? (
                     <button type="button" className="btn btn-block btn-sold-out" disabled>
-                      Sold out
+                      {site.soldOutLabel}
                     </button>
                   ) : belowMin ? (
                     <button
@@ -301,7 +302,7 @@ export default function BrowsePage() {
                     </button>
                   ) : (
                     <button type="button" className="btn btn-block" onClick={() => toggleSlot(slot)}>
-                      {expanded ? "Selected ▾" : "Book now ▾"}
+                      {expanded ? "Selected ▾" : `${site.availableLabel} ▾`}
                     </button>
                   )}
                 </div>

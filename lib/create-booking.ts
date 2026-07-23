@@ -6,7 +6,8 @@ import { addDaysISO, formatTime, isValidISODate, todayISO } from "./format";
 import { getLocationHours } from "./hours";
 import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
-import { amountDueCents, BOOKING_WINDOW_DAYS, computeTotals } from "./pricing";
+import { amountDueCents, computeTotals } from "./pricing";
+import { getSiteSettings } from "./site-settings";
 import type { Booking, BookingSource, CartItem, Customer } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,7 +55,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   }
 
   const today = todayISO();
-  const lastBookable = addDaysISO(today, BOOKING_WINDOW_DAYS);
+  const lastBookable = addDaysISO(today, (await getSiteSettings()).windowDays);
   const items: CartItem[] = [];
   let percentOff = 0;
   let promoCode: string | null = null;

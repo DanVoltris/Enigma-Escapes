@@ -1712,6 +1712,46 @@ a:hover {
   flex-shrink: 0;
   border: 1px solid var(--border);
 }
+/* configurable booking-site theme (Settings → Booking site → Colours).
+   --btn-bg/--btn-fg are set per-site on .site-theme; the portal is unaffected. */
+.site-theme .btn:not(.btn-outline):not(.btn-sold-out) {
+  background: var(--btn-bg, var(--accent));
+  color: var(--btn-fg, var(--accent-dark));
+}
+.site-intro {
+  margin: 24px 0 8px;
+}
+.site-intro h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.site-intro p {
+  color: var(--text-secondary);
+  max-width: 70ch;
+}
+.site-support {
+  margin: 28px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* colour picker pair in settings forms */
+.bs-color {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.bs-color input[type="color"] {
+  width: 46px;
+  height: 40px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+}
+
 /* booking policies on the customer confirmation page */
 .confirm-policies {
   margin-top: 28px;

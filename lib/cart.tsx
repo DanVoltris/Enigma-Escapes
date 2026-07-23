@@ -41,9 +41,18 @@ type CartContextValue = CartState & {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
+export function CartProvider({
+  children,
+  holdMinutes = HOLD_MINUTES, // configurable in Settings → Booking site → Shopping basket
+}: {
+  children: React.ReactNode;
+  holdMinutes?: number;
+}) {
   const [state, setState] = useState<CartState>(EMPTY);
   const loaded = useRef(false);
+  // Kept in a ref so addItem stays a stable callback.
+  const holdRef = useRef(holdMinutes);
+  holdRef.current = holdMinutes;
 
   // The active tax rate/label, so totals match what the server will charge.
   const [taxPercent, setTaxPercent] = useState(5);
@@ -89,7 +98,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         items: [...others, item],
-        expiresAt: s.items.length === 0 ? Date.now() + HOLD_MINUTES * 60 * 1000 : s.expiresAt,
+        expiresAt: s.items.length === 0 ? Date.now() + holdRef.current * 60 * 1000 : s.expiresAt,
       };
     });
   }, []);
