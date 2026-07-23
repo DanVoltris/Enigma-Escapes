@@ -1,10 +1,65 @@
-export function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+// Locale/formatting config. It's a BUSINESS-WIDE setting (identical for every
+// visitor), so it's safe to hold as a primed singleton: the root layout reads
+// it from the DB and primes both the server module (below) and the browser
+// (window.__LOCALE__ via an inline script). Formatters read whichever applies.
+
+export type DateStyle = "medium" | "dmy" | "mdy" | "ymd";
+export type TimeFormat = "12" | "24";
+
+export type LocaleConfig = {
+  language: string; // BCP-47 tag used for Intl (display only; UI copy stays English)
+  currencySymbol: string; // "$", "£", "€"
+  currencyCode: string; // "CAD", "USD"…
+  timezone: string; // IANA, e.g. "America/Winnipeg"
+  dateStyle: DateStyle;
+  timeFormat: TimeFormat;
+  firstDay: 0 | 1; // 0 = Sunday, 1 = Monday
+  decimal: "." | ","; // decimal separator for money
+};
+
+export const DEFAULT_LOCALE: LocaleConfig = {
+  language: "en-CA",
+  currencySymbol: "$",
+  currencyCode: "CAD",
+  timezone: "America/Winnipeg",
+  dateStyle: "medium",
+  timeFormat: "12",
+  firstDay: 0,
+  decimal: ".",
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __LOCALE__: LocaleConfig | undefined;
 }
 
-// "13:00" -> "1:00 PM"
+let activeLocale: LocaleConfig = DEFAULT_LOCALE;
+
+// Called on the server (root layout) so server components format with the
+// business's chosen locale. Same value for every request — no request bleed.
+export function primeLocale(config: LocaleConfig): void {
+  activeLocale = config;
+}
+
+// The config in force right now — the browser value if present (set by the
+// root layout's inline script before hydration), otherwise the server module.
+export function localeConfig(): LocaleConfig {
+  if (typeof window !== "undefined" && window.__LOCALE__) return window.__LOCALE__;
+  return activeLocale;
+}
+
+export function formatMoney(cents: number): string {
+  const c = localeConfig();
+  const body = (cents / 100).toFixed(2).replace(".", c.decimal);
+  return `${c.currencySymbol}${body}`;
+}
+
+// "13:00" -> "1:00 PM" (12-hour) or "13:00" (24-hour), per the locale.
 export function formatTime(time: string): string {
   const [h, m] = time.split(":").map(Number);
+  if (localeConfig().timeFormat === "24") {
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
   const period = h >= 12 ? "PM" : "AM";
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
@@ -16,15 +71,13 @@ export function parseISODate(date: string): Date {
   return new Date(y, m - 1, d);
 }
 
-// The venue's local timezone. "Today" and the booking window are evaluated
-// here so the browser and the (UTC) server always agree on the date — otherwise
-// an evening visitor requests their local date while the server has already
-// rolled over to tomorrow in UTC, and the request gets rejected as "in the past".
-export const BUSINESS_TIMEZONE = "America/Winnipeg";
+// Back-compat export (the current default timezone). Live code should read
+// localeConfig().timezone so a Settings change takes effect.
+export const BUSINESS_TIMEZONE = DEFAULT_LOCALE.timezone;
 
 function nowPartsInBusinessTZ(): { y: string; m: string; d: string; hour: number; minute: number } {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: BUSINESS_TIMEZONE,
+    timeZone: localeConfig().timezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -50,12 +103,12 @@ export function nowMinutesInBusinessTZ(): number {
 
 // The venue-local calendar date of an ISO timestamp, e.g. "2026-07-20".
 export function businessDateOf(iso: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIMEZONE }).format(new Date(iso));
+  return new Intl.DateTimeFormat("en-CA", { timeZone: localeConfig().timezone }).format(new Date(iso));
 }
 
 // The venue-local weekday name of an ISO timestamp, e.g. "Monday".
 export function businessWeekdayOf(iso: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIMEZONE, weekday: "long" }).format(new Date(iso));
+  return new Intl.DateTimeFormat("en-CA", { timeZone: localeConfig().timezone, weekday: "long" }).format(new Date(iso));
 }
 
 export function addDaysISO(date: string, days: number): string {
@@ -67,10 +120,14 @@ export function addDaysISO(date: string, days: number): string {
   return `${y}-${m}-${day}`;
 }
 
-// "2026-07-24" -> "Fri 24 Jul 2026"
+// "2026-07-24" -> "Fri 24 Jul 2026" (medium), or a numeric style per the locale.
 export function formatDateLong(date: string): string {
-  const d = parseISODate(date);
-  return d.toLocaleDateString("en-CA", {
+  const c = localeConfig();
+  const [y, m, d] = date.split("-");
+  if (c.dateStyle === "dmy") return `${d}/${m}/${y}`;
+  if (c.dateStyle === "mdy") return `${m}/${d}/${y}`;
+  if (c.dateStyle === "ymd") return `${y}-${m}-${d}`;
+  return parseISODate(date).toLocaleDateString(c.language, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -81,10 +138,11 @@ export function formatDateLong(date: string): string {
 // Parts for the date badge on the booking panel: FRI / 24 / JUL
 export function dateBadgeParts(date: string): { weekday: string; day: number; month: string } {
   const d = parseISODate(date);
+  const lang = localeConfig().language;
   return {
-    weekday: d.toLocaleDateString("en-CA", { weekday: "short" }).toUpperCase(),
+    weekday: d.toLocaleDateString(lang, { weekday: "short" }).toUpperCase(),
     day: d.getDate(),
-    month: d.toLocaleDateString("en-CA", { month: "short" }).toUpperCase(),
+    month: d.toLocaleDateString(lang, { month: "short" }).toUpperCase(),
   };
 }
 

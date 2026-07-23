@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { formatDateLong, parseISODate } from "@/lib/format";
+import { formatDateLong, localeConfig, parseISODate } from "@/lib/format";
 import { usePopover } from "./usePopover";
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const ALL_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -60,8 +60,13 @@ export default function DatePicker({ value, min, max, onChange }: Props) {
     setOpen(false);
   }
 
+  // Rotate the week so it starts on the business's chosen first day.
+  const firstDay = localeConfig().firstDay; // 0 = Sunday, 1 = Monday
+  const WEEKDAYS = firstDay === 1 ? [...ALL_WEEKDAYS.slice(1), ALL_WEEKDAYS[0]] : ALL_WEEKDAYS;
+
   const cells: (number | null)[] = [];
-  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  const leading = (firstWeekday - firstDay + 7) % 7;
+  for (let i = 0; i < leading; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
