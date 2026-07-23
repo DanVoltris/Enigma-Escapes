@@ -21,7 +21,10 @@ const SECTIONS: { heading: string; items: { href: string; label: string }[] }[] 
   },
   {
     heading: "Visitor settings",
-    items: [{ href: "/manager/settings/visitors", label: "Customer accounts & waivers" }],
+    items: [
+      { href: "/manager/settings/customer-accounts", label: "Customer accounts" },
+      { href: "/manager/settings/waivers", label: "Waivers" },
+    ],
   },
   {
     heading: "Booking & payments",

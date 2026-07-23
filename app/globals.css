@@ -1712,6 +1712,29 @@ a:hover {
   flex-shrink: 0;
   border: 1px solid var(--border);
 }
+/* booking policies on the customer confirmation page */
+.confirm-policies {
+  margin-top: 28px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  display: grid;
+  gap: 18px;
+}
+.confirm-policy h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.confirm-policy .policy-cutoff {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.confirm-policy .policy-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
 /* one-time-setup SQL block (settings) */
 .mgr-sql {
   background: var(--muted-bg);

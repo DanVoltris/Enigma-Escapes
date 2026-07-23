@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
 import { getBooking } from "@/lib/db";
+import { getBookingPolicies } from "@/lib/settings";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const UNIT_LABEL = { days: "day", weeks: "week", months: "month" } as const;
 
 export default async function ConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,6 +16,11 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
   if (!booking) notFound();
 
   const { customer, items, pricing } = booking;
+  const policies = await getBookingPolicies();
+  const shownPolicies = [
+    { key: "reschedule", verb: "reschedule", ...policies.reschedule },
+    { key: "cancellation", verb: "cancel", ...policies.cancellation },
+  ].filter((p) => p.show && (p.content.trim() || p.title.trim()));
 
   return (
     <>
@@ -50,6 +58,21 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
               </div>
             );
           })}
+          {shownPolicies.length > 0 && (
+            <div className="confirm-policies">
+              {shownPolicies.map((p) => (
+                <div className="confirm-policy" key={p.key}>
+                  <h4>{p.title}</h4>
+                  <p className="policy-cutoff">
+                    You can {p.verb} up to {p.cutoffValue} {UNIT_LABEL[p.cutoffUnit]}
+                    {p.cutoffValue === 1 ? "" : "s"} before your session.
+                  </p>
+                  {p.content.trim() && <p className="policy-body">{p.content}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ marginTop: 24 }}>
             <Link href="/" className="btn">
               Make another booking

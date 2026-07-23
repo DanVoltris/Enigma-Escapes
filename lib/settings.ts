@@ -48,3 +48,76 @@ export async function saveSetting(key: string, value: unknown): Promise<void> {
 export async function getBusinessDetails(): Promise<SettingResult<BusinessDetails>> {
   return getSetting<BusinessDetails>("business_details");
 }
+
+// ---------- booking policies ----------
+// The reschedule/cancellation policy text a venue shows customers. These are
+// DISPLAY policies (rendered on the confirmation page) — not self-service
+// controls, since the app has no customer accounts to reschedule/cancel from.
+
+export type PolicyUnit = "days" | "weeks" | "months";
+
+export type BookingPolicy = {
+  show: boolean; // show on the customer confirmation page
+  cutoffValue: number; // "up to N …"
+  cutoffUnit: PolicyUnit;
+  title: string;
+  content: string;
+};
+
+export type BookingPolicies = {
+  reschedule: BookingPolicy;
+  cancellation: BookingPolicy;
+};
+
+export const DEFAULT_POLICIES: BookingPolicies = {
+  reschedule: {
+    show: false,
+    cutoffValue: 1,
+    cutoffUnit: "months",
+    title: "Our policy on rescheduling bookings",
+    content: "Feel free to change your booking online or give us a call and we will find a new time for you.",
+  },
+  cancellation: {
+    show: false,
+    cutoffValue: 1,
+    cutoffUnit: "weeks",
+    title: "Our policy on cancelling bookings",
+    content: "Need to cancel? Get in touch and we will sort out your refund according to our cancellation terms.",
+  },
+};
+
+function normalizePolicy(input: unknown, def: BookingPolicy): BookingPolicy {
+  const o = (input ?? {}) as Record<string, unknown>;
+  const unit: PolicyUnit =
+    o.cutoffUnit === "days" || o.cutoffUnit === "weeks" || o.cutoffUnit === "months" ? o.cutoffUnit : def.cutoffUnit;
+  const value =
+    Number.isInteger(o.cutoffValue) && (o.cutoffValue as number) > 0 && (o.cutoffValue as number) <= 365
+      ? (o.cutoffValue as number)
+      : def.cutoffValue;
+  return {
+    show: typeof o.show === "boolean" ? o.show : def.show,
+    cutoffValue: value,
+    cutoffUnit: unit,
+    title: typeof o.title === "string" ? o.title.trim().slice(0, 120) : def.title,
+    content: typeof o.content === "string" ? o.content.slice(0, 2000) : def.content,
+  };
+}
+
+export function normalizePolicies(input: unknown): BookingPolicies {
+  const o = (input ?? {}) as Record<string, unknown>;
+  return {
+    reschedule: normalizePolicy(o.reschedule, DEFAULT_POLICIES.reschedule),
+    cancellation: normalizePolicy(o.cancellation, DEFAULT_POLICIES.cancellation),
+  };
+}
+
+// Never throws — the confirmation page and settings form both tolerate a missing
+// table/row by falling back to defaults.
+export async function getBookingPolicies(): Promise<BookingPolicies> {
+  try {
+    const { value } = await getSetting<Partial<BookingPolicies>>("booking_policies");
+    return normalizePolicies(value);
+  } catch {
+    return DEFAULT_POLICIES;
+  }
+}
