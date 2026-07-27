@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { finalizeBookingPayment, logActivity } from "@/lib/db";
+import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
+import { notifyBookingConfirmed } from "@/lib/sms";
 import { stripeConfigured, verifyStripeWebhook, webhookConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +31,11 @@ export async function POST(req: NextRequest) {
     const bookingId = (session.metadata as Record<string, string> | undefined)?.bookingId;
     if (session.payment_status === "paid" && bookingId) {
       try {
+        // Text only on the pending→paid transition, so retries can't double-send.
+        const wasPending = (await getBooking(bookingId))?.status === "pending";
         const booking = await finalizeBookingPayment(bookingId, (session.amount_total as number | null) ?? 0);
         if (booking) await logActivity("Payment received", `${booking.reference} — paid via Stripe`);
+        if (booking && wasPending) await notifyBookingConfirmed(booking, req.nextUrl.origin);
       } catch (err) {
         console.error("webhook finalize failed:", err);
         // 500 makes Stripe retry the delivery later — exactly what we want.

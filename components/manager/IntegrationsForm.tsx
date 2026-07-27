@@ -10,10 +10,12 @@ export type StripeStatus = { mode: "test" | "live" | null; webhook: boolean };
 export default function IntegrationsForm({
   initial,
   stripe,
+  sms,
   apiKeys,
 }: {
   initial: IntegrationSettings;
   stripe: StripeStatus;
+  sms: boolean;
   apiKeys: ApiKey[];
 }) {
   const [s, setS] = useState<IntegrationSettings>(initial);
@@ -95,6 +97,25 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
   add column if not exists pending_expires_at timestamptz;`}</pre>
           </>
         )}
+      </div>
+
+      <div className="mgr-card">
+        <div className="intg-head">
+          <h2>Text messages (Twilio)</h2>
+          {sms ? (
+            <span className="mgr-pill on">Active</span>
+          ) : (
+            <span className="mgr-pill">Ready — add your Twilio keys</span>
+          )}
+        </div>
+        <p className="card-sub">
+          Booking confirmation texts: the customer gets their reference + a link, and your business cell (Settings →
+          Business details) gets a heads-up per booking. Like Stripe, credentials are environment-only — add to{" "}
+          <code>.env.local</code> (and Vercel):
+        </p>
+        <pre className="intg-code">{`TWILIO_ACCOUNT_SID=AC...   # Twilio Console dashboard
+TWILIO_AUTH_TOKEN=...
+TWILIO_FROM_NUMBER=+1...   # your Twilio number (toll-free verification takes a few days)`}</pre>
       </div>
 
       <div className="mgr-card">

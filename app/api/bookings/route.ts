@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildBooking } from "@/lib/create-booking";
 import { saveBooking } from "@/lib/db";
+import { notifyBookingConfirmed } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -24,5 +25,6 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+  await notifyBookingConfirmed(result.booking, req.nextUrl.origin); // best-effort; never throws
   return NextResponse.json({ id: result.booking.id, reference: result.booking.reference }, { status: 201 });
 }
