@@ -158,12 +158,13 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
       <div className="mgr-card">
         <div className="intg-head">
           <h2>Morty</h2>
-          <span className="mgr-pill">Requires a Morty partnership</span>
+          <span className="mgr-pill on">Our side is ready — needs a Morty partnership</span>
         </div>
         <p className="card-sub">
-          Morty is an escape-room discovery app that lists venues with live availability. Listing requires a
-          partner integration on Morty&apos;s side — there&apos;s no ID to paste. If you pursue a partnership
-          (mortyapp.com), the site can expose an availability feed for them; ask and it will be built.
+          Morty is an escape-room discovery app that lists venues with live availability. Your side is built: a
+          partner availability feed with booking deep links, protected by API keys you create under Settings →
+          Developers → API keys. To get listed, contact Morty (mortyapp.com) about connecting a custom booking
+          system and hand them a key + the feed docs from that page.
         </p>
       </div>
 

@@ -1785,6 +1785,13 @@ a:hover {
   overflow-x: auto;
   margin: 0 0 14px;
 }
+.key-code {
+  font-size: 13px;
+  background: var(--muted-bg);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  word-break: break-all;
+}
 
 .bs-color {
   display: flex;

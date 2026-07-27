@@ -60,6 +60,9 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   env-only — never stored via the portal (no auth yet). On Supabase, `bookings` needs `status` +
   `pending_expires_at` columns first (SQL shown on Settings → Marketing & tracking). Promo code
   `WELCOME10` gives 10% off.
+- Partner API: `GET /api/partner/availability?date=…` serves live slots + booking deep links to
+  channel partners (e.g. Morty), authed by keys managed in Settings → Developers (stored under
+  settings key `partner_api_keys`, `lib/api-keys.ts`). Availability only — no customer data.
 - Marketing integrations (Meta Pixel, Google Tag Manager) are configured in Settings →
   Marketing & tracking (settings key `integrations`, ID fields only — never raw scripts). The
   customer site layout injects the snippets only when a validated ID is enabled, and the funnel
