@@ -29,6 +29,7 @@ const TABS = [
   { section: "Misc", key: "capacity", label: "Capacity" },
   { section: "Misc", key: "discounts", label: "Discounts" },
   { section: "Misc", key: "abandonment", label: "Cart abandonment" },
+  { section: "Misc", key: "games", label: "Games" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -169,6 +170,7 @@ export default async function ManagerReports({
           )}
           {tab === "guests" && <GuestsTab purchased={purchased} />}
           {tab === "capacity" && <CapacityTab bookings={bookings} from={from} to={to} today={today} />}
+          {tab === "games" && <GamesTab bookings={bookings} from={from} to={to} />}
           {tab === "discounts" && <DiscountsTab purchased={purchased} />}
           {tab === "abandonment" && (
             <p className="mgr-empty">
@@ -749,6 +751,78 @@ function DiscountsTab({ purchased }: { purchased: Booking[] }) {
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+// Per-room game performance from staff-recorded results (Game result on each
+// booking). Sliced by session date; sessions without a recorded result are
+// counted separately so gaps in logging are visible rather than silent.
+function GamesTab({ bookings, from, to }: { bookings: Booking[]; from: string; to: string }) {
+  type Row = { name: string; plays: number; escapes: number; timeSum: number; timeN: number; hintSum: number; hintN: number };
+  const rows = new Map<string, Row>();
+  let unlogged = 0;
+  for (const b of bookings) {
+    for (const i of b.items) {
+      if (i.date < from || i.date > to) continue;
+      if (!b.gameResult) {
+        if (i.date <= todayISO()) unlogged++;
+        continue;
+      }
+      const r = rows.get(i.roomId) ?? { name: i.roomName, plays: 0, escapes: 0, timeSum: 0, timeN: 0, hintSum: 0, hintN: 0 };
+      r.plays++;
+      if (b.gameResult.escaped) r.escapes++;
+      if (b.gameResult.timeRemainingMinutes !== null) {
+        r.timeSum += b.gameResult.timeRemainingMinutes;
+        r.timeN++;
+      }
+      if (b.gameResult.hintsUsed !== null) {
+        r.hintSum += b.gameResult.hintsUsed;
+        r.hintN++;
+      }
+      rows.set(i.roomId, r);
+    }
+  }
+  const list = [...rows.values()].sort((a, b) => b.plays - a.plays);
+
+  if (list.length === 0) {
+    return (
+      <p className="mgr-empty">
+        No game results recorded for sessions in this range yet. Log them on each booking (Bookings → open a booking
+        → Game result) and escape rates will appear here.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <table className="mgr-table">
+        <thead>
+          <tr>
+            <th>Experience</th>
+            <th className="num">Games logged</th>
+            <th className="num">Escape rate</th>
+            <th className="num">Avg minutes left</th>
+            <th className="num">Avg hints</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((r) => (
+            <tr key={r.name}>
+              <td>{r.name}</td>
+              <td className="num">{r.plays}</td>
+              <td className="num">{Math.round((r.escapes / r.plays) * 100)}%</td>
+              <td className="num">{r.timeN ? (r.timeSum / r.timeN).toFixed(1) : "—"}</td>
+              <td className="num">{r.hintN ? (r.hintSum / r.hintN).toFixed(1) : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {unlogged > 0 && (
+        <p className="mgr-page-sub" style={{ marginTop: 12 }}>
+          {unlogged} past session(s) in this range have no result recorded yet.
+        </p>
+      )}
     </>
   );
 }

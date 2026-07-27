@@ -66,6 +66,9 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   photo partners (e.g. Fotaflo) — deliberately PII-free (no emails/phones) until portal auth
   exists. A business-wide virtual-game meeting link (integrations `zoomUrl`) shows on
   confirmations when enabled.
+- Game results: staff log each session's outcome (escaped, minutes left, hints) on the manager
+  booking page (`game_result` jsonb column — on Supabase run the ALTER TABLE shown on the
+  Stripe integrations card); Reports → Games shows per-room escape rates.
 - Marketing integrations (Meta Pixel, Google Tag Manager) are configured in Settings →
   Marketing & tracking (settings key `integrations`, ID fields only — never raw scripts). The
   customer site layout injects the snippets only when a validated ID is enabled, and the funnel

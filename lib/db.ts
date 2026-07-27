@@ -19,6 +19,8 @@ type BookingRow = {
   // still read fine (missing = paid, the historical meaning).
   status?: string | null;
   pending_expires_at?: string | null;
+  // Staff-recorded game outcome; optional for the same schema-compat reason.
+  game_result?: Booking["gameResult"];
 };
 
 function toBooking(row: BookingRow): Booking {
@@ -35,7 +37,21 @@ function toBooking(row: BookingRow): Booking {
     noShow: row.no_show ?? false,
     status: row.status === "pending" ? "pending" : "paid",
     pendingExpiresAt: row.pending_expires_at ?? null,
+    gameResult: row.game_result ?? null,
   };
+}
+
+// Records (or re-records) how a session went. Own function rather than
+// updateBookingFields so the game_result column is only ever written here —
+// pre-migration Supabase schemas break on unknown columns.
+export async function saveGameResult(id: string, result: Booking["gameResult"]): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ game_result: result }),
+  });
+  if (!res.ok) throw await restError(res, "Saving the game result");
 }
 
 // A booking that should count against availability and appear in the manager:

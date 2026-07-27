@@ -94,7 +94,8 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
             </p>
             <pre className="intg-code">{`alter table bookings
   add column if not exists status text,
-  add column if not exists pending_expires_at timestamptz;`}</pre>
+  add column if not exists pending_expires_at timestamptz,
+  add column if not exists game_result jsonb;`}</pre>
           </>
         )}
       </div>

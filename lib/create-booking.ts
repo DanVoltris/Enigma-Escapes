@@ -140,6 +140,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     // overrides these to hold the spots while payment happens.
     status: "paid",
     pendingExpiresAt: null,
+    gameResult: null,
   };
   return { booking };
 }

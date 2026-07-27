@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
+import GameResultForm from "@/components/manager/GameResultForm";
 import NoShowToggle from "@/components/manager/NoShowToggle";
 import { getBooking, listPromos } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
@@ -116,6 +117,8 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                 </span>
               </p>
             </div>
+
+            <GameResultForm bookingId={booking.id} initial={booking.gameResult} />
           </div>
         </aside>
 

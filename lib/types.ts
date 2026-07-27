@@ -143,6 +143,17 @@ export type Booking = {
   noShow: boolean; // party did not turn up
   status: BookingStatus;
   pendingExpiresAt: string | null; // ISO; only set while status is "pending"
+  gameResult: GameResult | null; // staff-recorded outcome, null until logged
+};
+
+// How a session actually went — recorded by staff after the game and fed into
+// per-room analytics on Reports.
+export type GameResult = {
+  escaped: boolean;
+  timeRemainingMinutes: number | null; // minutes left on the clock (escapes)
+  hintsUsed: number | null;
+  notes: string;
+  recordedAt: string; // ISO timestamp
 };
 
 export type StaffNote = {
