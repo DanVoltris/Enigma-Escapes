@@ -29,6 +29,14 @@ SUPABASE_SERVICE_ROLE_KEY=<service_role key — Supabase dashboard → Settings 
 The same two variables are set on Vercel for production. The service_role key bypasses row
 level security, so it must only ever be used server-side (lib/db.ts) and never committed.
 
+### Local mock data (no Supabase)
+
+To run with no database at all, add `USE_LOCAL_DATA=true` to `.env.local`. All data access is
+then served by a local file-backed store (`lib/local-db.ts`) seeded with sample experiences, a
+promo code (`WELCOME10`), taxes and one demo booking. Data persists to `.local-data.json` at the
+project root (gitignored) — delete that file to reset to the seed. The flag is development-only:
+Vercel doesn't set it, so production keeps using Supabase. Remove the line to switch back locally.
+
 ## How it works
 
 - Experiences (rooms, prices, daily times, colors) live in the `experiences` table, managed
