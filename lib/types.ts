@@ -126,6 +126,10 @@ export type BookingPricing = {
 
 export type BookingSource = "online" | "in_person";
 
+// "pending" = created for a Stripe checkout that hasn't been paid yet; it holds
+// its spots until pendingExpiresAt, then stops counting against availability.
+export type BookingStatus = "paid" | "pending";
+
 export type Booking = {
   id: string;
   reference: string;
@@ -137,6 +141,8 @@ export type Booking = {
   pricing: BookingPricing;
   source: BookingSource; // "online" = customer self-served; "in_person" = staff walk-in
   noShow: boolean; // party did not turn up
+  status: BookingStatus;
+  pendingExpiresAt: string | null; // ISO; only set while status is "pending"
 };
 
 export type StaffNote = {

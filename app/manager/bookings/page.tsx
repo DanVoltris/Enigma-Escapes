@@ -135,6 +135,12 @@ export default async function ManagerBookings({
                         </span>
                       </>
                     )}
+                    {b.status === "pending" && (
+                      <>
+                        <br />
+                        <span className="mgr-pill">Awaiting payment</span>
+                      </>
+                    )}
                   </td>
                   <td>
                     {b.customer.firstName} {b.customer.lastName}

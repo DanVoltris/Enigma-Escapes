@@ -136,6 +136,10 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     },
     source,
     noShow: false,
+    // Paid immediately (simulated checkout / staff walk-in). The Stripe flow
+    // overrides these to hold the spots while payment happens.
+    status: "paid",
+    pendingExpiresAt: null,
   };
   return { booking };
 }

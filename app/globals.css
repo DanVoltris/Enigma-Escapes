@@ -1777,6 +1777,14 @@ a:hover {
   height: 16px;
   accent-color: var(--accent);
 }
+.intg-code {
+  background: var(--muted-bg);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  font-size: 13px;
+  overflow-x: auto;
+  margin: 0 0 14px;
+}
 
 .bs-color {
   display: flex;

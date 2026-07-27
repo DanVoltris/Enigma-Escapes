@@ -15,6 +15,10 @@ type BookingRow = {
   pricing: Booking["pricing"];
   source: BookingSource;
   no_show: boolean;
+  // Stripe checkout columns — optional so rows from the pre-Stripe schema
+  // still read fine (missing = paid, the historical meaning).
+  status?: string | null;
+  pending_expires_at?: string | null;
 };
 
 function toBooking(row: BookingRow): Booking {
@@ -29,7 +33,22 @@ function toBooking(row: BookingRow): Booking {
     pricing: row.pricing,
     source: row.source ?? "online",
     noShow: row.no_show ?? false,
+    status: row.status === "pending" ? "pending" : "paid",
+    pendingExpiresAt: row.pending_expires_at ?? null,
   };
+}
+
+// A booking that should count against availability and appear in the manager:
+// paid, or a pending Stripe checkout whose hold hasn't lapsed yet.
+export function isLiveBooking(b: Booking): boolean {
+  if (b.status !== "pending") return true;
+  return b.pendingExpiresAt !== null && b.pendingExpiresAt > new Date().toISOString();
+}
+
+// Same test on a raw row, for queries that don't build full bookings.
+function rowIsLive(status: string | null | undefined, pendingExpiresAt: string | null | undefined): boolean {
+  if ((status ?? "paid") !== "pending") return true;
+  return pendingExpiresAt != null && pendingExpiresAt > new Date().toISOString();
 }
 
 export async function saveBooking(booking: Booking): Promise<void> {
@@ -44,6 +63,11 @@ export async function saveBooking(booking: Booking): Promise<void> {
     pricing: booking.pricing,
     source: booking.source,
     no_show: booking.noShow,
+    // Only pending (Stripe) bookings write the new columns, so the simulated
+    // flow keeps working on a bookings table that predates them.
+    ...(booking.status === "pending"
+      ? { status: booking.status, pending_expires_at: booking.pendingExpiresAt }
+      : {}),
   };
   const res = await rest("bookings", {
     method: "POST",
@@ -51,6 +75,26 @@ export async function saveBooking(booking: Booking): Promise<void> {
     body: JSON.stringify(row),
   });
   if (!res.ok) throw await restError(res, "Saving the booking");
+}
+
+// Marks a pending Stripe booking as paid, recording what was actually charged.
+// Idempotent — the webhook and the redirect-return can both call it.
+export async function finalizeBookingPayment(id: string, paidCents: number): Promise<Booking | undefined> {
+  const booking = await getBooking(id);
+  if (!booking) return undefined;
+  if (booking.status === "paid") return booking;
+  const pricing: Booking["pricing"] = {
+    ...booking.pricing,
+    paidCents,
+    balanceCents: booking.pricing.totalCents - paidCents,
+  };
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ status: "paid", pending_expires_at: null, pricing }),
+  });
+  if (!res.ok) throw await restError(res, "Recording the payment");
+  return { ...booking, status: "paid", pendingExpiresAt: null, pricing };
 }
 
 export async function setBookingNoShow(id: string, noShow: boolean): Promise<void> {
@@ -92,23 +136,25 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
   return rows[0] ? toBooking(rows[0]) : undefined;
 }
 
-// Every booking, newest first. Fine at this scale; add pagination when the
-// venue has thousands of bookings.
+// Every live booking, newest first (expired unpaid checkouts drop out). Fine
+// at this scale; add pagination when the venue has thousands of bookings.
 export async function listBookings(): Promise<Booking[]> {
   const res = await rest("bookings?select=*&order=created_at.desc");
   if (!res.ok) throw await restError(res, "Loading bookings");
-  return ((await res.json()) as BookingRow[]).map(toBooking);
+  return ((await res.json()) as BookingRow[]).map(toBooking).filter(isLiveBooking);
 }
 
 // All booked spot counts for one date, keyed "roomId|time". One query per date
 // (the availability page needs every slot) using a jsonb contains filter.
+// Live pending checkouts count — their spots are held until they expire.
 export async function bookedCountsForDate(date: string): Promise<Map<string, number>> {
   const filter = encodeURIComponent(JSON.stringify([{ date }]));
-  const res = await rest(`bookings?select=items&items=cs.${filter}`);
+  const res = await rest(`bookings?select=items,status,pending_expires_at&items=cs.${filter}`);
   if (!res.ok) throw await restError(res, "Loading availability");
-  const rows = (await res.json()) as Pick<BookingRow, "items">[];
+  const rows = (await res.json()) as Pick<BookingRow, "items" | "status" | "pending_expires_at">[];
   const counts = new Map<string, number>();
   for (const row of rows) {
+    if (!rowIsLive(row.status, row.pending_expires_at)) continue;
     for (const item of row.items) {
       if (item.date !== date) continue;
       const key = `${item.roomId}|${item.time}`;
@@ -130,7 +176,7 @@ export async function bookingsForDate(date: string): Promise<Booking[]> {
   const filter = encodeURIComponent(JSON.stringify([{ date }]));
   const res = await rest(`bookings?select=*&items=cs.${filter}&order=created_at.desc`);
   if (!res.ok) throw await restError(res, "Loading the day's bookings");
-  return ((await res.json()) as BookingRow[]).map(toBooking);
+  return ((await res.json()) as BookingRow[]).map(toBooking).filter(isLiveBooking);
 }
 
 // ---------- promo codes ----------

@@ -52,8 +52,14 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   nothing; all access goes through the service_role key in server code (`lib/supabase.ts`).
 - Manager write APIs live under `/api/manager/*` — currently unauthenticated (owner's choice
   for now); they validate all input.
-- Payment is simulated: card details are validated in the browser (Luhn + expiry) and never sent
-  to the server. Promo code `WELCOME10` gives 10% off.
+- Payment: simulated by default (card validated in the browser, nobody charged). With
+  `STRIPE_SECRET_KEY` (+ `STRIPE_WEBHOOK_SECRET`) in the environment, checkout switches to
+  Stripe-hosted Checkout Sessions: the booking is saved as `status: "pending"` (holds its spots
+  for 30 min, then stops counting), and is finalized to `paid` on the redirect return AND by the
+  `/api/stripe/webhook` endpoint (`checkout.session.completed`), idempotently. Stripe keys are
+  env-only — never stored via the portal (no auth yet). On Supabase, `bookings` needs `status` +
+  `pending_expires_at` columns first (SQL shown on Settings → Marketing & tracking). Promo code
+  `WELCOME10` gives 10% off.
 - Marketing integrations (Meta Pixel, Google Tag Manager) are configured in Settings →
   Marketing & tracking (settings key `integrations`, ID fields only — never raw scripts). The
   customer site layout injects the snippets only when a validated ID is enabled, and the funnel
