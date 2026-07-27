@@ -1,11 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import ApiKeysManager from "@/components/manager/ApiKeysManager";
+import type { ApiKey } from "@/lib/api-keys";
 import { FB_PIXEL_RE, GTM_ID_RE, type IntegrationSettings } from "@/lib/integrations";
 
 export type StripeStatus = { mode: "test" | "live" | null; webhook: boolean };
 
-export default function IntegrationsForm({ initial, stripe }: { initial: IntegrationSettings; stripe: StripeStatus }) {
+export default function IntegrationsForm({
+  initial,
+  stripe,
+  apiKeys,
+}: {
+  initial: IntegrationSettings;
+  stripe: StripeStatus;
+  apiKeys: ApiKey[];
+}) {
   const [s, setS] = useState<IntegrationSettings>(initial);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -162,9 +172,27 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
         </div>
         <p className="card-sub">
           Morty is an escape-room discovery app that lists venues with live availability. Your side is built: a
-          partner availability feed with booking deep links, protected by API keys you create under Settings →
-          Developers → API keys. To get listed, contact Morty (mortyapp.com) about connecting a custom booking
-          system and hand them a key + the feed docs from that page.
+          partner availability feed with booking deep links, protected by API keys you create right here. To get
+          listed, contact Morty (mortyapp.com) about connecting a custom booking system and hand them a key + the
+          feed details below.
+        </p>
+        <h3 className="intg-subhead">Partner API keys</h3>
+        <p className="card-sub">
+          One key per partner, revocable on its own. Keys unlock the availability feed only — schedules, prices and
+          booking links, never customer data. Fotaflo would use the same keys once partnered.
+        </p>
+        <ApiKeysManager initialKeys={apiKeys} />
+        <h3 className="intg-subhead">Availability feed</h3>
+        <p className="card-sub">What a partner calls with their key — live open slots for a date, grouped by experience:</p>
+        <pre className="intg-code">{`GET /api/partner/availability?date=YYYY-MM-DD
+Authorization: Bearer vb_...        (or append &key=vb_...)
+
+curl -H "Authorization: Bearer vb_..." \\
+  "https://your-site.example/api/partner/availability?date=2026-08-01"`}</pre>
+        <p className="card-sub">
+          Each slot includes a <code>bookUrl</code> that lands the player on the booking site with that room, date
+          and time already selected. Dates outside the booking window are rejected; sold-out slots report{" "}
+          <code>remaining: 0</code>.
         </p>
       </div>
 

@@ -1792,6 +1792,10 @@ a:hover {
   padding: 2px 6px;
   word-break: break-all;
 }
+.intg-subhead {
+  margin: 22px 0 6px;
+  font-size: 15px;
+}
 
 .bs-color {
   display: flex;
