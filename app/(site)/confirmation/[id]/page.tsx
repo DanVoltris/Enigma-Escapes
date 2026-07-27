@@ -4,7 +4,7 @@ import ConfirmationEffects from "@/components/ConfirmationEffects";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
-import { getBookingPolicies } from "@/lib/settings";
+import { getBookingPolicies, getIntegrations } from "@/lib/settings";
 import { retrieveCheckoutSession, stripeConfigured } from "@/lib/stripe";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
@@ -66,6 +66,8 @@ export default async function ConfirmationPage({
   }
 
   const { customer, items, pricing } = booking;
+  const integrations = await getIntegrations();
+  const meetingUrl = integrations.zoomEnabled && integrations.zoomUrl ? integrations.zoomUrl : null;
   const policies = await getBookingPolicies();
   const shownPolicies = [
     { key: "reschedule", verb: "reschedule", ...policies.reschedule },
@@ -86,6 +88,14 @@ export default async function ConfirmationPage({
           A confirmation email would be sent to {customer.email} in a production setup. Please arrive 15 minutes
           before your start time.
         </p>
+        {meetingUrl && (
+          <p className="confirm-note">
+            Playing remotely? Join your session here:{" "}
+            <a href={meetingUrl} target="_blank" rel="noreferrer">
+              {meetingUrl}
+            </a>
+          </p>
+        )}
       </div>
 
       <div className="confirm-grid">

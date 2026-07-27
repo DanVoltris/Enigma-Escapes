@@ -199,25 +199,54 @@ curl -H "Authorization: Bearer vb_..." \\
       <div className="mgr-card">
         <div className="intg-head">
           <h2>Fotaflo</h2>
-          <span className="mgr-pill">Requires a Fotaflo partnership</span>
+          <span className="mgr-pill on">Our side is ready — needs a Fotaflo partnership</span>
         </div>
         <p className="card-sub">
-          Photo &amp; video delivery for guests. Like Morty, Fotaflo connects through a partner API on their side
-          rather than a pasted ID — contact Fotaflo about connecting your booking system, and the booking feed for
-          them can be built here once you have access.
+          Photo &amp; video delivery for guests. Your side is built: a sessions feed that tells a photo partner which
+          groups played on a date (rooms, times, group name) so photos can be matched to bookings. It uses the same
+          partner keys as Morty (above). Contact Fotaflo about connecting a custom booking system and hand them a
+          key + the details below.
+        </p>
+        <pre className="intg-code">{`GET /api/partner/bookings?date=YYYY-MM-DD
+Authorization: Bearer vb_...        (past dates allowed — photos come after the visit)`}</pre>
+        <p className="card-sub">
+          Guest contact details are deliberately excluded from this feed until the portal has staff logins — photo
+          delivery emails would come via Fotaflo&apos;s own capture flow, or the feed can include emails once auth
+          exists.
         </p>
       </div>
 
       <div className="mgr-card">
         <div className="intg-head">
           <h2>Zoom</h2>
-          <span className="mgr-pill">On hold — needs booking emails first</span>
+          {s.zoomEnabled && s.zoomUrl ? (
+            <span className="mgr-pill on">Active — link shown on confirmations</span>
+          ) : (
+            <span className="mgr-pill">Optional — paste a meeting link</span>
+          )}
         </div>
         <p className="card-sub">
-          Auto-creating Zoom meetings for remote games needs booking emails first (the app doesn&apos;t send email
-          yet) — so this integration is on hold until email exists. If you run virtual games today, a per-experience
-          meeting link shown on the confirmation page is a quick interim option; ask and it will be added.
+          For virtual games: paste a meeting link (Zoom, Meet, Teams) and it&apos;s shown to customers on their
+          booking confirmation page. Auto-creating a unique meeting per booking and emailing it needs the booking
+          email system first — that part stays on hold until email exists.
         </p>
+        <div className="mgr-form">
+          <div className="field" style={{ maxWidth: 480 }}>
+            <label htmlFor="intg-zoom-url">Meeting link</label>
+            <input
+              id="intg-zoom-url"
+              type="url"
+              placeholder="https://zoom.us/j/1234567890"
+              value={s.zoomUrl}
+              onChange={(e) => patch({ zoomUrl: e.target.value })}
+            />
+            <p className="field-hint">Shown on every confirmation while enabled — e.g. your personal meeting room.</p>
+          </div>
+          <label className="intg-toggle">
+            <input type="checkbox" checked={s.zoomEnabled} onChange={(e) => patch({ zoomEnabled: e.target.checked })} />
+            Show this link on booking confirmations
+          </label>
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

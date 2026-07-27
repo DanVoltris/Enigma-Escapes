@@ -9,6 +9,8 @@ export type IntegrationSettings = {
   fbEnabled: boolean;
   gtmId: string; // Google Tag Manager container, "GTM-XXXXXXX"; "" = not configured
   gtmEnabled: boolean;
+  zoomUrl: string; // meeting link shown on confirmations for virtual games; "" = none
+  zoomEnabled: boolean;
 };
 
 export const DEFAULT_INTEGRATIONS: IntegrationSettings = {
@@ -16,7 +18,13 @@ export const DEFAULT_INTEGRATIONS: IntegrationSettings = {
   fbEnabled: false,
   gtmId: "",
   gtmEnabled: false,
+  zoomUrl: "",
+  zoomEnabled: false,
 };
+
+// Any https meeting link (Zoom, Meet, Teams) — rendered as an <a href>, so
+// https-only is the safety line.
+export const MEETING_URL_RE = /^https:\/\/\S{1,300}$/;
 
 // Meta Pixel IDs are numeric (typically 15-16 digits); GTM containers are
 // GTM- plus 4-10 alphanumerics. Injection interpolates these into inline
@@ -28,11 +36,14 @@ export function normalizeIntegrations(input: unknown): IntegrationSettings {
   const o = (input ?? {}) as Record<string, unknown>;
   const fbPixelId = typeof o.fbPixelId === "string" ? o.fbPixelId.trim() : "";
   const gtmId = typeof o.gtmId === "string" ? o.gtmId.trim().toUpperCase() : "";
+  const zoomUrl = typeof o.zoomUrl === "string" ? o.zoomUrl.trim() : "";
   return {
     fbPixelId: FB_PIXEL_RE.test(fbPixelId) ? fbPixelId : "",
     fbEnabled: o.fbEnabled === true,
     gtmId: GTM_ID_RE.test(gtmId) ? gtmId : "",
     gtmEnabled: o.gtmEnabled === true,
+    zoomUrl: MEETING_URL_RE.test(zoomUrl) ? zoomUrl : "",
+    zoomEnabled: o.zoomEnabled === true,
   };
 }
 
