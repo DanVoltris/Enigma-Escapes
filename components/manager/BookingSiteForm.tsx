@@ -1,16 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SiteSettings } from "@/lib/site-settings";
 
 type TabKey = "availability" | "colors" | "basket" | "content";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "availability", label: "Availability" },
-  { key: "colors", label: "Colours" },
+  { key: "colors", label: "Logo & colours" },
   { key: "basket", label: "Shopping basket" },
   { key: "content", label: "Content" },
 ];
+
+// Mirrors the server-side limit in the upload API (lib/storage.ts).
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+
+// The dominant colours of an image, as hex strings, most prominent first.
+// Downscales onto a canvas and buckets similar pixels — no libraries needed.
+async function extractPalette(src: string): Promise<string[]> {
+  const img = new Image();
+  img.crossOrigin = "anonymous"; // needed to read pixels of bucket-hosted logos
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Could not read the image."));
+    img.src = src;
+  });
+
+  const size = 48;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return [];
+  ctx.drawImage(img, 0, 0, size, size);
+  const { data } = ctx.getImageData(0, 0, size, size);
+
+  // Bucket pixels on a coarse RGB grid, averaging the true colour per bucket.
+  const buckets = new Map<string, { count: number; r: number; g: number; b: number }>();
+  let opaque = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 128) continue; // transparent
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    if (r > 242 && g > 242 && b > 242) continue; // near-white (usually the background)
+    opaque++;
+    const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
+    const e = buckets.get(key) ?? { count: 0, r: 0, g: 0, b: 0 };
+    e.count++;
+    e.r += r;
+    e.g += g;
+    e.b += b;
+    buckets.set(key, e);
+  }
+
+  const minCount = Math.max(4, opaque * 0.02); // ignore stray noise pixels
+  const picked: { r: number; g: number; b: number }[] = [];
+  for (const e of [...buckets.values()].sort((a, b) => b.count - a.count)) {
+    if (e.count < minCount) break;
+    const r = Math.round(e.r / e.count);
+    const g = Math.round(e.g / e.count);
+    const b = Math.round(e.b / e.count);
+    // skip shades too close to an already-picked colour
+    if (picked.some((p) => Math.abs(p.r - r) + Math.abs(p.g - g) + Math.abs(p.b - b) < 60)) continue;
+    picked.push({ r, g, b });
+    if (picked.length >= 6) break;
+  }
+  return picked.map(({ r, g, b }) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`);
+}
 
 export default function BookingSiteForm({ initial }: { initial: SiteSettings }) {
   const [s, setS] = useState<SiteSettings>(initial);
@@ -18,10 +75,40 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [palette, setPalette] = useState<string[]>([]);
+  const [logoBusy, setLogoBusy] = useState(false);
+
+  // Recover the swatches for an already-saved logo when the page loads.
+  useEffect(() => {
+    if (initial.logoUrl) extractPalette(initial.logoUrl).then(setPalette).catch(() => {});
+  }, [initial.logoUrl]);
 
   function patch(next: Partial<SiteSettings>) {
     setS({ ...s, ...next });
     setSaved(false);
+  }
+
+  async function onLogoFile(file: File) {
+    if (file.size > MAX_LOGO_BYTES) {
+      setError("Logo is too large — keep it under 5 MB.");
+      return;
+    }
+    setLogoBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/manager/upload", { method: "POST", body: fd });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not upload the logo. Please try again.");
+      patch({ logoUrl: data.url });
+      // Colour extraction is a bonus — an unreadable image shouldn't fail the upload.
+      setPalette(await extractPalette(data.url).catch(() => []));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload the logo. Please try again.");
+    } finally {
+      setLogoBusy(false);
+    }
   }
 
   async function save() {
@@ -128,11 +215,70 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
 
         {tab === "colors" && (
           <>
-            <h2>Colours</h2>
+            <h2>Logo &amp; colours</h2>
             <p className="card-sub">
               Applied to the customer booking site only — the manager portal keeps its own styling.
             </p>
             <div className="mgr-form">
+              <div className="field">
+                <label htmlFor="bs-logo">Logo</label>
+                {s.logoUrl && (
+                  <div className="bs-logo-row">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- data URLs in local mode */}
+                    <img src={s.logoUrl} alt="Current logo" className="bs-logo-preview" />
+                    <button
+                      type="button"
+                      className="link-button danger"
+                      onClick={() => {
+                        patch({ logoUrl: null });
+                        setPalette([]);
+                      }}
+                    >
+                      Remove logo
+                    </button>
+                  </div>
+                )}
+                <input
+                  id="bs-logo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={logoBusy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onLogoFile(f);
+                    e.target.value = ""; // allow re-selecting the same file
+                  }}
+                />
+                <p className="field-hint">
+                  {logoBusy
+                    ? "Uploading and reading colours…"
+                    : "JPG, PNG or WebP, up to 5 MB. Shown in place of the site name in the booking site header. Remember to Save & update."}
+                </p>
+              </div>
+
+              {palette.length > 0 && (
+                <div className="field">
+                  <label>Colours from your logo</label>
+                  <div className="bs-swatches">
+                    {palette.map((hexColor) => (
+                      <button
+                        key={hexColor}
+                        type="button"
+                        className={`bs-swatch${s.brandColor === hexColor ? " selected" : ""}`}
+                        style={{ background: hexColor }}
+                        title={`Use ${hexColor} as the accent`}
+                        aria-label={`Use ${hexColor} as the accent colour`}
+                        onClick={() => patch({ brandColor: hexColor, buttonBg: hexColor })}
+                      />
+                    ))}
+                  </div>
+                  <p className="field-hint">
+                    Click a colour to use it as your accent (brand colour and button background) — or pick any custom
+                    colour below.
+                  </p>
+                </div>
+              )}
+
               <div className="field-row-3">
                 {colorField("Brand colour", "brandColor", "Highlights, selected states and accents.")}
                 {colorField("Button background", "buttonBg", "Primary buttons like “Book now”.")}

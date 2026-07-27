@@ -1,5 +1,6 @@
 import { CartProvider } from "@/lib/cart";
 import Header from "@/components/Header";
+import { readableOn, shade, tint } from "@/lib/color";
 import { getBusinessDetails } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
 import { SiteConfigProvider } from "@/lib/site-config";
@@ -15,9 +16,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     getSiteSettings(),
   ]);
 
-  // Brand colours override the design tokens for the customer site only — the
-  // manager portal keeps its own styling.
-  const themeVars = `.site-theme{--accent:${site.brandColor};--btn-bg:${site.buttonBg};--btn-fg:${site.buttonText};}`;
+  // Brand colours override the design tokens for the customer site. Hover/tint/
+  // text-on-accent are derived from the brand colour so contrast stays readable.
+  const themeVars = `.site-theme{--accent:${site.brandColor};--accent-hover:${shade(site.brandColor, 0.85)};--accent-tint:${tint(site.brandColor, 0.92)};--accent-dark:${readableOn(site.brandColor)};--btn-bg:${site.buttonBg};--btn-fg:${site.buttonText};}`;
 
   return (
     <SiteConfigProvider value={site}>

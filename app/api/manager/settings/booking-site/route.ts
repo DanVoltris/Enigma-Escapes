@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/db";
 import { saveSetting } from "@/lib/settings";
 import { normalizeSiteSettings } from "@/lib/site-settings";
+import { publicImageBase } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,10 @@ export async function PUT(req: NextRequest) {
   }
 
   const settings = normalizeSiteSettings(body); // clamps numbers, validates hex colours
+
+  // Only accept a logo URL our own upload endpoint produced (same guard as
+  // experience images); arbitrary external URLs are dropped.
+  if (settings.logoUrl && !settings.logoUrl.startsWith(publicImageBase())) settings.logoUrl = null;
 
   try {
     await saveSetting("booking_site", settings);
