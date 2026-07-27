@@ -77,7 +77,11 @@ export default function StaffNotes({ notes }: { notes: StaffNote[] }) {
             <li key={n.id}>
               <div>
                 <div>{n.note}</div>
-                <div className="when">{new Date(n.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}</div>
+                {/* Timestamp formatting differs between the server (Node) and browser
+                    ICU data, so suppress the harmless hydration text mismatch. */}
+                <div className="when" suppressHydrationWarning>
+                  {new Date(n.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                </div>
               </div>
               <button type="button" className="link-button danger" onClick={() => remove(n.id)}>
                 Delete
