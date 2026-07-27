@@ -54,6 +54,11 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   for now); they validate all input.
 - Payment is simulated: card details are validated in the browser (Luhn + expiry) and never sent
   to the server. Promo code `WELCOME10` gives 10% off.
+- Marketing integrations (Meta Pixel, Google Tag Manager) are configured in Settings →
+  Marketing & tracking (settings key `integrations`, ID fields only — never raw scripts). The
+  customer site layout injects the snippets only when a validated ID is enabled, and the funnel
+  fires AddToCart / InitiateCheckout / Purchase to the Pixel and the GTM dataLayer
+  (`lib/tracking.ts`). The manager portal is never tracked.
 - Cart state (items, customer info, hold timer) lives in React context persisted to
   localStorage (`lib/cart.tsx`).
 

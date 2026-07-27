@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { HOLD_MINUTES } from "./pricing";
+import { trackAddToCart } from "./tracking";
 import type { CartItem, Customer, PaymentOption } from "./types";
 
 const STORAGE_KEY = "voltris-cart";
@@ -101,6 +102,7 @@ export function CartProvider({
         expiresAt: s.items.length === 0 ? Date.now() + holdRef.current * 60 * 1000 : s.expiresAt,
       };
     });
+    trackAddToCart(item); // marketing funnel event (no-op unless a tracker is active)
   }, []);
 
   const removeItem = useCallback((key: string) => {

@@ -1,7 +1,8 @@
 import { CartProvider } from "@/lib/cart";
 import Header from "@/components/Header";
 import { readableOn, shade, tint } from "@/lib/color";
-import { getBusinessDetails } from "@/lib/settings";
+import { activeTrackers, fbPixelScript, gtmScript } from "@/lib/integrations";
+import { getBusinessDetails, getIntegrations } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
 import { SiteConfigProvider } from "@/lib/site-config";
 
@@ -9,12 +10,18 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   // Business details come from Settings → Business details; the footer only
   // renders once the owner has filled them in. Booking-site settings drive the
   // theme, basket hold and on-site copy.
-  const [business, site] = await Promise.all([
+  const [business, site, integrations] = await Promise.all([
     getBusinessDetails()
       .then((r) => r.value)
       .catch(() => null),
     getSiteSettings(),
+    getIntegrations(),
   ]);
+
+  // Marketing scripts (Settings → Integrations) run on the customer site only,
+  // and only with a validated ID — the IDs are interpolated into inline
+  // scripts, so nothing unvalidated may reach them.
+  const trackers = activeTrackers(integrations);
 
   // Brand colours override the design tokens for the customer site. Hover/tint/
   // text-on-accent are derived from the brand colour so contrast stays readable.
@@ -24,6 +31,35 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <SiteConfigProvider value={site}>
       <CartProvider holdMinutes={site.holdMinutes}>
         <style>{themeVars}</style>
+        {trackers.gtm && (
+          <>
+            <script dangerouslySetInnerHTML={{ __html: gtmScript(integrations.gtmId) }} />
+            <noscript>
+              <iframe
+                src={`https://www.googletagmanager.com/ns.html?id=${integrations.gtmId}`}
+                height="0"
+                width="0"
+                style={{ display: "none", visibility: "hidden" }}
+                title="Google Tag Manager"
+              />
+            </noscript>
+          </>
+        )}
+        {trackers.fb && (
+          <>
+            <script dangerouslySetInnerHTML={{ __html: fbPixelScript(integrations.fbPixelId) }} />
+            <noscript>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                height="1"
+                width="1"
+                style={{ display: "none" }}
+                src={`https://www.facebook.com/tr?id=${integrations.fbPixelId}&ev=PageView&noscript=1`}
+                alt=""
+              />
+            </noscript>
+          </>
+        )}
         <div className="site-theme">
           <Header />
           <main className="container">

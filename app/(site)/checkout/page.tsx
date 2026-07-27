@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CartSummary from "@/components/CartSummary";
 import HoldBanner from "@/components/HoldBanner";
 import ProgressSteps from "@/components/ProgressSteps";
 import { useCart } from "@/lib/cart";
+import { trackInitiateCheckout } from "@/lib/tracking";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\s()+-]{7,}$/;
@@ -16,6 +17,18 @@ type Errors = Partial<Record<"firstName" | "lastName" | "email" | "phone", strin
 export default function CheckoutDetailsPage() {
   const router = useRouter();
   const { items, customer, setCustomer } = useCart();
+
+  // Marketing funnel event, once per checkout visit — waits for the cart to
+  // restore from localStorage (items start empty on first render).
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (items.length === 0 || checkoutTracked.current) return;
+    checkoutTracked.current = true;
+    trackInitiateCheckout(
+      items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0),
+      items.length
+    );
+  }, [items]);
 
   const [firstName, setFirstName] = useState(customer?.firstName ?? "");
   const [lastName, setLastName] = useState(customer?.lastName ?? "");

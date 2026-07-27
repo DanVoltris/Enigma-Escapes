@@ -35,6 +35,10 @@ const SECTIONS: { heading: string; items: { href: string; label: string }[] }[] 
     items: [{ href: "/manager/settings/payments", label: "Payment settings" }],
   },
   {
+    heading: "Integrations",
+    items: [{ href: "/manager/settings/integrations", label: "Marketing & tracking" }],
+  },
+  {
     heading: "Developers",
     items: [{ href: "/manager/settings/developers", label: "API keys" }],
   },

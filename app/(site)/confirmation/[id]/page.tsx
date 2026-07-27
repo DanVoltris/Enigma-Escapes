@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
+import TrackPurchase from "@/components/TrackPurchase";
 import { getBooking } from "@/lib/db";
 import { getBookingPolicies } from "@/lib/settings";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -24,6 +25,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
 
   return (
     <>
+      <TrackPurchase reference={booking.reference} totalCents={pricing.totalCents} />
       <ProgressSteps current={4} />
 
       <div className="confirm-hero">

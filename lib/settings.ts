@@ -1,3 +1,4 @@
+import { DEFAULT_INTEGRATIONS, normalizeIntegrations, type IntegrationSettings } from "./integrations";
 import { rest, restError } from "./supabase";
 
 // Key-value app settings stored in the `settings` table (key text primary key,
@@ -119,5 +120,17 @@ export async function getBookingPolicies(): Promise<BookingPolicies> {
     return normalizePolicies(value);
   } catch {
     return DEFAULT_POLICIES;
+  }
+}
+
+// ---------- marketing integrations ----------
+
+// Never throws — the customer site must render even if settings are unreachable.
+export async function getIntegrations(): Promise<IntegrationSettings> {
+  try {
+    const { value } = await getSetting<Partial<IntegrationSettings>>("integrations");
+    return normalizeIntegrations(value);
+  } catch {
+    return DEFAULT_INTEGRATIONS;
   }
 }

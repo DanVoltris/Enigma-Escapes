@@ -1759,6 +1759,25 @@ a:hover {
 }
 
 /* colour picker pair in settings forms */
+/* integrations settings (Settings → Marketing & tracking) */
+.intg-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.intg-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.intg-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
 .bs-color {
   display: flex;
   gap: 8px;
