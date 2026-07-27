@@ -51,7 +51,11 @@ export default function IntegrationsForm({ initial, stripe }: { initial: Integra
       <div className="mgr-card">
         <div className="intg-head">
           <h2>Stripe</h2>
-          {stripe.mode && <span className="mgr-pill on">Active — {stripe.mode === "live" ? "LIVE" : "test mode"}</span>}
+          {stripe.mode ? (
+            <span className="mgr-pill on">Active — {stripe.mode === "live" ? "LIVE" : "test mode"}</span>
+          ) : (
+            <span className="mgr-pill">Ready — add your keys</span>
+          )}
         </div>
         <p className="card-sub">
           Accept real card payments online with Stripe&apos;s hosted checkout (cards, Apple Pay, Google Pay). Until
@@ -86,7 +90,11 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
       <div className="mgr-card">
         <div className="intg-head">
           <h2>Facebook Tracking</h2>
-          {s.fbEnabled && FB_PIXEL_RE.test(s.fbPixelId) && <span className="mgr-pill on">Active</span>}
+          {s.fbEnabled && FB_PIXEL_RE.test(s.fbPixelId) ? (
+            <span className="mgr-pill on">Active</span>
+          ) : (
+            <span className="mgr-pill">Ready — paste your Pixel ID</span>
+          )}
         </div>
         <p className="card-sub">
           Track visitors, add-to-basket, checkout and completed bookings (with value) on your booking site, so
@@ -117,7 +125,11 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
       <div className="mgr-card">
         <div className="intg-head">
           <h2>Google Tag Manager</h2>
-          {s.gtmEnabled && GTM_ID_RE.test(s.gtmId) && <span className="mgr-pill on">Active</span>}
+          {s.gtmEnabled && GTM_ID_RE.test(s.gtmId) ? (
+            <span className="mgr-pill on">Active</span>
+          ) : (
+            <span className="mgr-pill">Ready — paste your container ID</span>
+          )}
         </div>
         <p className="card-sub">
           Loads your GTM container on every customer page, so you can add Google Analytics, ads tags and more from
@@ -144,7 +156,10 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
       </div>
 
       <div className="mgr-card">
-        <h2>Morty</h2>
+        <div className="intg-head">
+          <h2>Morty</h2>
+          <span className="mgr-pill">Requires a Morty partnership</span>
+        </div>
         <p className="card-sub">
           Morty is an escape-room discovery app that lists venues with live availability. Listing requires a
           partner integration on Morty&apos;s side — there&apos;s no ID to paste. If you pursue a partnership
@@ -153,7 +168,10 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
       </div>
 
       <div className="mgr-card">
-        <h2>Fotaflo</h2>
+        <div className="intg-head">
+          <h2>Fotaflo</h2>
+          <span className="mgr-pill">Requires a Fotaflo partnership</span>
+        </div>
         <p className="card-sub">
           Photo &amp; video delivery for guests. Like Morty, Fotaflo connects through a partner API on their side
           rather than a pasted ID — contact Fotaflo about connecting your booking system, and the booking feed for
@@ -162,7 +180,10 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Dashboard → Webhooks → endpoint /api/strip
       </div>
 
       <div className="mgr-card">
-        <h2>Zoom</h2>
+        <div className="intg-head">
+          <h2>Zoom</h2>
+          <span className="mgr-pill">On hold — needs booking emails first</span>
+        </div>
         <p className="card-sub">
           Auto-creating Zoom meetings for remote games needs booking emails first (the app doesn&apos;t send email
           yet) — so this integration is on hold until email exists. If you run virtual games today, a per-experience
