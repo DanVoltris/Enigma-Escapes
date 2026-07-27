@@ -1797,6 +1797,25 @@ a:hover {
   font-size: 15px;
 }
 
+/* daily checklists board */
+.chk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.chk-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.chk-done {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
 .bs-color {
   display: flex;
   gap: 8px;

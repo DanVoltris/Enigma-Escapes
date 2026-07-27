@@ -10,6 +10,7 @@ const TABS = [
   { href: "/manager/customers", label: "Customers" },
   { href: "/manager/experiences", label: "Experiences" },
   { href: "/manager/promos", label: "Promo codes" },
+  { href: "/manager/checklists", label: "Checklists" },
   { href: "/manager/reports", label: "Reports" },
   { href: "/manager/settings", label: "Settings" },
   { href: "/manager/help", label: "Help" },
