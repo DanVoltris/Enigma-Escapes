@@ -30,6 +30,7 @@ const TABS = [
   { section: "Misc", key: "discounts", label: "Discounts" },
   { section: "Misc", key: "abandonment", label: "Cart abandonment" },
   { section: "Misc", key: "games", label: "Games" },
+  { section: "Misc", key: "surveys", label: "Surveys" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -171,6 +172,7 @@ export default async function ManagerReports({
           {tab === "guests" && <GuestsTab purchased={purchased} />}
           {tab === "capacity" && <CapacityTab bookings={bookings} from={from} to={to} today={today} />}
           {tab === "games" && <GamesTab bookings={bookings} from={from} to={to} />}
+          {tab === "surveys" && <SurveysTab from={from} to={to} />}
           {tab === "discounts" && <DiscountsTab purchased={purchased} />}
           {tab === "abandonment" && (
             <p className="mgr-empty">
@@ -823,6 +825,55 @@ function GamesTab({ bookings, from, to }: { bookings: Booking[]; from: string; t
           {unlogged} past session(s) in this range have no result recorded yet.
         </p>
       )}
+    </>
+  );
+}
+
+// Post-game survey responses (public /feedback form, linked from every
+// confirmation). Sliced by submission date.
+async function SurveysTab({ from, to }: { from: string; to: string }) {
+  const { listFeedback } = await import("@/lib/feedback");
+  const all = await listFeedback();
+  const inRange = all.filter((f) => {
+    const d = businessDateOf(f.createdAt);
+    return d >= from && d <= to;
+  });
+
+  if (inRange.length === 0) {
+    return (
+      <p className="mgr-empty">
+        No survey responses in this range. Customers reach the survey from the “Tell us how it went” link on their
+        confirmation page.
+      </p>
+    );
+  }
+
+  const avg = inRange.reduce((s, f) => s + f.rating, 0) / inRange.length;
+  return (
+    <>
+      <p className="mgr-page-sub">
+        <strong>{avg.toFixed(1)} / 5</strong> average across {inRange.length} response(s).
+      </p>
+      <table className="mgr-table">
+        <thead>
+          <tr>
+            <th>Booking</th>
+            <th className="num">Rating</th>
+            <th>Comment</th>
+            <th>Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          {inRange.map((f) => (
+            <tr key={f.reference}>
+              <td>{f.reference}</td>
+              <td className="num">{"★".repeat(f.rating)}{"☆".repeat(5 - f.rating)}</td>
+              <td>{f.comment || "—"}</td>
+              <td>{f.name || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </>
   );
 }

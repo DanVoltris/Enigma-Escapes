@@ -1816,6 +1816,24 @@ a:hover {
   color: var(--text-secondary);
 }
 
+/* survey star picker */
+.fb-stars {
+  display: flex;
+  gap: 4px;
+}
+.fb-star {
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--border);
+  cursor: pointer;
+}
+.fb-star.on {
+  color: var(--accent);
+}
+
 .bs-color {
   display: flex;
   gap: 8px;

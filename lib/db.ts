@@ -152,6 +152,15 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
   return rows[0] ? toBooking(rows[0]) : undefined;
 }
 
+// Lookup by public reference (used by the feedback form to verify it's real).
+export async function getBookingByReference(reference: string): Promise<Booking | undefined> {
+  if (!/^VB-[A-Z0-9]{4,10}$/i.test(reference)) return undefined;
+  const res = await rest(`bookings?reference=eq.${encodeURIComponent(reference.toUpperCase())}&select=*&limit=1`);
+  if (!res.ok) throw await restError(res, "Looking up the booking");
+  const rows = (await res.json()) as BookingRow[];
+  return rows[0] ? toBooking(rows[0]) : undefined;
+}
+
 // Every live booking, newest first (expired unpaid checkouts drop out). Fine
 // at this scale; add pagination when the venue has thousands of bookings.
 export async function listBookings(): Promise<Booking[]> {

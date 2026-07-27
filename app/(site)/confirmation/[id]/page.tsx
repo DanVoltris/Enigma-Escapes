@@ -96,6 +96,10 @@ export default async function ConfirmationPage({
             </a>
           </p>
         )}
+        <p className="confirm-note">
+          Played already?{" "}
+          <Link href={`/feedback?ref=${encodeURIComponent(booking.reference)}`}>Tell us how it went →</Link>
+        </p>
       </div>
 
       <div className="confirm-grid">

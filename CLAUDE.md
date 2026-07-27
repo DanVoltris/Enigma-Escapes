@@ -66,6 +66,13 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   photo partners (e.g. Fotaflo) — deliberately PII-free (no emails/phones) until portal auth
   exists. A business-wide virtual-game meeting link (integrations `zoomUrl`) shows on
   confirmations when enabled.
+- Checklists: daily staff task lists at `/manager/checklists` (definitions + today's ticks in
+  settings keys `checklists` / `checklist_state`; ticks reset at date rollover).
+- Surveys: public post-game form at `/feedback` (linked with the reference from every
+  confirmation), one response per booking, shown under Reports → Surveys. Supabase needs:
+  `create table feedback (reference text primary key, rating int not null, comment text,
+  name text, created_at timestamptz not null default now()); alter table feedback enable row
+  level security;` (local mode needs nothing).
 - Game results: staff log each session's outcome (escaped, minutes left, hints) on the manager
   booking page (`game_result` jsonb column — on Supabase run the ALTER TABLE shown on the
   Stripe integrations card); Reports → Games shows per-room escape rates.
