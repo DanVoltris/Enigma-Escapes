@@ -1859,6 +1859,44 @@ a:hover {
   align-items: center;
   margin-top: 14px;
 }
+
+/* known-customer typeahead on the walk-in form */
+.cust-lookup {
+  position: relative;
+}
+.cust-lookup-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.cust-lookup-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.cust-lookup-list button:hover {
+  background: var(--accent-tint);
+}
+.cust-lookup-list button .sub {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
 .chk-items {
   list-style: none;
   padding: 0;

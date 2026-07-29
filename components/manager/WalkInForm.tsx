@@ -11,6 +11,7 @@ import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 const WALK_IN_MIN = 1;
 
 type Exp = { id: string; name: string; location: string; priceCents: number; capacity: number; times: string[] };
+type KnownCustomer = { firstName: string; lastName: string; email: string; phone: string };
 
 export default function WalkInForm() {
   const router = useRouter();
@@ -28,6 +29,41 @@ export default function WalkInForm() {
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Customer lookup: typing a first name suggests known customers; picking one
+  // fills all four fields. Suppressed right after a pick until they type again.
+  const [suggestions, setSuggestions] = useState<KnownCustomer[]>([]);
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [justPicked, setJustPicked] = useState(false);
+
+  useEffect(() => {
+    const q = firstName.trim();
+    if (q.length < 2 || justPicked) {
+      setSuggestions([]);
+      setLookupOpen(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`/api/manager/customers/search?q=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const list: KnownCustomer[] = d.customers ?? [];
+          setSuggestions(list);
+          setLookupOpen(list.length > 0);
+        })
+        .catch(() => setLookupOpen(false));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [firstName, justPicked]);
+
+  function pickCustomer(c: KnownCustomer) {
+    setFirstName(c.firstName);
+    setLastName(c.lastName);
+    setEmail(c.email);
+    setPhone(c.phone);
+    setJustPicked(true);
+    setLookupOpen(false);
+  }
 
   useEffect(() => {
     fetch("/api/manager/experiences/list")
@@ -135,9 +171,41 @@ export default function WalkInForm() {
 
       <h3>Customer</h3>
       <div className="field-row">
-        <div className="field">
+        <div className="field cust-lookup">
           <label htmlFor="fn">First name</label>
-          <input id="fn" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <input
+            id="fn"
+            type="text"
+            value={firstName}
+            autoComplete="off"
+            aria-autocomplete="list"
+            aria-expanded={lookupOpen}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              setJustPicked(false);
+            }}
+            onBlur={() => setTimeout(() => setLookupOpen(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setLookupOpen(false);
+            }}
+          />
+          {lookupOpen && (
+            <ul className="cust-lookup-list" role="listbox" aria-label="Known customers">
+              {suggestions.map((c) => (
+                <li key={c.email}>
+                  <button type="button" role="option" aria-selected="false" onMouseDown={() => pickCustomer(c)}>
+                    <strong>
+                      {c.firstName} {c.lastName}
+                    </strong>
+                    <span className="sub">
+                      {c.email}
+                      {c.phone ? ` · ${c.phone}` : ""}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="field">
           <label htmlFor="ln">Last name</label>
