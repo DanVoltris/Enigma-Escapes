@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BarChart from "@/components/manager/BarChart";
 import Delta from "@/components/manager/Delta";
+import LocationFilter from "@/components/manager/LocationFilter";
 import PerfFilter from "@/components/manager/PerfFilter";
 import StaffNotes from "@/components/manager/StaffNotes";
 import RoomBadge from "@/components/RoomBadge";
@@ -63,7 +64,7 @@ export default async function ManagerDashboard({
       </nav>
 
       {view === "operations" ? (
-        <OperationsView bookings={bookings} today={today} />
+        <OperationsView bookings={perfBookings} today={today} loc={loc} locations={locations} />
       ) : (
         <PerformanceView
           bookings={perfBookings}
@@ -79,7 +80,17 @@ export default async function ManagerDashboard({
   );
 }
 
-async function OperationsView({ bookings, today }: { bookings: Booking[]; today: string }) {
+async function OperationsView({
+  bookings,
+  today,
+  loc,
+  locations,
+}: {
+  bookings: Booking[];
+  today: string;
+  loc: string | null;
+  locations: string[];
+}) {
   const [staffNotes, activity] = await Promise.all([listStaffNotes(), listActivity(8)]);
 
   const todayItems: TodayItem[] = [];
@@ -117,7 +128,12 @@ async function OperationsView({ bookings, today }: { bookings: Booking[]; today:
 
   return (
     <>
-      <p className="mgr-page-sub">What&apos;s happening at your venue today.</p>
+      <div className="mgr-actions-row" style={{ marginBottom: 8 }}>
+        <p className="mgr-page-sub" style={{ marginBottom: 0 }}>
+          What&apos;s happening at {loc ? `your ${loc} location` : "your venue"} today.
+        </p>
+        <LocationFilter locations={locations} />
+      </div>
 
       <div className="mgr-stats">
         <div className="mgr-stat">
@@ -420,7 +436,11 @@ function PerformanceView({
             <div className="mgr-highlight">
               <div className="label">Most popular experience</div>
               <div className="big">{topExperience ? topExperience.name : "—"}</div>
-              <div className="hint">{topExperience ? `${topExperience.guests} guests` : "no bookings yet"}</div>
+              <div className="hint">
+                {topExperience
+                  ? `${topExperience.guests} guests · ${topExperience.sessions} booking${topExperience.sessions === 1 ? "" : "s"}`
+                  : "no bookings yet"}
+              </div>
             </div>
             <div className="mgr-highlight">
               <div className="label">Repeat customers</div>

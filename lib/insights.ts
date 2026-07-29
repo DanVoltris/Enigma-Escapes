@@ -21,7 +21,7 @@ export type PeriodInsights = {
   avgPerBookingCents: number;
   avgGuestsPerBooking: number;
   byWeekday: { weekday: string; totalCents: number; bookings: number }[];
-  byExperience: { name: string; guests: number; grossCents: number }[];
+  byExperience: { name: string; guests: number; grossCents: number; sessions: number }[];
 };
 
 // Aggregates bookings PLACED within [fromISO, toISO] (venue-local dates,
@@ -34,7 +34,7 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
   });
 
   const weekday = new Map<string, { totalCents: number; bookings: number }>();
-  const experience = new Map<string, { guests: number; grossCents: number }>();
+  const experience = new Map<string, { guests: number; grossCents: number; sessions: number }>();
 
   let guests = 0;
   let grossCents = 0;
@@ -75,9 +75,10 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
     weekday.set(wd, w);
 
     for (const item of b.items) {
-      const e = experience.get(item.roomName) ?? { guests: 0, grossCents: 0 };
+      const e = experience.get(item.roomName) ?? { guests: 0, grossCents: 0, sessions: 0 };
       e.guests += item.quantity;
       e.grossCents += item.priceCents * item.quantity;
+      e.sessions += 1; // one item = one booked session of this room
       experience.set(item.roomName, e);
     }
   }
