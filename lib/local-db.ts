@@ -28,6 +28,7 @@ const PK: Record<string, string> = {
   settings: "key",
   location_hours: "location",
   feedback: "reference", // one survey response per booking; resubmit overwrites
+  customers: "email", // manually added customers; re-adding an email updates it
 };
 
 // Query-string keys that are PostgREST directives, not column filters.

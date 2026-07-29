@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CustomerRow from "@/components/manager/CustomerRow";
+import { listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +24,22 @@ export default async function ManagerCustomers({
   const { q: rawQ } = await searchParams;
   const q = (rawQ ?? "").trim().toLowerCase();
 
-  const bookings = await listBookings();
+  const [bookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
   const byEmail = new Map<string, CustomerRow>();
+  // Manually added customers first (zero bookings); a booking under the same
+  // email below simply accumulates onto the row.
+  for (const m of manual) {
+    byEmail.set(m.email.toLowerCase(), {
+      name: `${m.firstName} ${m.lastName}`,
+      email: m.email,
+      phone: m.phone,
+      subscribed: m.subscribe,
+      bookings: 0,
+      guests: 0,
+      spentCents: 0,
+      lastBooked: m.createdAt,
+    });
+  }
   for (const b of bookings) {
     const key = b.customer.email.toLowerCase();
     const row = byEmail.get(key) ?? {
@@ -78,6 +93,9 @@ export default async function ManagerCustomers({
             </Link>
           )}
         </form>
+        <Link href="/manager/customers/new" className="btn">
+          + Add customer
+        </Link>
       </div>
 
       {customers.length === 0 ? (

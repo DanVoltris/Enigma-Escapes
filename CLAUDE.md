@@ -66,6 +66,12 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   photo partners (e.g. Fotaflo) — deliberately PII-free (no emails/phones) until portal auth
   exists. A business-wide virtual-game meeting link (integrations `zoomUrl`) shows on
   confirmations when enabled.
+- Customers: the Customers tab merges booking-derived people with manually added ones
+  (`+ Add customer`, stored in a `customers` table keyed by email, `lib/customers.ts`; also
+  suggested in the walk-in lookup). Supabase needs: `create table customers (email text primary
+  key, first_name text not null, last_name text not null, phone text, subscribe boolean not null
+  default false, created_at timestamptz not null default now()); alter table customers enable
+  row level security;` (local mode needs nothing).
 - Checklists: daily staff task lists at `/manager/checklists` (definitions + today's ticks in
   settings keys `checklists` / `checklist_state`; ticks reset at date rollover).
 - Surveys: public post-game form at `/feedback` (linked with the reference from every

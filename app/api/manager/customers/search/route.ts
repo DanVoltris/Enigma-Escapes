@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -10,11 +11,16 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json({ customers: [] });
 
   try {
-    const bookings = await listBookings(); // newest first
+    const [bookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
     const seen = new Set<string>();
     const matches: { firstName: string; lastName: string; email: string; phone: string }[] = [];
-    for (const b of bookings) {
-      const c = b.customer;
+    // Booking-derived customers first (newest booking wins), then manually
+    // added ones that haven't booked yet.
+    const candidates = [
+      ...bookings.map((b) => b.customer),
+      ...manual.map((m) => ({ firstName: m.firstName, lastName: m.lastName, email: m.email, phone: m.phone })),
+    ];
+    for (const c of candidates) {
       const key = c.email.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
