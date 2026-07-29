@@ -45,18 +45,20 @@ export default async function ManagerCustomers({
             </Link>
           )}
         </form>
-        <Link href="/manager/customers/new" className="btn">
-          + Add customer
-        </Link>
-        <Link
-          href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}
-          className={`btn btn-outline${subscribersOnly ? " active" : ""}`}
-        >
-          {subscribersOnly ? "Show everyone" : "Subscribers only"}
-        </Link>
-        <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`} className="btn btn-outline">
-          Download CSV
-        </a>
+        <div className="mgr-actions-group">
+          <Link href="/manager/customers/new" className="btn">
+            + Add customer
+          </Link>
+          <Link
+            href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}
+            className={`btn btn-outline${subscribersOnly ? " active" : ""}`}
+          >
+            {subscribersOnly ? "Show everyone" : "Subscribers only"}
+          </Link>
+          <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`} className="btn btn-outline">
+            Download CSV
+          </a>
+        </div>
       </div>
 
       {customers.length === 0 ? (

@@ -1194,6 +1194,14 @@ a:hover {
   flex-wrap: wrap;
   margin-bottom: 24px;
 }
+/* keeps action buttons in one tight cluster, aligned with the search row */
+.mgr-actions-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  align-self: flex-end;
+  padding-bottom: 1px;
+}
 
 /* stat tiles */
 .mgr-stats {
