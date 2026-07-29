@@ -1,10 +1,20 @@
 import Link from "next/link";
 import BarChart from "@/components/manager/BarChart";
 import Delta from "@/components/manager/Delta";
+import PerfFilter from "@/components/manager/PerfFilter";
 import StaffNotes from "@/components/manager/StaffNotes";
 import RoomBadge from "@/components/RoomBadge";
 import { listActivity, listBookings, listStaffNotes } from "@/lib/db";
-import { addDaysISO, formatDateLong, formatMoney, formatTime, nowMinutesInBusinessTZ, todayISO } from "@/lib/format";
+import { listAllLocations } from "@/lib/hours";
+import {
+  addDaysISO,
+  formatDateLong,
+  formatMoney,
+  formatTime,
+  nowMinutesInBusinessTZ,
+  parseISODate,
+  todayISO,
+} from "@/lib/format";
 import { computeInsights, repeatCustomerRate } from "@/lib/insights";
 import type { Booking, CartItem } from "@/lib/types";
 
@@ -21,13 +31,23 @@ type TodayItem = { booking: Booking; item: CartItem };
 export default async function ManagerDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; view?: string }>;
+  searchParams: Promise<{ range?: string; view?: string; from?: string; to?: string; loc?: string }>;
 }) {
   const params = await searchParams;
   const view = params.view === "performance" ? "performance" : "operations";
 
-  const bookings = await listBookings();
+  const [bookings, locations] = await Promise.all([listBookings(), listAllLocations()]);
   const today = todayISO();
+
+  // Location filter for the performance view: keep bookings that include the
+  // location and narrow their items to it, so guest/sales/room stats are
+  // location-accurate (booking-level money covers those bookings in full).
+  const loc = params.loc && locations.includes(params.loc) ? params.loc : null;
+  const perfBookings = loc
+    ? bookings
+        .filter((b) => b.items.some((i) => i.location === loc))
+        .map((b) => ({ ...b, items: b.items.filter((i) => i.location === loc) }))
+    : bookings;
 
   return (
     <>
@@ -45,7 +65,15 @@ export default async function ManagerDashboard({
       {view === "operations" ? (
         <OperationsView bookings={bookings} today={today} />
       ) : (
-        <PerformanceView bookings={bookings} today={today} rangeKey={params.range} />
+        <PerformanceView
+          bookings={perfBookings}
+          today={today}
+          rangeKey={params.range}
+          customFrom={params.from}
+          customTo={params.to}
+          loc={loc}
+          locations={locations}
+        />
       )}
     </>
   );
@@ -236,12 +264,41 @@ async function OperationsView({ bookings, today }: { bookings: Booking[]; today:
   );
 }
 
-function PerformanceView({ bookings, today, rangeKey }: { bookings: Booking[]; today: string; rangeKey?: string }) {
+function PerformanceView({
+  bookings,
+  today,
+  rangeKey,
+  customFrom,
+  customTo,
+  loc,
+  locations,
+}: {
+  bookings: Booking[];
+  today: string;
+  rangeKey?: string;
+  customFrom?: string;
+  customTo?: string;
+  loc: string | null;
+  locations: string[];
+}) {
+  // "custom" uses the from/to params (validated); presets keep the old maths.
+  const isCustom =
+    rangeKey === "custom" &&
+    !!customFrom &&
+    !!customTo &&
+    /^\d{4}-\d{2}-\d{2}$/.test(customFrom) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(customTo) &&
+    customFrom <= customTo &&
+    customTo <= today;
   const range = RANGES.find((r) => r.key === rangeKey) ?? RANGES[1];
-  const from = addDaysISO(today, -(range.days - 1));
+  const from = isCustom ? (customFrom as string) : addDaysISO(today, -(range.days - 1));
+  const to = isCustom ? (customTo as string) : today;
+  const spanDays = isCustom
+    ? Math.round((parseISODate(to).getTime() - parseISODate(from).getTime()) / 86_400_000) + 1
+    : range.days;
   const prevTo = addDaysISO(from, -1);
-  const prevFrom = addDaysISO(prevTo, -(range.days - 1));
-  const cur = computeInsights(bookings, from, today);
+  const prevFrom = addDaysISO(prevTo, -(spanDays - 1));
+  const cur = computeInsights(bookings, from, to);
   const prev = computeInsights(bookings, prevFrom, prevTo);
   const repeat = repeatCustomerRate(bookings);
 
@@ -265,21 +322,11 @@ function PerformanceView({ bookings, today, rangeKey }: { bookings: Booking[]; t
       <div className="mgr-actions-row">
         <div>
           <p style={{ color: "var(--text-secondary)" }}>
-            Bookings placed {formatDateLong(from)} — {formatDateLong(today)}. Arrows compare with the previous{" "}
-            {range.days} days.
+            Bookings placed {formatDateLong(from)} — {formatDateLong(to)}. Arrows compare with the previous{" "}
+            {spanDays} day{spanDays === 1 ? "" : "s"}.{loc ? ` Showing bookings that include ${loc}.` : ""}
           </p>
         </div>
-        <div className="mgr-range-tabs">
-          {RANGES.map((r) => (
-            <Link
-              key={r.key}
-              href={`/manager?view=performance&range=${r.key}`}
-              className={`btn btn-outline${r.key === range.key ? " active" : ""}`}
-            >
-              {r.label}
-            </Link>
-          ))}
-        </div>
+        <PerfFilter locations={locations} />
       </div>
 
       <div className="mgr-stats">
