@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ExperienceForm from "@/components/manager/ExperienceForm";
-import { getExperience, listLocations } from "@/lib/experiences";
+import { getExperience } from "@/lib/experiences";
+import { listAllLocations } from "@/lib/hours";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditExperiencePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [experience, locations] = await Promise.all([getExperience(id), listLocations()]);
+  const [experience, locations] = await Promise.all([getExperience(id), listAllLocations()]);
   if (!experience) notFound();
 
   return (

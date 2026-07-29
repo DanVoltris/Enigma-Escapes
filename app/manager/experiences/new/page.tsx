@@ -1,11 +1,11 @@
 import Link from "next/link";
 import ExperienceForm from "@/components/manager/ExperienceForm";
-import { listLocations } from "@/lib/experiences";
+import { listAllLocations } from "@/lib/hours";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewExperiencePage() {
-  const locations = await listLocations();
+  const locations = await listAllLocations();
   return (
     <>
       <p style={{ marginBottom: 16 }}>

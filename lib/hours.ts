@@ -16,6 +16,16 @@ export async function getLocationHours(location: string): Promise<LocationHours 
   return rows[0] ? { location: rows[0].location, hours: rows[0].hours ?? {} } : null;
 }
 
+// Every known location: ones used by experiences plus ones added directly on
+// Locations & hours (a location_hours row with no experiences yet).
+export async function listAllLocations(): Promise<string[]> {
+  const { listLocations } = await import("./experiences");
+  const [fromExperiences, hoursRows] = await Promise.all([listLocations(), listLocationHours()]);
+  const out = [...fromExperiences];
+  for (const h of hoursRows) if (!out.includes(h.location)) out.push(h.location);
+  return out;
+}
+
 // A map of location → hours, for computing availability across many experiences.
 export async function locationHoursMap(): Promise<Map<string, LocationHours>> {
   const all = await listLocationHours();
