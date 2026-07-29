@@ -38,6 +38,63 @@ export async function listManualCustomers(): Promise<ManualCustomer[]> {
   }));
 }
 
+// One row per email across bookings + manually added customers — the same
+// merge the Customers tab shows (booking stats accumulate; newest booking
+// wins the contact details). Used by the page and the CSV export.
+export type CustomerRowData = {
+  name: string;
+  email: string;
+  phone: string;
+  subscribed: boolean;
+  bookings: number;
+  guests: number;
+  spentCents: number;
+  lastBooked: string;
+};
+
+export async function aggregateCustomers(
+  bookings: { customer: { firstName: string; lastName: string; email: string; phone: string; subscribe: boolean }; createdAt: string; items: { quantity: number }[]; pricing: { paidCents: number } }[],
+  manual: ManualCustomer[]
+): Promise<CustomerRowData[]> {
+  const byEmail = new Map<string, CustomerRowData>();
+  for (const m of manual) {
+    byEmail.set(m.email.toLowerCase(), {
+      name: `${m.firstName} ${m.lastName}`,
+      email: m.email,
+      phone: m.phone,
+      subscribed: m.subscribe,
+      bookings: 0,
+      guests: 0,
+      spentCents: 0,
+      lastBooked: m.createdAt,
+    });
+  }
+  for (const b of bookings) {
+    const key = b.customer.email.toLowerCase();
+    const row = byEmail.get(key) ?? {
+      name: `${b.customer.firstName} ${b.customer.lastName}`,
+      email: b.customer.email,
+      phone: b.customer.phone,
+      subscribed: b.customer.subscribe,
+      bookings: 0,
+      guests: 0,
+      spentCents: 0,
+      lastBooked: b.createdAt,
+    };
+    row.bookings += 1;
+    row.guests += b.items.reduce((s, i) => s + i.quantity, 0);
+    row.spentCents += b.pricing.paidCents;
+    if (b.createdAt >= row.lastBooked) {
+      row.lastBooked = b.createdAt;
+      row.name = `${b.customer.firstName} ${b.customer.lastName}`;
+      row.phone = b.customer.phone;
+      row.subscribed = b.customer.subscribe;
+    }
+    byEmail.set(key, row);
+  }
+  return Array.from(byEmail.values()).sort((a, b) => b.lastBooked.localeCompare(a.lastBooked));
+}
+
 export async function upsertManualCustomer(c: ManualCustomer): Promise<void> {
   const res = await rest("customers?on_conflict=email", {
     method: "POST",

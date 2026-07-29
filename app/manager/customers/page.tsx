@@ -1,70 +1,22 @@
 import Link from "next/link";
 import CustomerRow from "@/components/manager/CustomerRow";
-import { listManualCustomers } from "@/lib/customers";
+import { aggregateCustomers, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-type CustomerRow = {
-  name: string;
-  email: string;
-  phone: string;
-  subscribed: boolean;
-  bookings: number;
-  guests: number;
-  spentCents: number;
-  lastBooked: string; // ISO timestamp of most recent booking
-};
-
 export default async function ManagerCustomers({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; sub?: string }>;
 }) {
-  const { q: rawQ } = await searchParams;
+  const { q: rawQ, sub } = await searchParams;
   const q = (rawQ ?? "").trim().toLowerCase();
+  const subscribersOnly = sub === "1";
 
   const [bookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
-  const byEmail = new Map<string, CustomerRow>();
-  // Manually added customers first (zero bookings); a booking under the same
-  // email below simply accumulates onto the row.
-  for (const m of manual) {
-    byEmail.set(m.email.toLowerCase(), {
-      name: `${m.firstName} ${m.lastName}`,
-      email: m.email,
-      phone: m.phone,
-      subscribed: m.subscribe,
-      bookings: 0,
-      guests: 0,
-      spentCents: 0,
-      lastBooked: m.createdAt,
-    });
-  }
-  for (const b of bookings) {
-    const key = b.customer.email.toLowerCase();
-    const row = byEmail.get(key) ?? {
-      name: `${b.customer.firstName} ${b.customer.lastName}`,
-      email: b.customer.email,
-      phone: b.customer.phone,
-      subscribed: b.customer.subscribe,
-      bookings: 0,
-      guests: 0,
-      spentCents: 0,
-      lastBooked: b.createdAt,
-    };
-    row.bookings += 1;
-    row.guests += b.items.reduce((s, i) => s + i.quantity, 0);
-    row.spentCents += b.pricing.paidCents;
-    if (b.createdAt > row.lastBooked) {
-      row.lastBooked = b.createdAt;
-      row.name = `${b.customer.firstName} ${b.customer.lastName}`;
-      row.phone = b.customer.phone;
-      row.subscribed = b.customer.subscribe;
-    }
-    byEmail.set(key, row);
-  }
-
-  let customers = Array.from(byEmail.values()).sort((a, b) => b.lastBooked.localeCompare(a.lastBooked));
+  let customers = await aggregateCustomers(bookings, manual);
+  if (subscribersOnly) customers = customers.filter((c) => c.subscribed);
   if (q) {
     customers = customers.filter((c) =>
       `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(q)
@@ -96,6 +48,15 @@ export default async function ManagerCustomers({
         <Link href="/manager/customers/new" className="btn">
           + Add customer
         </Link>
+        <Link
+          href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}
+          className={`btn btn-outline${subscribersOnly ? " active" : ""}`}
+        >
+          {subscribersOnly ? "Show everyone" : "Subscribers only"}
+        </Link>
+        <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`} className="btn btn-outline">
+          Download CSV
+        </a>
       </div>
 
       {customers.length === 0 ? (
