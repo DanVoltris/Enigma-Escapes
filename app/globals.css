@@ -1202,6 +1202,16 @@ a:hover {
   align-self: flex-end;
   padding-bottom: 1px;
 }
+/* slim utility bar between actions and a list/table */
+.mgr-list-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: -8px 0 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
 
 /* stat tiles */
 .mgr-stats {

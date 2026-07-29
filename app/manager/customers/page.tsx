@@ -49,16 +49,21 @@ export default async function ManagerCustomers({
           <Link href="/manager/customers/new" className="btn">
             + Add customer
           </Link>
-          <Link
-            href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}
-            className={`btn btn-outline${subscribersOnly ? " active" : ""}`}
-          >
+        </div>
+      </div>
+
+      <div className="mgr-list-tools">
+        <span>
+          {customers.length} customer{customers.length === 1 ? "" : "s"}
+          {subscribersOnly ? " subscribed to marketing" : ""}
+        </span>
+        <span>
+          <Link href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}>
             {subscribersOnly ? "Show everyone" : "Subscribers only"}
           </Link>
-          <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`} className="btn btn-outline">
-            Download CSV
-          </a>
-        </div>
+          {" · "}
+          <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`}>Download CSV</a>
+        </span>
       </div>
 
       {customers.length === 0 ? (
