@@ -86,11 +86,15 @@ a:hover {
   color: var(--link);
   font-weight: 400;
 }
+/* The uploaded logo is a square canvas with the wordmark in a centered
+   horizontal band — cover + a wide box crops away the empty padding so the
+   mark renders at full size. (Re-tune if a differently-shaped logo is
+   uploaded later.) */
 .brand-logo {
   display: block;
-  height: 42px;
-  max-width: 220px;
-  object-fit: contain;
+  height: 46px;
+  width: 210px;
+  object-fit: cover;
 }
 .header-right {
   display: flex;
@@ -1110,9 +1114,9 @@ a:hover {
 }
 .mgr-logo {
   display: block;
-  height: 30px;
-  max-width: 150px;
-  object-fit: contain;
+  height: 34px;
+  width: 155px;
+  object-fit: cover; /* same crop trick as .brand-logo */
 }
 .mgr-view-site {
   font-size: 14px;
