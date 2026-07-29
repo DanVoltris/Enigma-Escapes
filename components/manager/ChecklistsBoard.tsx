@@ -94,44 +94,48 @@ export default function ChecklistsBoard({
         <p className="mgr-empty">No checklists yet — click “Edit checklists” to create your first (e.g. “Cipher Room reset”).</p>
       )}
 
-      <div className="chk-grid">
+      <div className={`chk-grid${editing ? " editing" : ""}`}>
         {lists.map((list) => {
           const done = list.items.filter((i) => checked[i.id]).length;
           return (
-            <div className="mgr-card" key={list.id}>
+            <div className={`mgr-card${editing ? " chk-edit" : ""}`} key={list.id}>
               {editing ? (
-                <div className="mgr-form">
+                <>
                   <input
                     type="text"
+                    className="chk-name-input"
                     value={list.name}
                     onChange={(e) => patchList(list.id, { name: e.target.value })}
                     placeholder="Checklist name, e.g. Opening"
                     aria-label="Checklist name"
                   />
-                  {list.items.map((item, idx) => (
-                    <div key={item.id} style={{ display: "flex", gap: 8 }}>
-                      <input
-                        type="text"
-                        value={item.text}
-                        onChange={(e) =>
-                          patchList(list.id, {
-                            items: list.items.map((i) => (i.id === item.id ? { ...i, text: e.target.value } : i)),
-                          })
-                        }
-                        placeholder={`Task ${idx + 1}`}
-                        aria-label="Task text"
-                        style={{ flex: 1 }}
-                      />
-                      <button
-                        type="button"
-                        className="link-button danger"
-                        onClick={() => patchList(list.id, { items: list.items.filter((i) => i.id !== item.id) })}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <div>
+                  <div className="chk-edit-tasks">
+                    {list.items.map((item, idx) => (
+                      <div key={item.id} className="chk-task-row">
+                        <input
+                          type="text"
+                          value={item.text}
+                          onChange={(e) =>
+                            patchList(list.id, {
+                              items: list.items.map((i) => (i.id === item.id ? { ...i, text: e.target.value } : i)),
+                            })
+                          }
+                          placeholder={`Task ${idx + 1}`}
+                          aria-label="Task text"
+                        />
+                        <button
+                          type="button"
+                          className="chk-remove"
+                          aria-label="Remove task"
+                          title="Remove task"
+                          onClick={() => patchList(list.id, { items: list.items.filter((i) => i.id !== item.id) })}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="chk-edit-foot">
                     <button
                       type="button"
                       className="link-button"
@@ -139,7 +143,6 @@ export default function ChecklistsBoard({
                     >
                       + Add task
                     </button>
-                    {" · "}
                     <button
                       type="button"
                       className="link-button danger"
@@ -148,7 +151,7 @@ export default function ChecklistsBoard({
                       Delete checklist
                     </button>
                   </div>
-                </div>
+                </>
               ) : (
                 <>
                   <div className="intg-head">
