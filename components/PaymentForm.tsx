@@ -26,6 +26,20 @@ function luhnValid(digits: string): boolean {
 
 type CardErrors = Partial<Record<"cardName" | "cardNumber" | "expiry" | "cvc", string>>;
 
+// Input masks: keep digits only and insert the separators cards print
+// themselves — a space every 4 digits, a slash after the expiry month.
+function formatCardNumber(v: string): string {
+  const digits = v.replace(/\D/g, "").slice(0, 19);
+  return digits.replace(/(.{4})/g, "$1 ").trim();
+}
+function formatExpiry(v: string): string {
+  const digits = v.replace(/\D/g, "").slice(0, 4);
+  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+function formatCvc(v: string): string {
+  return v.replace(/\D/g, "").slice(0, 4);
+}
+
 // stripeEnabled: real payment via Stripe-hosted checkout (keys configured in
 // the environment). Otherwise the simulated card form — validated locally,
 // nobody charged. canceled: the customer backed out of Stripe checkout.
@@ -294,7 +308,8 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                   inputMode="numeric"
                   placeholder="4242 4242 4242 4242"
                   value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
+                  maxLength={23}
+                  onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                   autoComplete="cc-number"
                 />
                 {cardErrors.cardNumber && <p className="field-error">{cardErrors.cardNumber}</p>}
@@ -310,7 +325,8 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                     inputMode="numeric"
                     placeholder="09/28"
                     value={expiry}
-                    onChange={(e) => setExpiry(e.target.value)}
+                    maxLength={5}
+                    onChange={(e) => setExpiry(formatExpiry(e.target.value))}
                     autoComplete="cc-exp"
                   />
                   {cardErrors.expiry && <p className="field-error">{cardErrors.expiry}</p>}
@@ -325,7 +341,8 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                     inputMode="numeric"
                     placeholder="123"
                     value={cvc}
-                    onChange={(e) => setCvc(e.target.value)}
+                    maxLength={4}
+                    onChange={(e) => setCvc(formatCvc(e.target.value))}
                     autoComplete="cc-csc"
                   />
                   {cardErrors.cvc && <p className="field-error">{cardErrors.cvc}</p>}
