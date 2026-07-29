@@ -30,31 +30,29 @@ export default function WalkInForm() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Customer lookup: typing a first name suggests known customers; picking one
-  // fills all four fields. Suppressed right after a pick until they type again.
+  // Customer lookup: typing 2+ characters in ANY customer field (name, email,
+  // phone) suggests known customers; picking one fills all four fields.
+  // Suppressed right after a pick until they type again.
+  type LookupField = "firstName" | "lastName" | "email" | "phone";
   const [suggestions, setSuggestions] = useState<KnownCustomer[]>([]);
-  const [lookupOpen, setLookupOpen] = useState(false);
+  const [lookupField, setLookupField] = useState<LookupField | null>(null);
   const [justPicked, setJustPicked] = useState(false);
+  const fieldValues: Record<LookupField, string> = { firstName, lastName, email, phone };
+  const lookupQuery = lookupField ? fieldValues[lookupField].trim() : "";
 
   useEffect(() => {
-    const q = firstName.trim();
-    if (q.length < 2 || justPicked) {
+    if (!lookupField || lookupQuery.length < 2 || justPicked) {
       setSuggestions([]);
-      setLookupOpen(false);
       return;
     }
     const t = setTimeout(() => {
-      fetch(`/api/manager/customers/search?q=${encodeURIComponent(q)}`)
+      fetch(`/api/manager/customers/search?q=${encodeURIComponent(lookupQuery)}`)
         .then((r) => r.json())
-        .then((d) => {
-          const list: KnownCustomer[] = d.customers ?? [];
-          setSuggestions(list);
-          setLookupOpen(list.length > 0);
-        })
-        .catch(() => setLookupOpen(false));
+        .then((d) => setSuggestions((d.customers ?? []) as KnownCustomer[]))
+        .catch(() => setSuggestions([]));
     }, 200);
     return () => clearTimeout(t);
-  }, [firstName, justPicked]);
+  }, [lookupQuery, lookupField, justPicked]);
 
   function pickCustomer(c: KnownCustomer) {
     setFirstName(c.firstName);
@@ -62,8 +60,43 @@ export default function WalkInForm() {
     setEmail(c.email);
     setPhone(c.phone);
     setJustPicked(true);
-    setLookupOpen(false);
+    setLookupField(null);
+    setSuggestions([]);
   }
+
+  // Shared props for a lookup-enabled input, plus the dropdown it anchors.
+  const lookupProps = (field: LookupField, setter: (v: string) => void) => ({
+    autoComplete: "off" as const,
+    "aria-autocomplete": "list" as const,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setter(e.target.value);
+      setLookupField(field);
+      setJustPicked(false);
+    },
+    onFocus: () => setLookupField(field),
+    onBlur: () => setTimeout(() => setLookupField((f) => (f === field ? null : f)), 150),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") setLookupField(null);
+    },
+  });
+  const lookupList = (field: LookupField) =>
+    lookupField === field && suggestions.length > 0 ? (
+      <ul className="cust-lookup-list" role="listbox" aria-label="Known customers">
+        {suggestions.map((c) => (
+          <li key={c.email}>
+            <button type="button" role="option" aria-selected="false" onMouseDown={() => pickCustomer(c)}>
+              <strong>
+                {c.firstName} {c.lastName}
+              </strong>
+              <span className="sub">
+                {c.email}
+                {c.phone ? ` · ${c.phone}` : ""}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    ) : null;
 
   useEffect(() => {
     fetch("/api/manager/experiences/list")
@@ -173,53 +206,25 @@ export default function WalkInForm() {
       <div className="field-row">
         <div className="field cust-lookup">
           <label htmlFor="fn">First name</label>
-          <input
-            id="fn"
-            type="text"
-            value={firstName}
-            autoComplete="off"
-            aria-autocomplete="list"
-            aria-expanded={lookupOpen}
-            onChange={(e) => {
-              setFirstName(e.target.value);
-              setJustPicked(false);
-            }}
-            onBlur={() => setTimeout(() => setLookupOpen(false), 150)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setLookupOpen(false);
-            }}
-          />
-          {lookupOpen && (
-            <ul className="cust-lookup-list" role="listbox" aria-label="Known customers">
-              {suggestions.map((c) => (
-                <li key={c.email}>
-                  <button type="button" role="option" aria-selected="false" onMouseDown={() => pickCustomer(c)}>
-                    <strong>
-                      {c.firstName} {c.lastName}
-                    </strong>
-                    <span className="sub">
-                      {c.email}
-                      {c.phone ? ` · ${c.phone}` : ""}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <input id="fn" type="text" value={firstName} {...lookupProps("firstName", setFirstName)} />
+          {lookupList("firstName")}
         </div>
-        <div className="field">
+        <div className="field cust-lookup">
           <label htmlFor="ln">Last name</label>
-          <input id="ln" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <input id="ln" type="text" value={lastName} {...lookupProps("lastName", setLastName)} />
+          {lookupList("lastName")}
         </div>
       </div>
       <div className="field-row">
-        <div className="field">
+        <div className="field cust-lookup">
           <label htmlFor="em">Email</label>
-          <input id="em" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input id="em" type="email" value={email} {...lookupProps("email", setEmail)} />
+          {lookupList("email")}
         </div>
-        <div className="field">
+        <div className="field cust-lookup">
           <label htmlFor="ph">Phone</label>
-          <input id="ph" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <input id="ph" type="tel" value={phone} {...lookupProps("phone", setPhone)} />
+          {lookupList("phone")}
         </div>
       </div>
 
