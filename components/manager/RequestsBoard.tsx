@@ -3,15 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { formatDateLong, formatTime } from "@/lib/format";
+import { formatDateLong, formatTime, minutesUntilSlot } from "@/lib/format";
 import type { BookingRequest } from "@/lib/requests";
 
 const STATUS_LABEL: Record<string, string> = {
   accepted: "Accepted — awaiting payment",
   declined: "Declined",
-  completed: "Completed (booked & paid)",
+  completed: "Booked & paid",
   expired: "Expired",
 };
+
+function countdown(date: string, time: string): { label: string; urgent: boolean } {
+  const mins = minutesUntilSlot(date, time);
+  if (mins <= 0) return { label: "started", urgent: true };
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return { label: `starts in ${h > 0 ? `${h}h ` : ""}${m}m`, urgent: mins <= 45 };
+}
 
 export default function RequestsBoard({
   initialRequests,
@@ -70,50 +78,70 @@ export default function RequestsBoard({
     <>
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="mgr-card">
-        <h2>Pending{pending.length > 0 ? ` (${pending.length})` : ""}</h2>
-        {pending.length === 0 ? (
-          <p className="mgr-empty">No requests waiting — new ones appear here the moment a customer asks.</p>
-        ) : (
-          <ul className="mgr-notes">
-            {pending.map((r) => (
-              <li key={r.id}>
-                <div>
-                  <div>
-                    <strong>
-                      {r.roomName} — {formatTime(r.time)}
-                    </strong>{" "}
-                    ({formatDateLong(r.date)}, {r.location})
+      {pending.length === 0 ? (
+        <p className="mgr-empty">No requests waiting — new ones appear here the moment a customer asks.</p>
+      ) : (
+        <div className="req-grid">
+          {pending.map((r) => {
+            const cd = countdown(r.date, r.time);
+            return (
+              <div className="req-card" key={r.id}>
+                <div className="req-top">
+                  <div className="req-time">
+                    <span className="big">{formatTime(r.time)}</span>
+                    <span className={`req-countdown${cd.urgent ? " urgent" : ""}`}>{cd.label}</span>
                   </div>
-                  <div>
-                    {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"} ·{" "}
-                    <a href={`tel:${r.phone}`}>{r.phone}</a>
-                    {remaining[r.id] != null && (
-                      <span className="sub"> · {remaining[r.id]} spot(s) currently free</span>
-                    )}
-                  </div>
-                  <div className="when" suppressHydrationWarning>
-                    Requested {new Date(r.createdAt).toLocaleTimeString("en-CA", { timeStyle: "short" })}
+                  <div className="req-what">
+                    <div className="req-room">{r.roomName}</div>
+                    <div className="req-where">
+                      {r.location} · {formatDateLong(r.date)}
+                    </div>
                   </div>
                 </div>
-                <span style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+                <div className="req-rows">
+                  <div className="req-row">
+                    <span className="req-label">Customer</span>
+                    <span>
+                      <strong>
+                        {r.firstName} {r.lastName}
+                      </strong>{" "}
+                      · <a href={`tel:${r.phone}`}>{r.phone}</a>
+                    </span>
+                  </div>
+                  <div className="req-row">
+                    <span className="req-label">Group</span>
+                    <span>
+                      {r.quantity} guest{r.quantity === 1 ? "" : "s"}
+                      {remaining[r.id] != null && (
+                        <span className="sub"> — {remaining[r.id]} spot(s) currently free</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="req-row">
+                    <span className="req-label">Requested</span>
+                    <span suppressHydrationWarning>
+                      {new Date(r.createdAt).toLocaleTimeString("en-CA", { timeStyle: "short" })}
+                    </span>
+                  </div>
+                </div>
+                <div className="req-actions">
                   <button type="button" className="btn" onClick={() => decide(r, "accept")} disabled={busyId === r.id}>
-                    {busyId === r.id ? "Working…" : "Accept"}
+                    {busyId === r.id ? "Working…" : "Accept request"}
                   </button>
                   <button
                     type="button"
-                    className="link-button danger"
+                    className="btn btn-outline req-decline"
                     onClick={() => setDeclining(r)}
                     disabled={busyId === r.id}
                   >
                     Decline
                   </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {Object.keys(links).length > 0 && (
         <div className="mgr-card">
@@ -156,8 +184,10 @@ export default function RequestsBoard({
                     </strong>{" "}
                     · {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"}
                   </div>
-                  <div className="sub">{STATUS_LABEL[r.status] ?? r.status}</div>
                 </div>
+                <span className={`mgr-pill${r.status === "completed" ? " on" : ""}`} style={{ flexShrink: 0 }}>
+                  {STATUS_LABEL[r.status] ?? r.status}
+                </span>
               </li>
             ))}
           </ul>

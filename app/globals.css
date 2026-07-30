@@ -2657,6 +2657,99 @@ a:hover {
 }
 
 /* ---------- responsive ---------- */
+/* manager Requests tab: decision cards */
+.req-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.req-card {
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--accent);
+  background: #fff;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.req-top {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.req-time {
+  flex-shrink: 0;
+  text-align: center;
+  background: var(--accent-tint);
+  padding: 10px 14px;
+  min-width: 96px;
+}
+.req-time .big {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
+}
+.req-countdown {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.req-countdown.urgent {
+  color: var(--danger);
+  font-weight: 700;
+}
+.req-room {
+  font-size: 17px;
+  font-weight: 700;
+}
+.req-where {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 2px;
+}
+.req-rows {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.req-row {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+}
+.req-label {
+  flex-shrink: 0;
+  width: 84px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+.req-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+}
+.req-actions .btn {
+  flex: 1;
+}
+.req-decline {
+  color: var(--danger);
+}
+.req-decline:hover {
+  border-color: var(--danger);
+}
+@media (max-width: 640px) {
+  .req-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* sub-4h request form inside the booking panel */
 .request-note {
   color: var(--text-secondary);
