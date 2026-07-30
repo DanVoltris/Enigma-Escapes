@@ -1,7 +1,7 @@
 import { remainingSpots } from "./capacity";
 import { bookedCount, bookedCountsForDate } from "./db";
 import { getExperience, listExperiences } from "./experiences";
-import { nowMinutesInBusinessTZ, todayISO } from "./format";
+import { minutesUntilSlot, nowMinutesInBusinessTZ, REQUEST_WINDOW_MINUTES, todayISO } from "./format";
 import { getLocationHours, locationHoursMap } from "./hours";
 import { startTimesFor } from "./schedule";
 import type { Slot } from "./types";
@@ -43,6 +43,8 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         badgeBg: exp.badgeBg,
         badgeFg: exp.badgeFg,
         imageUrl: exp.imageUrl,
+        // Starts soon → not self-serve; the customer sends a request instead.
+        requestOnly: minutesUntilSlot(date, time) <= REQUEST_WINDOW_MINUTES,
       });
     }
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildBooking } from "@/lib/create-booking";
 import { saveBooking } from "@/lib/db";
+import { getRequestByToken, setRequestStatus } from "@/lib/requests";
 import { notifyBookingConfirmed } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
@@ -26,5 +27,16 @@ export async function POST(req: NextRequest) {
     );
   }
   await notifyBookingConfirmed(result.booking, req.nextUrl.origin); // best-effort; never throws
+
+  // An accepted request that just completed checkout gets closed out.
+  const token = (body as { requestToken?: unknown }).requestToken;
+  if (typeof token === "string" && token) {
+    try {
+      const request = await getRequestByToken(token);
+      if (request && request.status === "accepted") await setRequestStatus(request.id, "completed", result.booking.id);
+    } catch (err) {
+      console.error("closing request after booking failed:", err); // booking still stands
+    }
+  }
   return NextResponse.json({ id: result.booking.id, reference: result.booking.reference }, { status: 201 });
 }

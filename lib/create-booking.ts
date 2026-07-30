@@ -2,8 +2,9 @@ import { randomUUID } from "crypto";
 import { maxPerBooking, minPerBooking, remainingSpots } from "./capacity";
 import { bookedCountsForDate, getPromo } from "./db";
 import { getExperience } from "./experiences";
-import { addDaysISO, formatTime, isValidISODate, todayISO } from "./format";
+import { addDaysISO, formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES, todayISO } from "./format";
 import { getLocationHours } from "./hours";
+import { getRequestByToken } from "./requests";
 import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
 import { amountDueCents, computeTotals } from "./pricing";
@@ -26,6 +27,7 @@ type RawInput = {
   customer?: Partial<Customer>;
   paymentOption?: unknown;
   promoCode?: unknown;
+  requestToken?: unknown; // accepted booking-request token (sub-4h completions)
 };
 
 // Validates input against live catalog + availability and builds a Booking.
@@ -80,6 +82,25 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
       if (!startTimesFor(exp, date, hours).includes(time)) {
         return err(`${exp.name}: that time slot is not available on that day.`);
+      }
+      // Slots starting within the request window aren't self-serve: they need
+      // an ACCEPTED request behind them (staff walk-ins are exempt — that's
+      // the manager acting directly). Blocks crafted checkout calls too.
+      if (source === "online" && minutesUntilSlot(date, time) <= REQUEST_WINDOW_MINUTES) {
+        if (minutesUntilSlot(date, time) <= 0) return err(`${exp.name}: that time has already started.`);
+        const token = typeof raw.requestToken === "string" ? raw.requestToken : "";
+        const request = token ? await getRequestByToken(token) : undefined;
+        const matches =
+          request &&
+          request.status === "accepted" &&
+          request.roomId === exp.id &&
+          request.date === date &&
+          request.time === time;
+        if (!matches) {
+          return err(
+            `${exp.name} at ${formatTime(time)} starts soon — send a booking request and we'll confirm by text.`
+          );
+        }
       }
       const minParty = minPerBooking(exp, source);
       const maxParty = maxPerBooking(exp);

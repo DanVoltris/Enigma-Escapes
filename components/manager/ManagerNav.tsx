@@ -7,6 +7,7 @@ const TABS = [
   { href: "/manager", label: "Dashboard" },
   { href: "/manager/calendar", label: "Calendar" },
   { href: "/manager/bookings", label: "Bookings" },
+  { href: "/manager/requests", label: "Requests" },
   { href: "/manager/customers", label: "Customers" },
   { href: "/manager/experiences", label: "Experiences" },
   { href: "/manager/promos", label: "Promo codes" },

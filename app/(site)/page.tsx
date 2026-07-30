@@ -47,6 +47,44 @@ export default function BrowsePage() {
   const [quantity, setQuantity] = useState(1);
   const [expiredNotice, setExpiredNotice] = useState(false);
 
+  // Sub-4h slots collect a request (name + phone, no payment) instead of
+  // going to checkout — the manager accepts/declines from the portal.
+  const [rfFirst, setRfFirst] = useState("");
+  const [rfLast, setRfLast] = useState("");
+  const [rfPhone, setRfPhone] = useState("");
+  const [rfEmail, setRfEmail] = useState("");
+  const [rfBusy, setRfBusy] = useState(false);
+  const [rfError, setRfError] = useState<string | null>(null);
+  const [rfSentKey, setRfSentKey] = useState<string | null>(null);
+
+  async function sendRequest(slot: Slot) {
+    setRfBusy(true);
+    setRfError(null);
+    try {
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: slot.roomId,
+          date: slot.date,
+          time: slot.time,
+          quantity,
+          firstName: rfFirst,
+          lastName: rfLast,
+          phone: rfPhone,
+          email: rfEmail,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not send your request. Please call us.");
+      setRfSentKey(itemKey(slot));
+    } catch (err) {
+      setRfError(err instanceof Error ? err.message : "Could not send your request. Please call us.");
+    } finally {
+      setRfBusy(false);
+    }
+  }
+
   // Deep-link support: /?date=YYYY-MM-DD&slot=roomId|HH:MM (used by "Edit booking"),
   // and /?expired=1 after a lapsed hold. Read once on mount.
   useEffect(() => {
@@ -302,7 +340,7 @@ export default function BrowsePage() {
                     </button>
                   ) : (
                     <button type="button" className="btn btn-block" onClick={() => toggleSlot(slot)}>
-                      {expanded ? "Selected ▾" : `${site.availableLabel} ▾`}
+                      {expanded ? "Selected ▾" : slot.requestOnly ? "Request booking ▾" : `${site.availableLabel} ▾`}
                     </button>
                   )}
                 </div>
@@ -341,6 +379,88 @@ export default function BrowsePage() {
                       {slot.isPrivate && <span>Private — one group per session</span>}
                     </div>
                     <p className="panel-description">{slot.description}</p>
+                    {slot.requestOnly && rfSentKey === key ? (
+                      <div className="request-sent">
+                        <h4>Request sent! 🎉</h4>
+                        <p>
+                          We&apos;ll review it right away and text you at <strong>{rfPhone}</strong> — if it&apos;s a
+                          yes, the text has a link to finish your booking.
+                        </p>
+                      </div>
+                    ) : slot.requestOnly ? (
+                      <div className="request-form">
+                        <p className="request-note">
+                          This session starts within 4 hours, so it needs a quick staff confirmation. Leave your
+                          details — no payment yet — and we&apos;ll text you within minutes.
+                        </p>
+                        <div className="panel-controls" style={{ borderTop: "none", paddingTop: 0 }}>
+                          <span className="quantity-label">
+                            Guests
+                            <span className="unit-price">
+                              {formatMoney(slot.priceCents)} each · minimum {slot.minParty}
+                            </span>
+                          </span>
+                          <div className="stepper">
+                            <button
+                              type="button"
+                              onClick={() => setQuantity((q) => Math.max(slot.minParty, q - 1))}
+                              disabled={quantity <= slot.minParty}
+                              aria-label="Decrease quantity"
+                            >
+                              −
+                            </button>
+                            <span className="value">{quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity((q) => Math.min(Math.min(slot.remaining, slot.maxParty), q + 1))}
+                              disabled={quantity >= Math.min(slot.remaining, slot.maxParty)}
+                              aria-label="Increase quantity"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        {rfError && <div className="error-banner">{rfError}</div>}
+                        <div className="field-row">
+                          <div className="field">
+                            <label htmlFor={`rf-fn-${key}`}>
+                              First name <span className="req">*</span>
+                            </label>
+                            <input id={`rf-fn-${key}`} type="text" value={rfFirst} onChange={(e) => setRfFirst(e.target.value)} />
+                          </div>
+                          <div className="field">
+                            <label htmlFor={`rf-ln-${key}`}>Last name</label>
+                            <input id={`rf-ln-${key}`} type="text" value={rfLast} onChange={(e) => setRfLast(e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="field-row">
+                          <div className="field">
+                            <label htmlFor={`rf-ph-${key}`}>
+                              Mobile number <span className="req">*</span>
+                            </label>
+                            <input
+                              id={`rf-ph-${key}`}
+                              type="tel"
+                              value={rfPhone}
+                              onChange={(e) => setRfPhone(e.target.value)}
+                              placeholder="We text the yes/no here"
+                            />
+                          </div>
+                          <div className="field">
+                            <label htmlFor={`rf-em-${key}`}>Email (optional)</label>
+                            <input id={`rf-em-${key}`} type="email" value={rfEmail} onChange={(e) => setRfEmail(e.target.value)} />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn panel-continue"
+                          onClick={() => sendRequest(slot)}
+                          disabled={rfBusy || !rfFirst.trim() || !rfPhone.trim()}
+                        >
+                          {rfBusy ? "Sending…" : "Send booking request"}
+                        </button>
+                      </div>
+                    ) : (
                     <div className="panel-controls">
                       <span className="quantity-label">
                         Quantity
@@ -375,6 +495,7 @@ export default function BrowsePage() {
                         Continue
                       </button>
                     </div>
+                    )}
                   </div>
                   <button type="button" className="panel-close" onClick={() => setExpandedKey(null)} aria-label="Close">
                     ×

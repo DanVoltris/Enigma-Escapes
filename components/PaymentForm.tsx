@@ -9,6 +9,16 @@ import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
 import { amountDueCents, computeTotals } from "@/lib/pricing";
 
+// Set by the request-completion flow — lets the server allow a sub-4h booking
+// that was manager-approved.
+function requestToken(): string | undefined {
+  try {
+    return window.sessionStorage.getItem("vb-request-token") ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function luhnValid(digits: string): boolean {
   let sum = 0;
   let double = false;
@@ -101,7 +111,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       const res = await fetch("/api/checkout/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null }),
+        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start the payment. Please try again.");
@@ -140,10 +150,13 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null }),
+        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong completing your booking.");
+      try {
+        window.sessionStorage.removeItem("vb-request-token");
+      } catch {}
       clear();
       router.push(`/confirmation/${data.id}`);
     } catch (err) {

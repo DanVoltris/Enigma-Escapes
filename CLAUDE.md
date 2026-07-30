@@ -72,6 +72,11 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   key, first_name text not null, last_name text not null, phone text, subscribe boolean not null
   default false, created_at timestamptz not null default now()); alter table customers enable
   row level security;` (local mode needs nothing).
+- Booking requests: sessions starting within 4 hours (`REQUEST_WINDOW_MINUTES`, lib/format.ts)
+  aren't self-serve — the site collects a request (name + phone, no payment) into
+  `booking_requests`; managers accept/decline on `/manager/requests` (accept texts a completion
+  link `/request/<token>` that seeds the cart and passes `requestToken` through checkout, which
+  create-booking requires for sub-4h slots; walk-ins exempt). Requests expire at session start.
 - Checklists: daily staff task lists at `/manager/checklists` (definitions + today's ticks in
   settings keys `checklists` / `checklist_state`; ticks reset at date rollover).
 - Surveys: public post-game form at `/feedback` (linked with the reference from every

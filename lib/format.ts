@@ -108,6 +108,17 @@ export function nowMinutesInBusinessTZ(): number {
   return hour * 60 + minute;
 }
 
+// Bookings starting within this window aren't self-serve — they go through a
+// manager-approved request instead (the Requests tab).
+export const REQUEST_WINDOW_MINUTES = 4 * 60;
+
+// Venue-local minutes from now until a slot starts (negative = already started).
+export function minutesUntilSlot(date: string, time: string): number {
+  const dayDiff = Math.round((parseISODate(date).getTime() - parseISODate(todayISO()).getTime()) / 86_400_000);
+  const [h, m] = time.split(":").map(Number);
+  return dayDiff * 1440 + h * 60 + m - nowMinutesInBusinessTZ();
+}
+
 // The venue-local calendar date of an ISO timestamp, e.g. "2026-07-20".
 export function businessDateOf(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: localeConfig().timezone }).format(new Date(iso));

@@ -61,6 +61,7 @@ export type Slot = {
   badgeBg: string;
   badgeFg: string;
   imageUrl: string | null;
+  requestOnly: boolean; // starts within the request window — needs manager approval
 };
 
 export type CartItem = {

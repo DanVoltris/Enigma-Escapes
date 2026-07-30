@@ -112,3 +112,17 @@ alter table feedback enable row level security;
 -- NOT SQL: also create a public Storage bucket named  experience-images
 -- (Dashboard → Storage → New bucket → name: experience-images → Public).
 -- Room/logo image uploads go there.
+
+-- Booking requests (sub-4-hour bookings needing manager approval)
+create table if not exists booking_requests (
+  id uuid primary key,
+  created_at timestamptz not null default now(),
+  room_id text not null, room_name text not null, location text not null,
+  date text not null, time text not null, quantity int not null,
+  first_name text not null, last_name text not null default '',
+  phone text not null, email text,
+  status text not null default 'pending',
+  token text not null unique,
+  decided_at timestamptz, booking_id uuid
+);
+alter table booking_requests enable row level security;

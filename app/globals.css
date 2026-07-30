@@ -2657,6 +2657,27 @@ a:hover {
 }
 
 /* ---------- responsive ---------- */
+/* sub-4h request form inside the booking panel */
+.request-note {
+  color: var(--text-secondary);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  background: #fff;
+  margin-bottom: 16px;
+}
+.request-form .field-row {
+  margin-top: 4px;
+}
+.request-sent {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  padding: 18px;
+}
+.request-sent h4 {
+  margin-bottom: 6px;
+}
+
 /* in-app confirmation dialog (replaces window.confirm) */
 .confirm-overlay {
   position: fixed;

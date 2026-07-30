@@ -43,6 +43,27 @@ async function sendSms(to: string, body: string): Promise<void> {
   }
 }
 
+// Request decision texts (best-effort, same contract as below). The accepted
+// text carries the completion link — staff also see the link in the portal in
+// case SMS isn't configured yet.
+export async function notifyRequestDecision(
+  r: { firstName: string; phone: string; roomName: string; time: string; token: string },
+  accepted: boolean,
+  origin: string
+): Promise<void> {
+  if (!smsConfigured()) return;
+  try {
+    await sendSms(
+      r.phone,
+      accepted
+        ? `Good news ${r.firstName} — your Enigma Escapes request for ${r.roomName} at ${formatTime(r.time)} is ACCEPTED! Finish your booking (payment) here: ${origin}/request/${r.token}`
+        : `Hi ${r.firstName} — sorry, we can't fit ${r.roomName} at ${formatTime(r.time)} today. See other times: ${origin}`
+    );
+  } catch (err) {
+    console.error("request decision SMS failed:", err);
+  }
+}
+
 // Best-effort booking texts — a messaging failure must never break the booking
 // (same contract as logActivity). Customer confirmation + staff heads-up.
 export async function notifyBookingConfirmed(booking: Booking, origin: string): Promise<void> {
