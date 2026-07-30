@@ -2,7 +2,7 @@ import type { CartItem, PaymentOption } from "./types";
 
 export const HOLD_MINUTES = 15;
 export const BOOKING_WINDOW_DAYS = 60;
-export const MIN_PARTY_SIZE = 4; // default smallest group for a new experience
+export const MIN_PARTY_SIZE = 3; // default smallest group for a new experience
 export const DEFAULT_TAX_PERCENT = 5; // fallback if the tax config can't be read
 export const DEFAULT_DEPOSIT_PERCENT = 25; // fallback for items saved before deposits were configurable
 

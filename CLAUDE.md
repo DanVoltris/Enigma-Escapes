@@ -46,7 +46,7 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   (the old fake "seeded" availability was removed when the portal arrived — new slots start
   fully open).
 - Bookings are created via `POST /api/bookings`, which revalidates availability, the promo
-  code, and all prices server-side (client totals are never trusted). Minimum party size is 4
+  code, and all prices server-side (client totals are never trusted). Minimum party size is 3
   (`MIN_PARTY_SIZE`).
 - All tables have row level security enabled with no policies: the public anon key can touch
   nothing; all access goes through the service_role key in server code (`lib/supabase.ts`).
