@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import SingleSelect from "@/components/SingleSelect";
 
 type Row = { name: string; email: string; bookings: number };
@@ -11,6 +12,7 @@ export default function MergeCustomersForm({ customers }: { customers: Row[] }) 
   const [toEmail, setToEmail] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<number | null>(null);
 
@@ -23,13 +25,6 @@ export default function MergeCustomersForm({ customers }: { customers: Row[] }) 
 
   async function merge() {
     if (!from || !to || busy) return;
-    if (
-      !window.confirm(
-        `Merge "${from.name}" (${from.email}) INTO "${to.name}" (${to.email})?\n\n` +
-          `${from.bookings} booking(s) will be rewritten to ${to.name}'s name and email. This cannot be undone.`
-      )
-    )
-      return;
     setBusy(true);
     setError(null);
     try {
@@ -46,6 +41,7 @@ export default function MergeCustomersForm({ customers }: { customers: Row[] }) 
       setError(err instanceof Error ? err.message : "Could not merge. Try again.");
     } finally {
       setBusy(false);
+      setConfirming(false);
     }
   }
 
@@ -91,12 +87,29 @@ export default function MergeCustomersForm({ customers }: { customers: Row[] }) 
           </p>
         )}
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <button type="button" className="btn" onClick={merge} disabled={busy || !from || !to}>
-            {busy ? "Merging…" : "Merge customers"}
+          <button type="button" className="btn" onClick={() => setConfirming(true)} disabled={busy || !from || !to}>
+            Merge customers
           </button>
           {error && <span className="field-error">{error}</span>}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title="Merge these customers?"
+        confirmLabel="Yes, merge them"
+        busy={busy}
+        onConfirm={merge}
+        onCancel={() => !busy && setConfirming(false)}
+      >
+        <p>
+          <strong>{from?.name}</strong> ({from?.email}) will be folded into <strong>{to?.name}</strong> ({to?.email}).
+        </p>
+        <p style={{ marginTop: 10 }}>
+          {from?.bookings ?? 0} booking{(from?.bookings ?? 0) === 1 ? "" : "s"} will be rewritten to{" "}
+          <strong>{to?.name}</strong>&apos;s name and email. <strong>This cannot be undone.</strong>
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }
