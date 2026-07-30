@@ -2657,6 +2657,7 @@ a:hover {
 }
 
 /* ---------- responsive ---------- */
+/* ---------- tablet (≤900px) ---------- */
 @media (max-width: 900px) {
   .checkout-grid,
   .confirm-grid,
@@ -2676,6 +2677,12 @@ a:hover {
   .rpt-nav {
     position: static;
   }
+  /* the settings/report rail stacks — lay its links out in rows, not a column */
+  .rpt-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 18px;
+  }
   .booking-panel {
     flex-direction: column;
   }
@@ -2688,11 +2695,198 @@ a:hover {
   .slot-action {
     width: 100%;
   }
-  .field-row {
+  .field-row,
+  .mgr-form .field-row-3 {
     grid-template-columns: 1fr;
   }
   .steps {
     overflow-x: auto;
     padding-bottom: 8px;
+  }
+  .checkout-grid,
+  .confirm-grid {
+    gap: 28px;
+  }
+}
+
+/* ---------- phone (≤640px) ---------- */
+@media (max-width: 640px) {
+  /* iOS zooms any focused control under 16px — keep every input at 16px */
+  input,
+  select,
+  textarea,
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="tel"],
+  .field input[type="number"],
+  .chk-task-row input,
+  .chk-edit .chk-name-input {
+    font-size: 16px;
+  }
+
+  .container {
+    padding: 0 14px 56px;
+  }
+
+  /* customer site header: tighter, brand = home so drop the redundant link */
+  .site-header-inner {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .brand {
+    font-size: 19px;
+  }
+  .brand-logo {
+    height: 36px;
+    width: 165px;
+  }
+  .header-right {
+    gap: 12px;
+  }
+  .header-right a[href="/"] {
+    display: none;
+  }
+  .cart-button {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .steps {
+    margin: 4px 0 28px;
+  }
+  .page-title {
+    font-size: 20px;
+  }
+  .site-intro h2 {
+    font-size: 19px;
+  }
+  .confirm-hero h1 {
+    font-size: 21px;
+  }
+
+  /* availability list: smaller time/badge, price tucks right, tidy wrap */
+  .slot-row {
+    gap: 10px 12px;
+    padding: 14px 0;
+  }
+  .slot-time {
+    width: 46px;
+    font-size: 14px;
+  }
+  .room-badge {
+    width: 40px;
+    height: 40px;
+  }
+  .slot-info {
+    min-width: 0;
+  }
+  .slot-tagline {
+    display: none;
+  }
+  .slot-price {
+    margin-left: auto;
+  }
+
+  .booking-panel {
+    padding: 16px;
+    gap: 16px;
+  }
+  .panel-controls {
+    gap: 14px;
+  }
+  .panel-continue {
+    width: 100%;
+  }
+
+  .form-card {
+    padding: 18px 14px;
+  }
+  .form-actions .btn {
+    width: 100%;
+    min-width: 0;
+  }
+  .summary-body {
+    padding: 16px;
+  }
+  .browse-controls {
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .day-nav .btn-outline {
+    padding: 10px 12px;
+  }
+  /* popovers must never exceed the viewport */
+  .calendar {
+    max-width: calc(100vw - 28px);
+  }
+  .fb-star {
+    font-size: 34px;
+    padding: 2px 4px;
+  }
+  .intg-code {
+    overflow-x: auto;
+  }
+  .site-footer .inner {
+    padding: 16px 14px;
+  }
+
+  /* manager portal */
+  .mgr-topbar-inner {
+    padding: 10px 14px;
+  }
+  .mgr-title {
+    font-size: 16px;
+  }
+  .mgr-logo {
+    height: 28px;
+    width: 128px;
+  }
+  .mgr-nav-inner {
+    padding: 0 8px;
+  }
+  .mgr-tab {
+    padding: 12px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .mgr-content {
+    padding: 20px 14px 64px;
+  }
+  .mgr-page-title {
+    font-size: 19px;
+  }
+  .mgr-highlights {
+    grid-template-columns: 1fr;
+  }
+  .mgr-actions-row {
+    gap: 12px;
+  }
+  /* every data table scrolls sideways instead of squeezing */
+  .mgr-table,
+  .mgr-cal {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .chk-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- small phones (≤400px) ---------- */
+@media (max-width: 400px) {
+  .brand-logo {
+    width: 140px;
+    height: 32px;
+  }
+  .slot-price .label {
+    display: none;
+  }
+  .mgr-inline-form .field {
+    width: 100%;
+  }
+  .mgr-inline-form input {
+    width: 100%;
   }
 }
