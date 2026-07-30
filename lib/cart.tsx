@@ -30,6 +30,7 @@ export function itemKey(i: { roomId: string; date: string; time: string }): stri
 }
 
 type CartContextValue = CartState & {
+  hydrated: boolean; // true once the localStorage restore has run — seed AFTER this
   taxPercent: number;
   taxLabel: string;
   addItem: (item: CartItem) => void;
@@ -50,6 +51,7 @@ export function CartProvider({
   holdMinutes?: number;
 }) {
   const [state, setState] = useState<CartState>(EMPTY);
+  const [hydrated, setHydrated] = useState(false);
   const loaded = useRef(false);
   // Kept in a ref so addItem stays a stable callback.
   const holdRef = useRef(holdMinutes);
@@ -81,6 +83,7 @@ export function CartProvider({
       // corrupted storage — start fresh
     }
     loaded.current = true;
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -128,7 +131,7 @@ export function CartProvider({
 
   return (
     <CartContext.Provider
-      value={{ ...state, taxPercent, taxLabel, addItem, removeItem, setCustomer, setPromo, setPaymentOption, clear }}
+      value={{ ...state, hydrated, taxPercent, taxLabel, addItem, removeItem, setCustomer, setPromo, setPaymentOption, clear }}
     >
       {children}
     </CartContext.Provider>

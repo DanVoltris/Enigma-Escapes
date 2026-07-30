@@ -18,11 +18,13 @@ export default function RequestCompletion({
   customer: Customer;
 }) {
   const router = useRouter();
-  const { clear, addItem, setCustomer } = useCart();
+  const { hydrated, clear, addItem, setCustomer } = useCart();
   const seeded = useRef(false);
 
   useEffect(() => {
-    if (seeded.current) return;
+    // Wait for the cart's localStorage restore — seeding before it runs gets
+    // overwritten by the (empty) saved state and checkout shows an empty cart.
+    if (!hydrated || seeded.current) return;
     seeded.current = true;
     clear();
     addItem(item);
@@ -31,7 +33,7 @@ export default function RequestCompletion({
       window.sessionStorage.setItem("vb-request-token", token);
     } catch {}
     router.replace("/checkout");
-  }, [clear, addItem, setCustomer, router, token, item, customer]);
+  }, [hydrated, clear, addItem, setCustomer, router, token, item, customer]);
 
   return <p className="empty-state">Setting up your booking…</p>;
 }
