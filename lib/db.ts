@@ -152,6 +152,19 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
   return rows[0] ? toBooking(rows[0]) : undefined;
 }
 
+// Rewrites a booking's customer JSONB — used by the merge-customers tool to
+// consolidate a typo'd identity onto the kept one. Participants are preserved
+// by the caller (it spreads the existing customer object).
+export async function updateBookingCustomer(id: string, customer: Booking["customer"]): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ customer }),
+  });
+  if (!res.ok) throw await restError(res, "Updating the booking's customer");
+}
+
 // Lookup by public reference (used by the feedback form to verify it's real).
 export async function getBookingByReference(reference: string): Promise<Booking | undefined> {
   if (!/^VB-[A-Z0-9]{4,10}$/i.test(reference)) return undefined;

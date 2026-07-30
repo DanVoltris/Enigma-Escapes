@@ -63,6 +63,8 @@ export default async function ManagerCustomers({
           </Link>
           {" · "}
           <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`}>Download CSV</a>
+          {" · "}
+          <Link href="/manager/customers/merge">Merge duplicates</Link>
         </span>
       </div>
 

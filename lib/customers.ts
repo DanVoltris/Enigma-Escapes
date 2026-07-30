@@ -95,6 +95,15 @@ export async function aggregateCustomers(
   return Array.from(byEmail.values()).sort((a, b) => b.lastBooked.localeCompare(a.lastBooked));
 }
 
+// Used by the merge tool: the merged-away email's manual entry (if any) goes.
+export async function deleteManualCustomer(email: string): Promise<void> {
+  const res = await rest(`customers?email=eq.${encodeURIComponent(email.toLowerCase())}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+  if (!res.ok && res.status !== 404) throw await restError(res, "Removing the old customer entry");
+}
+
 export async function upsertManualCustomer(c: ManualCustomer): Promise<void> {
   const res = await rest("customers?on_conflict=email", {
     method: "POST",
