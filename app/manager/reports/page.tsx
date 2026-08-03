@@ -6,7 +6,16 @@ import { listBookings } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { locationHoursMap } from "@/lib/hours";
 import { startTimesFor } from "@/lib/schedule";
-import { addDaysISO, businessDateOf, dateBadgeParts, formatDateLong, formatMoney, isValidISODate, todayISO } from "@/lib/format";
+import {
+  addDaysISO,
+  businessDateOf,
+  dateBadgeParts,
+  formatDateLong,
+  formatMoney,
+  isValidISODate,
+  nowMinutesInBusinessTZ,
+  todayISO,
+} from "@/lib/format";
 import type { Booking } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +28,7 @@ const BAD = "#c43b3b";
 const MID = "#2b7bb9";
 
 const TABS = [
+  { section: "Looking ahead", key: "upcoming", label: "Upcoming" },
   { section: "Transactional", key: "sales", label: "Sales" },
   { section: "Transactional", key: "bookings", label: "Bookings" },
   { section: "Transactional", key: "payments", label: "Payments" },
@@ -88,6 +98,19 @@ export default async function ManagerReports({
     }
     rangeDays = eachDay(from, to).length;
   }
+  // The Upcoming tab looks FORWARD from today instead of back.
+  if (tab === "upcoming") {
+    from = today;
+    to = addDaysISO(today, rangeDays - 1);
+    if (params.range === "custom") {
+      const f = params.from && isValidISODate(params.from) && params.from >= today ? params.from : today;
+      const t = params.to && isValidISODate(params.to) ? params.to : addDaysISO(today, 29);
+      if (f <= t) {
+        from = f;
+        to = t;
+      }
+    }
+  }
   const status = params.status === "active" || params.status === "noshow" ? params.status : "all";
   const view = params.view === "table" ? ("table" as const) : ("chart" as const);
 
@@ -105,7 +128,7 @@ export default async function ManagerReports({
   });
 
   const active = TABS.find((t) => t.key === tab)!;
-  const sections = ["Transactional", "Inventory", "Misc"] as const;
+  const sections = ["Looking ahead", "Transactional", "Inventory", "Misc"] as const;
   const qs = (k: TabKey) => {
     const p = new URLSearchParams();
     p.set("tab", k);
@@ -139,10 +162,12 @@ export default async function ManagerReports({
 
         <div className="rpt-content">
           <h2 className="rpt-title">{active.label}</h2>
-          <ReportsFilterBar withStatus={tab === "sales"} />
+          <ReportsFilterBar withStatus={tab === "sales"} future={tab === "upcoming"} />
           <p className="mgr-page-sub" style={{ marginTop: -10 }}>
             {formatDateLong(from)} — {formatDateLong(to)}
           </p>
+
+          {tab === "upcoming" && <UpcomingTab bookings={bookings} from={from} to={to} today={today} />}
 
           {tab === "sales" && (
             <SalesTab
@@ -874,6 +899,178 @@ async function SurveysTab({ from, to }: { from: string; to: string }) {
           ))}
         </tbody>
       </table>
+    </>
+  );
+}
+
+// Forward-looking view: what's already on the books for a future window —
+// sessions, guests, value, how much of it is already collected, and how full
+// the period is. Sliced by SESSION date (when people play), not purchase date.
+async function UpcomingTab({
+  bookings,
+  from,
+  to,
+  today,
+}: {
+  bookings: Booking[];
+  from: string;
+  to: string;
+  today: string;
+}) {
+  const { listBlocks } = await import("@/lib/blocks");
+  const [experiences, hoursMap, blocks] = await Promise.all([
+    listExperiences({ activeOnly: true }),
+    locationHoursMap(),
+    listBlocks(from),
+  ]);
+  const blockedKeys = new Set(blocks.filter((b) => b.date <= to).map((b) => `${b.roomId}|${b.date}|${b.time}`));
+
+  type RoomRow = { name: string; location: string; sessions: Set<string>; guests: number; grossCents: number };
+  const rooms = new Map<string, RoomRow>();
+  const guestsByDate = new Map<string, number>();
+  let guests = 0;
+  let grossCents = 0;
+  let collectedCents = 0;
+  let outstandingCents = 0;
+  const sessions = new Set<string>();
+
+  for (const b of bookings) {
+    // Split this booking's payments across its items by value share, so a
+    // multi-session booking attributes money to the right window.
+    const bookingValue = b.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
+    for (const i of b.items) {
+      if (i.date < from || i.date > to) continue;
+      const itemValue = i.priceCents * i.quantity;
+      guests += i.quantity;
+      grossCents += itemValue;
+      const share = bookingValue > 0 ? itemValue / bookingValue : 0;
+      collectedCents += Math.round(b.pricing.paidCents * share);
+      // The booking's own balance — tax included, so it matches what staff
+      // actually take at the desk (gross minus paid would miss the tax).
+      outstandingCents += Math.round(b.pricing.balanceCents * share);
+      sessions.add(`${i.roomId}|${i.date}|${i.time}`);
+      guestsByDate.set(i.date, (guestsByDate.get(i.date) ?? 0) + i.quantity);
+      const row = rooms.get(i.roomId) ?? {
+        name: i.roomName,
+        location: i.location,
+        sessions: new Set<string>(),
+        guests: 0,
+        grossCents: 0,
+      };
+      row.sessions.add(`${i.date}|${i.time}`);
+      row.guests += i.quantity;
+      row.grossCents += itemValue;
+      rooms.set(i.roomId, row);
+    }
+  }
+
+  // Total sellable seats in the window: every scheduled session's capacity,
+  // minus blocked slots (and minus today's sessions that already started).
+  let capacitySeats = 0;
+  let sessionCount = 0;
+  const days = eachDay(from, to);
+  const nowMins = nowMinutesInBusinessTZ();
+  for (const exp of experiences) {
+    const hours = hoursMap.get(exp.location) ?? null;
+    for (const d of days) {
+      for (const t of startTimesFor(exp, d, hours)) {
+        if (blockedKeys.has(`${exp.id}|${d}|${t}`)) continue;
+        if (d === today) {
+          const [h, m] = t.split(":").map(Number);
+          if (h * 60 + m <= nowMins) continue;
+        }
+        capacitySeats += exp.capacity;
+        sessionCount += 1;
+      }
+    }
+  }
+  const fillPct = capacitySeats > 0 ? (guests / capacitySeats) * 100 : 0;
+
+  // Daily bars for short windows, weekly buckets for long ones.
+  const weekly = days.length > 31;
+  const buckets: { label: string; value: number }[] = [];
+  if (weekly) {
+    for (let i = 0; i < days.length; i += 7) {
+      const chunk = days.slice(i, i + 7);
+      buckets.push({
+        label: chunk[0].slice(5),
+        value: chunk.reduce((s, d) => s + (guestsByDate.get(d) ?? 0), 0),
+      });
+    }
+  } else {
+    for (const d of days) buckets.push({ label: shortDay(d, days.length), value: guestsByDate.get(d) ?? 0 });
+  }
+  const bars = buckets.map((b) => ({
+    ...b,
+    displayValue: `${b.value} guest${b.value === 1 ? "" : "s"}${weekly ? " that week" : ""}`,
+  }));
+
+  const roomRows = [...rooms.values()].sort((a, b) => b.grossCents - a.grossCents);
+
+  return (
+    <>
+      <div className="mgr-stats">
+        <div className="mgr-stat">
+          <div className="label">Sessions on the books</div>
+          <div className="value">{sessions.size}</div>
+          <div className="hint">of {sessionCount} running in this period</div>
+        </div>
+        <div className="mgr-stat">
+          <div className="label">Guests expected</div>
+          <div className="value">{guests}</div>
+          <div className="hint">{fillPct.toFixed(1)}% of {capacitySeats} seats sold</div>
+        </div>
+        <div className="mgr-stat">
+          <div className="label">Value on the books</div>
+          <div className="value">{formatMoney(grossCents)}</div>
+          <div className="hint">before tax and discounts</div>
+        </div>
+        <div className="mgr-stat">
+          <div className="label">Still to collect</div>
+          <div className="value">{formatMoney(outstandingCents)}</div>
+          <div className="hint">due at the venue (incl. tax) · {formatMoney(collectedCents)} already paid</div>
+        </div>
+      </div>
+
+      <div className="mgr-card">
+        <h2>Guests {weekly ? "per week" : "per day"}</h2>
+        <p className="card-sub">
+          Where the gaps are. Sessions fill closer to the date, so distant weeks look emptier than they&apos;ll end up.
+        </p>
+        <BarChart bars={bars} ariaLabel="Guests booked per day in the upcoming period" />
+      </div>
+
+      <div className="mgr-card">
+        <h2>By experience</h2>
+        {roomRows.length === 0 ? (
+          <p className="mgr-empty">Nothing booked in this window yet.</p>
+        ) : (
+          <div className="mgr-table-wrap">
+            <table className="mgr-table">
+              <thead>
+                <tr>
+                  <th>Experience</th>
+                  <th>Location</th>
+                  <th className="num">Sessions</th>
+                  <th className="num">Guests</th>
+                  <th className="num">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {roomRows.map((r) => (
+                  <tr key={`${r.name}-${r.location}`}>
+                    <td>{r.name}</td>
+                    <td>{r.location}</td>
+                    <td className="num">{r.sessions.size}</td>
+                    <td className="num">{r.guests}</td>
+                    <td className="num">{formatMoney(r.grossCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </>
   );
 }

@@ -9,14 +9,15 @@ const EARLIEST = "2026-01-01";
 
 // Shared filter row for the Reports tabs: date-range presets with a custom
 // from/to, plus an optional transaction-status filter (Sales tab only).
-export default function ReportsFilterBar({ withStatus }: { withStatus?: boolean }) {
+// `future` flips it forward for the Upcoming tab (next N days instead of last).
+export default function ReportsFilterBar({ withStatus, future }: { withStatus?: boolean; future?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const today = todayISO();
 
   const range = params.get("range") ?? "7";
-  const from = params.get("from") ?? addDaysISO(today, -30);
-  const to = params.get("to") ?? today;
+  const from = params.get("from") ?? (future ? today : addDaysISO(today, -30));
+  const to = params.get("to") ?? (future ? addDaysISO(today, 29) : today);
   const status = params.get("status") ?? "all";
 
   function replaceWith(over: Record<string, string>) {
@@ -29,8 +30,13 @@ export default function ReportsFilterBar({ withStatus }: { withStatus?: boolean 
   }
 
   function setRange(v: string) {
-    if (v === "custom") replaceWith({ range: "custom", from: addDaysISO(today, -30), to: today });
-    else replaceWith({ range: v === "7" ? "" : v, from: "", to: "" });
+    if (v === "custom") {
+      replaceWith(
+        future
+          ? { range: "custom", from: today, to: addDaysISO(today, 29) }
+          : { range: "custom", from: addDaysISO(today, -30), to: today }
+      );
+    } else replaceWith({ range: v === "7" ? "" : v, from: "", to: "" });
   }
 
   return (
@@ -42,9 +48,9 @@ export default function ReportsFilterBar({ withStatus }: { withStatus?: boolean 
           onChange={setRange}
           ariaLabel="Report date range"
           options={[
-            { value: "7", label: "Last 7 days" },
-            { value: "30", label: "Last 30 days" },
-            { value: "90", label: "Last 90 days" },
+            { value: "7", label: future ? "Next 7 days" : "Last 7 days" },
+            { value: "30", label: future ? "Next 30 days" : "Last 30 days" },
+            { value: "90", label: future ? "Next 90 days" : "Last 90 days" },
             { value: "custom", label: "Custom range" },
           ]}
         />
@@ -53,11 +59,21 @@ export default function ReportsFilterBar({ withStatus }: { withStatus?: boolean 
         <>
           <div className="field">
             <label>From</label>
-            <DatePicker value={from} min={EARLIEST} max={to} onChange={(d) => replaceWith({ from: d })} />
+            <DatePicker
+              value={from}
+              min={future ? today : EARLIEST}
+              max={to}
+              onChange={(d) => replaceWith({ from: d })}
+            />
           </div>
           <div className="field">
             <label>To</label>
-            <DatePicker value={to} min={from} max={today} onChange={(d) => replaceWith({ to: d })} />
+            <DatePicker
+              value={to}
+              min={from}
+              max={future ? addDaysISO(today, 365) : today}
+              onChange={(d) => replaceWith({ to: d })}
+            />
           </div>
         </>
       )}
