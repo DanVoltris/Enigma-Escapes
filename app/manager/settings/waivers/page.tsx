@@ -1,4 +1,6 @@
-export default function WaiversPage() {
+import { requirePermission } from "@/lib/auth";
+export default async function WaiversPage() {
+  await requirePermission("settings", "/manager/settings/waivers");
   return (
     <div className="mgr-card">
       <h2>Waivers</h2>

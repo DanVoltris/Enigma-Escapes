@@ -1,4 +1,5 @@
 import RequestsBoard from "@/components/manager/RequestsBoard";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import { slotRemaining } from "@/lib/availability";
 import { listRequests } from "@/lib/requests";
 import { smsConfigured } from "@/lib/sms";
@@ -6,7 +7,11 @@ import { smsConfigured } from "@/lib/sms";
 export const dynamic = "force-dynamic";
 
 export default async function RequestsPage() {
-  const requests = await listRequests();
+  const staff = await requirePermission("requests", "/manager/requests");
+  const scope = allowedLocations(staff);
+  const all = await listRequests();
+  // Scoped staff only decide requests for their own stores.
+  const requests = scope ? all.filter((q) => scope.includes(q.location)) : all;
   // Live remaining capacity per pending request, so the decision is informed.
   const remaining: Record<string, number | null> = {};
   for (const r of requests) {

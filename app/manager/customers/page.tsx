@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import CustomerRow from "@/components/manager/CustomerRow";
 import { aggregateCustomers, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
@@ -10,6 +11,7 @@ export default async function ManagerCustomers({
 }: {
   searchParams: Promise<{ q?: string; sub?: string }>;
 }) {
+  await requirePermission("customers.view", "/manager/customers");
   const { q: rawQ, sub } = await searchParams;
   const q = (rawQ ?? "").trim().toLowerCase();
   const subscribersOnly = sub === "1";

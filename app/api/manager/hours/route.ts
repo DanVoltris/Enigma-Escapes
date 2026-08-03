@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { listLocationHours, upsertLocationHours } from "@/lib/hours";
 import { toMinutes } from "@/lib/schedule";
@@ -10,6 +11,8 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // All locations' hours as a map, for the experience form's read-only preview.
 export async function GET() {
+  const guard = await apiGuard("settings");
+  if (guard.response) return guard.response;
   try {
     const all = await listLocationHours();
     const hours: Record<string, Record<string, DayHours>> = {};
@@ -22,6 +25,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("settings");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

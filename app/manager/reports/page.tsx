@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
@@ -81,6 +82,7 @@ export default async function ManagerReports({
 }: {
   searchParams: Promise<{ tab?: string; range?: string; from?: string; to?: string; status?: string; view?: string }>;
 }) {
+  await requirePermission("reports", "/manager/reports");
   const params = await searchParams;
   const tab: TabKey = TABS.some((t) => t.key === params.tab) ? (params.tab as TabKey) : "sales";
   const today = todayISO();

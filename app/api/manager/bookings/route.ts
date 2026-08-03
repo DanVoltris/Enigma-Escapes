@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { buildBooking } from "@/lib/create-booking";
 import { logActivity, saveBooking } from "@/lib/db";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 // Staff walk-in bookings: same validation/pricing as the public checkout, but
 // tagged source "in_person" so the dashboard can split online vs in-person.
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("bookings.create");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

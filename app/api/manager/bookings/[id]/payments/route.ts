@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { apiGuard } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { getBooking, logActivity, updateBookingFields } from "@/lib/db";
 import { formatMoney } from "@/lib/format";
@@ -17,6 +18,8 @@ const METHOD_LABEL: Record<BookingPayment["method"], string> = {
 // Record a payment taken outside the app (cash, card terminal, e-transfer).
 // This is bookkeeping only — no card is charged here.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await ctx.params;
 
   let body: unknown;
@@ -77,6 +80,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
 // Delete a mistaken manual payment record and restore the balance.
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await ctx.params;
   const pid = req.nextUrl.searchParams.get("pid") ?? "";
   if (!pid) return NextResponse.json({ error: "Missing payment id." }, { status: 400 });

@@ -1,10 +1,12 @@
 import AddLocationForm from "@/components/manager/AddLocationForm";
+import { requirePermission } from "@/lib/auth";
 import StoreHoursEditor from "@/components/manager/StoreHoursEditor";
 import { listAllLocations, locationHoursMap } from "@/lib/hours";
 
 export const dynamic = "force-dynamic";
 
 export default async function StoreHoursPage() {
+  await requirePermission("settings", "/manager/settings/store-hours");
   const [locations, hoursMap] = await Promise.all([listAllLocations(), locationHoursMap()]);
 
   return (

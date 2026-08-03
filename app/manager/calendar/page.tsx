@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import CalendarDateJump from "@/components/manager/CalendarDateJump";
 import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
 import CalendarView, { type SessionBooking } from "@/components/manager/CalendarView";
@@ -21,17 +22,21 @@ export default async function ManagerCalendar({
 }: {
   searchParams: Promise<{ date?: string; view?: string; f?: string }>;
 }) {
+  const staff = await requirePermission("calendar", "/manager/calendar");
+  const scope = allowedLocations(staff); // null = every location
   const params = await searchParams;
   const today = todayISO();
   const date = params.date && isValidISODate(params.date) ? params.date : today;
   const view = params.view === "list" ? "list" : "calendar";
   const filters = (params.f ?? "").split(",").filter(Boolean);
 
-  const [allExperiences, dayBookings, hoursMap] = await Promise.all([
+  const [everyExperience, dayBookings, hoursMap] = await Promise.all([
     listExperiences({ activeOnly: true }),
     bookingsForDate(date),
     locationHoursMap(),
   ]);
+  // Staff assigned to particular stores only ever see those stores' rooms.
+  const allExperiences = scope ? everyExperience.filter((e) => scope.includes(e.location)) : everyExperience;
 
   const selectedLocations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
   const selectedRooms = filters.filter((f) => f.startsWith("room:")).map((f) => f.slice(5));

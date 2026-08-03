@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { createApiKey } from "@/lib/api-keys";
 import { logActivity } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("settings");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

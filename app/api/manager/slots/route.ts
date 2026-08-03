@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { allowedLocations, apiGuard } from "@/lib/auth";
 import { blockedKeysForDate } from "@/lib/blocks";
 import { bookedCountsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
 // block-off screen. Unlike the public availability API this ignores the
 // booking window and past times, so staff can block any date.
 export async function GET(req: NextRequest) {
+  const guard = await apiGuard("blocks");
+  if (guard.response) return guard.response;
   const date = req.nextUrl.searchParams.get("date") ?? "";
   if (!isValidISODate(date)) return NextResponse.json({ error: "Invalid date." }, { status: 400 });
 
@@ -22,7 +25,9 @@ export async function GET(req: NextRequest) {
     bookedCountsForDate(date),
   ]);
 
-  const rooms = experiences.map((exp) => ({
+  const scope = allowedLocations(guard.staff);
+  const visible = scope ? experiences.filter((e) => scope.includes(e.location)) : experiences;
+  const rooms = visible.map((exp) => ({
     id: exp.id,
     name: exp.name,
     location: exp.location,

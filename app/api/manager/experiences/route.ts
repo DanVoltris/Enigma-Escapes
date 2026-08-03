@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { createExperience, getExperience, listExperiences } from "@/lib/experiences";
 import { parseExperienceInput, slugify } from "@/lib/experience-validation";
 import { logActivity } from "@/lib/db";
@@ -6,6 +7,8 @@ import { logActivity } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("experiences");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

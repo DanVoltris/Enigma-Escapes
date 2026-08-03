@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 
-export default function DevelopersPage() {
+export default async function DevelopersPage() {
+  await requirePermission("settings", "/manager/settings/developers");
   return (
     <div className="mgr-card">
       <h2>API keys</h2>

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { addEditNote, deleteEditNote, setEditNoteDone } from "@/lib/edit-notes";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("notes");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();
@@ -25,6 +28,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const guard = await apiGuard("notes");
+  if (guard.response) return guard.response;
   const o = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   if (typeof o.id !== "string" || typeof o.done !== "boolean") {
     return NextResponse.json({ error: "Send the note id and its done state." }, { status: 400 });
@@ -40,6 +45,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const guard = await apiGuard("notes");
+  if (guard.response) return guard.response;
   const o = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   if (typeof o.id !== "string") return NextResponse.json({ error: "Send the note id." }, { status: 400 });
   try {

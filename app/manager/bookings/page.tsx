@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
 import { listBookings } from "@/lib/db";
 import { addDaysISO, businessDateOf, formatDateLong, formatMoney, formatTime, isValidISODate, todayISO } from "@/lib/format";
@@ -36,6 +37,8 @@ export default async function ManagerBookings({
     pay?: string;
   }>;
 }) {
+  const staff = await requirePermission("bookings.view", "/manager/bookings");
+  const scope = allowedLocations(staff); // null = every location
   const params = await searchParams;
   const q = (params.q ?? "").trim();
   const date = params.date && isValidISODate(params.date) ? params.date : null;
@@ -47,6 +50,8 @@ export default async function ManagerBookings({
   const today = todayISO();
 
   let bookings = await listBookings();
+  // Location-scoped staff only see bookings that include one of their stores.
+  if (scope) bookings = bookings.filter((b) => b.items.some((i) => scope.includes(i.location)));
   if (q) bookings = bookings.filter((b) => matchesQuery(b, q));
   if (date) bookings = bookings.filter((b) => b.items.some((i) => i.date === date));
 

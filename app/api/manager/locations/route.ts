@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { listAllLocations, upsertLocationHours } from "@/lib/hours";
 import type { DayHours } from "@/lib/types";
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 // Add a location directly (before any experience uses it). It gets a
 // location_hours row with sensible default hours staff adjust right away.
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("settings");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

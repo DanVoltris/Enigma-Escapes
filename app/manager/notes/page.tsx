@@ -1,9 +1,11 @@
 import NotesBoard from "@/components/manager/NotesBoard";
+import { requirePermission } from "@/lib/auth";
 import { listEditNotes } from "@/lib/edit-notes";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotesPage() {
+  await requirePermission("notes", "/manager/notes");
   const notes = await listEditNotes();
   return (
     <>

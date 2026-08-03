@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { listExperiences } from "@/lib/experiences";
 
 export const dynamic = "force-dynamic";
 
 // Fuller experience list for the walk-in form (needs times, price, capacity).
 export async function GET() {
+  const guard = await apiGuard();
+  if (guard.response) return guard.response;
   try {
     const experiences = await listExperiences({ activeOnly: true });
     return NextResponse.json({

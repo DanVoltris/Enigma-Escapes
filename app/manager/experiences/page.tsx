@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import RoomBadge from "@/components/RoomBadge";
 import { listExperiences } from "@/lib/experiences";
 import { formatMoney, formatTime } from "@/lib/format";
@@ -10,6 +11,7 @@ export default async function ManagerExperiences({
 }: {
   searchParams: Promise<{ saved?: string }>;
 }) {
+  await requirePermission("experiences", "/manager/experiences");
   const { saved } = await searchParams;
   const experiences = await listExperiences();
 

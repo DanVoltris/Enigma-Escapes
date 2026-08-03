@@ -139,3 +139,27 @@ create table if not exists slot_blocks (
 );
 create unique index if not exists slot_blocks_unique on slot_blocks (room_id, date, time);
 alter table slot_blocks enable row level security;
+
+-- Staff portal logins. Passwords are scrypt-hashed by the app; sessions store
+-- only a hash of the cookie token, and are deleted to revoke access instantly.
+create table if not exists staff_accounts (
+  id uuid primary key,
+  email text not null unique,
+  name text not null,
+  password_hash text not null,
+  role text not null default 'clerk',
+  locations jsonb not null default '[]'::jsonb,
+  permissions jsonb not null default '[]'::jsonb,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz
+);
+alter table staff_accounts enable row level security;
+
+create table if not exists staff_sessions (
+  token_hash text primary key,
+  staff_id uuid not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+alter table staff_sessions enable row level security;

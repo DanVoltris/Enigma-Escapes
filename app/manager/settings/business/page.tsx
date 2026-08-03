@@ -1,9 +1,11 @@
 import BusinessDetailsForm from "@/components/manager/BusinessDetailsForm";
+import { requirePermission } from "@/lib/auth";
 import { getBusinessDetails, SETTINGS_TABLE_SQL } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function BusinessDetailsPage() {
+  await requirePermission("settings", "/manager/settings/business");
   const { tableMissing, value } = await getBusinessDetails();
 
   if (tableMissing) {

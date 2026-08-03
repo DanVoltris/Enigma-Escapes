@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 
-export default function PaymentsSettingsPage() {
+export default async function PaymentsSettingsPage() {
+  await requirePermission("settings", "/manager/settings/payments");
   return (
     <>
       <div className="mgr-card">

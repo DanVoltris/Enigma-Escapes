@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { saveSetting, type BusinessDetails } from "@/lib/settings";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function PUT(req: NextRequest) {
+  const guard = await apiGuard("settings");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { deletePromo, getPromo, logActivity, updatePromo } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: string }> }) {
+  const guard = await apiGuard("promos");
+  if (guard.response) return guard.response;
   const { code: rawCode } = await ctx.params;
   const code = decodeURIComponent(rawCode).toUpperCase();
 
@@ -35,6 +38,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
 }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ code: string }> }) {
+  const guard = await apiGuard("promos");
+  if (guard.response) return guard.response;
   const { code: rawCode } = await ctx.params;
   const code = decodeURIComponent(rawCode).toUpperCase();
   try {

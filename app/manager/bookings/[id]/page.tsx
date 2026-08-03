@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
 import GameResultForm from "@/components/manager/GameResultForm";
@@ -15,6 +16,7 @@ function initials(first: string, last: string): string {
 }
 
 export default async function ManagerBookingDetail({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission("bookings.view", "/manager/bookings/[id]");
   const { id } = await params;
   const [booking, experiences, promos, taxes] = await Promise.all([
     getBooking(id),

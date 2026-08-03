@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { createBlocks, deleteBlocksForDate } from "@/lib/blocks";
 import { logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
 // day (times omitted). Times are validated against each room's real schedule,
 // so a stale page can't create blocks for sessions that don't exist.
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("blocks");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();
@@ -61,6 +64,8 @@ export async function POST(req: NextRequest) {
 
 // Unblock an entire date (optionally one room on it).
 export async function DELETE(req: NextRequest) {
+  const guard = await apiGuard("blocks");
+  if (guard.response) return guard.response;
   const o = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const date = typeof o.date === "string" ? o.date : "";
   if (!isValidISODate(date)) return NextResponse.json({ error: "Pick a valid date." }, { status: 400 });

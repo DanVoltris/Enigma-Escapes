@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import ExperienceForm from "@/components/manager/ExperienceForm";
 import { listAllLocations } from "@/lib/hours";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewExperiencePage() {
+  await requirePermission("experiences", "/manager/experiences/new");
   const locations = await listAllLocations();
   return (
     <>

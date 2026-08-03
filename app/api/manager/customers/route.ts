@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { upsertManualCustomer } from "@/lib/customers";
 import { logActivity } from "@/lib/db";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("customers.view");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

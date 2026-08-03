@@ -2657,6 +2657,80 @@ a:hover {
 }
 
 /* ---------- responsive ---------- */
+/* staff sign-in screen */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--muted-bg);
+}
+.login-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--accent);
+  padding: 32px;
+  width: 100%;
+  max-width: 420px;
+}
+.login-card h1 {
+  font-size: 21px;
+  margin-bottom: 6px;
+}
+.login-card .btn {
+  width: 100%;
+}
+
+/* who's signed in, top-right of the portal */
+.mgr-whoami {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.mgr-whoami .who {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  text-align: right;
+}
+.mgr-whoami .who .sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* team & permissions */
+.team-editor {
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  padding: 18px;
+  margin-top: 18px;
+}
+.team-perms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 8px 18px;
+  margin: 10px 0 16px;
+}
+.team-locs {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+@media (max-width: 640px) {
+  .mgr-whoami {
+    gap: 10px;
+  }
+  .mgr-whoami .who {
+    text-align: left;
+  }
+  .team-perms {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* calendar day nav: ‹ Day · date picker · Day › */
 .cal-daynav {
   display: flex;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import ExperienceForm from "@/components/manager/ExperienceForm";
 import { getExperience } from "@/lib/experiences";
@@ -7,6 +8,7 @@ import { listAllLocations } from "@/lib/hours";
 export const dynamic = "force-dynamic";
 
 export default async function EditExperiencePage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission("experiences", "/manager/experiences/[id]");
   const { id } = await params;
   const [experience, locations] = await Promise.all([getExperience(id), listAllLocations()]);
   if (!experience) notFound();

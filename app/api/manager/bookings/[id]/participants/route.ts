@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { apiGuard } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { getBooking, logActivity, updateBookingFields } from "@/lib/db";
 import type { Participant } from "@/lib/types";
@@ -9,6 +10,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Attach a participant (extra guest) to a booking.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await ctx.params;
 
   let body: unknown;
@@ -55,6 +58,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
 // Remove a participant from a booking.
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await ctx.params;
   const pid = req.nextUrl.searchParams.get("pid") ?? "";
   if (!pid) return NextResponse.json({ error: "Missing participant id." }, { status: 400 });

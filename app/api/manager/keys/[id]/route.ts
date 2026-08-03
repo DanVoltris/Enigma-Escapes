@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { revokeApiKey } from "@/lib/api-keys";
 import { logActivity } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("settings");
+  if (guard.response) return guard.response;
   const { id } = await params;
   try {
     const removed = await revokeApiKey(id);

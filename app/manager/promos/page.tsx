@@ -1,9 +1,11 @@
 import PromoManager from "@/components/manager/PromoManager";
+import { requirePermission } from "@/lib/auth";
 import { listPromos } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerPromos() {
+  await requirePermission("promos", "/manager/promos");
   const promos = await listPromos();
 
   return (

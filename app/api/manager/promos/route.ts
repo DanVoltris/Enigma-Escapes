@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { createPromo, getPromo, logActivity } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("promos");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

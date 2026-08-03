@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { getBooking, getPromo, logActivity, updateBookingFields } from "@/lib/db";
 import { computeTotals } from "@/lib/pricing";
 import { activeTaxPercent } from "@/lib/taxes";
@@ -23,6 +24,8 @@ async function repriced(booking: Booking, percentOff: number): Promise<Booking["
 
 // Apply a promo code to an existing booking.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await ctx.params;
 
   let body: unknown;
@@ -62,6 +65,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
 // Remove the promo from a booking and restore undiscounted pricing.
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await ctx.params;
   try {
     const booking = await getBooking(id);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { normalizeChecklists, saveChecklists } from "@/lib/checklists";
 import { logActivity } from "@/lib/db";
 
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 
 // Full-replace of the checklist definitions (small data, simplest correct).
 export async function PUT(req: NextRequest) {
+  const guard = await apiGuard("checklists");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { setItemChecked } from "@/lib/checklists";
 
 export const dynamic = "force-dynamic";
 
 // Tick/untick one task for today.
 export async function PUT(req: NextRequest) {
+  const guard = await apiGuard("checklists");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

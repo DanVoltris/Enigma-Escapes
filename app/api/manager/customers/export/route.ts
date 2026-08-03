@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { aggregateCustomers, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
@@ -11,6 +12,8 @@ function csvField(v: string): string {
 // CSV download of the customer list — ?subscribed=1 narrows to the marketing
 // subscriber list (the file most email/ads tools import directly).
 export async function GET(req: NextRequest) {
+  const guard = await apiGuard("customers.export");
+  if (guard.response) return guard.response;
   const subscribedOnly = req.nextUrl.searchParams.get("subscribed") === "1";
   const [bookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
   let rows = await aggregateCustomers(bookings, manual);

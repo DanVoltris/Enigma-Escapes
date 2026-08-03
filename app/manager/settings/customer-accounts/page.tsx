@@ -1,9 +1,11 @@
 import CustomerAccountsForm from "@/components/manager/CustomerAccountsForm";
+import { requirePermission } from "@/lib/auth";
 import { getBookingPolicies } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerAccountsPage() {
+  await requirePermission("settings", "/manager/settings/customer-accounts");
   const policies = await getBookingPolicies();
   return (
     <>

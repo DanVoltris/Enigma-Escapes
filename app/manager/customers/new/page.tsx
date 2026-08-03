@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import AddCustomerForm from "@/components/manager/AddCustomerForm";
 
-export default function NewCustomerPage() {
+export default async function NewCustomerPage() {
+  await requirePermission("customers.view", "/manager/customers/new");
   return (
     <>
       <p style={{ marginBottom: 16 }}>

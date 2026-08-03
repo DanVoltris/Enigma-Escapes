@@ -1,10 +1,12 @@
 import ChecklistsBoard from "@/components/manager/ChecklistsBoard";
+import { requirePermission } from "@/lib/auth";
 import { getChecklists, getTodayState } from "@/lib/checklists";
 import { formatDateLong } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChecklistsPage() {
+  await requirePermission("checklists", "/manager/checklists");
   const [lists, state] = await Promise.all([getChecklists(), getTodayState()]);
   return (
     <>

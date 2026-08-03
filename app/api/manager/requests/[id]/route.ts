@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { remainingSpots } from "@/lib/capacity";
 import { bookedCount, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
 // completion link) or decline (customer texted). Returns the completion URL so
 // staff can copy/send it manually while SMS isn't configured.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("requests");
+  if (guard.response) return guard.response;
   const { id } = await params;
   const o = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const action = o.action === "accept" || o.action === "decline" ? o.action : null;

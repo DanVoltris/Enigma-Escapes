@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { MAX_IMAGE_BYTES, uploadExperienceImage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("experiences");
+  if (guard.response) return guard.response;
   let form: FormData;
   try {
     form = await req.formData();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 // Typeahead for the walk-in form: match known customers (derived from
 // bookings, newest first, deduped by email) by name, email or phone.
 export async function GET(req: NextRequest) {
+  const guard = await apiGuard("bookings.create");
+  if (guard.response) return guard.response;
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim().toLowerCase();
   if (q.length < 2) return NextResponse.json({ customers: [] });
 

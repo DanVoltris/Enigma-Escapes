@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { getBooking, logActivity, saveGameResult } from "@/lib/db";
 import type { GameResult } from "@/lib/types";
 
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 // Staff record how a session went (escaped, time left, hints). PUT replaces
 // any earlier result — games get re-recorded when staff mistype.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await params;
   let body: unknown;
   try {

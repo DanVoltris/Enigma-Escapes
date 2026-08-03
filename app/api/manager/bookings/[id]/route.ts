@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { getBooking, logActivity, setBookingNoShow } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
   const { id } = await ctx.params;
 
   let body: unknown;

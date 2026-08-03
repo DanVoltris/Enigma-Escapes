@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import WalkInForm from "@/components/manager/WalkInForm";
 
-export default function NewWalkInPage() {
+export default async function NewWalkInPage() {
+  await requirePermission("bookings.create", "/manager/bookings/new");
   return (
     <>
       <p style={{ marginBottom: 16 }}>

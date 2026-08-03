@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { aggregateCustomers, deleteManualCustomer, listManualCustomers } from "@/lib/customers";
 import { listBookings, logActivity, updateBookingCustomer } from "@/lib/db";
 
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 // and fromEmail's manual entry is removed. Deliberately normalizes history —
 // that's what a staff-initiated merge is for. Not reversible.
 export async function POST(req: NextRequest) {
+  const guard = await apiGuard("customers.view");
+  if (guard.response) return guard.response;
   let body: unknown;
   try {
     body = await req.json();

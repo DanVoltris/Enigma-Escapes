@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from "@/components/manager/CustomerTabs";
 import { listBookings } from "@/lib/db";
@@ -16,6 +17,7 @@ export default async function ManagerCustomerDetail({
 }: {
   params: Promise<{ email: string }>;
 }) {
+  await requirePermission("customers.view", "/manager/customers/[email]");
   const { email: rawEmail } = await params;
   const email = decodeURIComponent(rawEmail).toLowerCase();
 

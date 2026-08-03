@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiGuard } from "@/lib/auth";
 import { deleteBlock } from "@/lib/blocks";
 import { logActivity } from "@/lib/db";
 
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 
 // Unblock a single slot.
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await apiGuard("blocks");
+  if (guard.response) return guard.response;
   const { id } = await params;
   try {
     await deleteBlock(id);

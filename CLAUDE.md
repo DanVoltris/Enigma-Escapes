@@ -1,10 +1,18 @@
 # Voltris Booking
 
 Escape-room booking web app: browse availability → select slot & quantity → cart with 15-minute
-hold → contact details → payment (full or 25% deposit) → confirmation. Plus a staff manager
-portal at `/manager` (Dashboard, Calendar, Bookings, Customers, Experiences, Promo codes,
-Reports, Help). The manager portal has NO login yet — do not share the URL publicly; it is
-noindexed. Adding auth is the top follow-up task.
+hold → contact details → payment (full or 25% deposit) → confirmation. Plus a staff portal at
+`/manager` (Dashboard, Calendar, Bookings, Requests, Customers, Experiences, Promo codes,
+Checklists, Notes, Reports, Settings, Help).
+
+The staff portal requires a login (`/login`). Accounts live in `staff_accounts`, sessions in
+`staff_sessions` (scrypt passwords, SHA-256'd cookie tokens, revocable — `lib/staff.ts`).
+Roles (admin / manager / clerk) are presets over 15 individual permissions
+(`lib/permissions.ts`); admins tick them per account in Settings → Team, and can scope an
+account to particular locations. Guards live in `lib/auth.ts`: pages call
+`requirePermission(...)`, API routes call `apiGuard(...)` — every restricted surface re-checks
+server-side, so hiding a nav tab is never the security boundary. With zero accounts, `/login`
+becomes a one-time first-admin setup that closes permanently once an account exists.
 
 Stack: Next.js (App Router) + TypeScript + React. Supabase (project ref `naztszcfcbjqxxvyydjr`)
 stores `bookings`, `experiences`, and `promo_codes`, accessed server-side only via the
