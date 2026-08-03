@@ -2657,6 +2657,76 @@ a:hover {
 }
 
 /* ---------- responsive ---------- */
+/* block-off-hours screen */
+.blk-rooms {
+  display: grid;
+  gap: 14px;
+}
+.blk-room {
+  border: 1px solid var(--border);
+  padding: 14px;
+}
+.blk-room-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.blk-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.blk-time {
+  position: relative;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+.blk-time:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.blk-time.picked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+.blk-time.blocked {
+  background: var(--sold-bg);
+  color: var(--danger);
+  border-color: var(--sold-bg);
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+/* marks a session that already has bookings */
+.blk-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  background: var(--link);
+  border-radius: 50%;
+}
+.blk-day + .blk-day {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.blk-day-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
 /* manager Requests tab: decision cards */
 .req-grid {
   display: grid;

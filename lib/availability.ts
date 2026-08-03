@@ -1,3 +1,4 @@
+import { blockedKeysForDate, isBlocked } from "./blocks";
 import { remainingSpots } from "./capacity";
 import { bookedCount, bookedCountsForDate } from "./db";
 import { getExperience, listExperiences } from "./experiences";
@@ -9,10 +10,11 @@ import type { Slot } from "./types";
 export async function slotsForDate(date: string): Promise<Slot[]> {
   const isToday = date === todayISO();
   const nowMinutes = nowMinutesInBusinessTZ();
-  const [experiences, booked, hoursMap] = await Promise.all([
+  const [experiences, booked, hoursMap, blocked] = await Promise.all([
     listExperiences({ activeOnly: true }),
     bookedCountsForDate(date),
     locationHoursMap(),
+    blockedKeysForDate(date),
   ]);
 
   const slots: Slot[] = [];
@@ -23,6 +25,9 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         const [h, m] = time.split(":").map(Number);
         if (h * 60 + m <= nowMinutes) continue; // hide start times already passed
       }
+      // Manager-blocked slots vanish from the site entirely (cleaner than
+      // showing them sold out — no "why is 3pm full?" questions).
+      if (blocked.has(`${exp.id}|${time}`)) continue;
       const taken = booked.get(`${exp.id}|${time}`) ?? 0;
       slots.push({
         roomId: exp.id,
@@ -58,6 +63,7 @@ export async function slotRemaining(roomId: string, date: string, time: string):
   if (!exp || !exp.active) return null;
   const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
   if (!startTimesFor(exp, date, hours).includes(time)) return null;
+  if (await isBlocked(roomId, date, time)) return null; // out of service
   const taken = await bookedCount(roomId, date, time);
   return remainingSpots(exp, taken);
 }

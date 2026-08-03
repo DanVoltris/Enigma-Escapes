@@ -93,7 +93,14 @@ export default async function ManagerCalendar({
 
   return (
     <>
-      <h1 className="mgr-page-title">Calendar</h1>
+      <div className="mgr-actions-row" style={{ marginBottom: 0 }}>
+        <h1 className="mgr-page-title" style={{ marginBottom: 0 }}>
+          Calendar
+        </h1>
+        <Link href="/manager/blocks" className="btn btn-outline">
+          Block off hours
+        </Link>
+      </div>
 
       <nav className="mgr-subtabs" aria-label="Calendar views">
         <Link href={href({ view: "calendar" })} className={`mgr-subtab${view === "calendar" ? " active" : ""}`}>

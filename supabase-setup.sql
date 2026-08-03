@@ -126,3 +126,16 @@ create table if not exists booking_requests (
   decided_at timestamptz, booking_id uuid
 );
 alter table booking_requests enable row level security;
+
+-- Manager-blocked time slots (maintenance, private events): blocked slots are
+-- hidden from the booking site and refused by the booking/request APIs.
+create table if not exists slot_blocks (
+  id uuid primary key,
+  room_id text not null,
+  date text not null,
+  time text not null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists slot_blocks_unique on slot_blocks (room_id, date, time);
+alter table slot_blocks enable row level security;

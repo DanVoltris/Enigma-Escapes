@@ -72,6 +72,9 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   key, first_name text not null, last_name text not null, phone text, subscribe boolean not null
   default false, created_at timestamptz not null default now()); alter table customers enable
   row level security;` (local mode needs nothing).
+- Blocked hours: managers take sessions out of service on `/manager/blocks` (linked from
+  Calendar) — per-slot rows in `slot_blocks`. Blocked slots are hidden from availability (site
+  + partner feed) and refused by create-booking (walk-ins included) and the requests API.
 - Booking requests: sessions starting within 4 hours (`REQUEST_WINDOW_MINUTES`, lib/format.ts)
   aren't self-serve — the site collects a request (name + phone, no payment) into
   `booking_requests`; managers accept/decline on `/manager/requests` (accept texts a completion

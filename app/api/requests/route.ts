@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isBlocked } from "@/lib/blocks";
 import { remainingSpots } from "@/lib/capacity";
 import { bookedCount, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
   const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
   if (!startTimesFor(exp, date, hours).includes(time)) {
     return NextResponse.json({ error: "That time slot is not available on that day." }, { status: 400 });
+  }
+  if (await isBlocked(exp.id, date, time)) {
+    return NextResponse.json({ error: "That session isn't running — please pick another time." }, { status: 400 });
   }
   const untilStart = minutesUntilSlot(date, time);
   if (untilStart <= 0) {

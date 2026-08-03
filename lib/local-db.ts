@@ -30,6 +30,7 @@ const PK: Record<string, string> = {
   feedback: "reference", // one survey response per booking; resubmit overwrites
   customers: "email", // manually added customers; re-adding an email updates it
   booking_requests: "id", // sub-4h booking requests awaiting manager approval
+  slot_blocks: "id", // manager-blocked slots (maintenance, private events)
 };
 
 // Query-string keys that are PostgREST directives, not column filters.

@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { isBlocked } from "./blocks";
 import { maxPerBooking, minPerBooking, remainingSpots } from "./capacity";
 import { bookedCountsForDate, getPromo } from "./db";
 import { getExperience } from "./experiences";
@@ -82,6 +83,11 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
       if (!startTimesFor(exp, date, hours).includes(time)) {
         return err(`${exp.name}: that time slot is not available on that day.`);
+      }
+      // Manager-blocked slots are out of service for everyone, walk-ins
+      // included — unblock it first if the session should really run.
+      if (await isBlocked(exp.id, date, time)) {
+        return err(`${exp.name} at ${formatTime(time)} is blocked off and can't be booked.`);
       }
       // Slots starting within the request window aren't self-serve: they need
       // an ACCEPTED request behind them (staff walk-ins are exempt — that's
