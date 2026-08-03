@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CalendarDateJump from "@/components/manager/CalendarDateJump";
 import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
 import CalendarView, { type SessionBooking } from "@/components/manager/CalendarView";
 import { bookingsForDate } from "@/lib/db";
@@ -118,16 +119,25 @@ export default async function ManagerCalendar({
           </strong>
           <CalendarFilterBar experiences={allExperiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))} />
         </div>
-        <div className="day-nav">
-          <Link href={href({ date: today })} className="btn btn-outline">
-            Today
-          </Link>
-          <Link href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline">
-            ← Prev
-          </Link>
-          <Link href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline">
-            Next →
-          </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <CalendarDateJump date={date} />
+          <div className="day-nav">
+            <Link href={href({ date: addDaysISO(date, -7) })} className="btn btn-outline" title="Back one week">
+              ‹‹ Week
+            </Link>
+            <Link href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline" title="Previous day">
+              ‹ Day
+            </Link>
+            <Link href={href({ date: today })} className="btn btn-outline">
+              Today
+            </Link>
+            <Link href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline" title="Next day">
+              Day ›
+            </Link>
+            <Link href={href({ date: addDaysISO(date, 7) })} className="btn btn-outline" title="Forward one week">
+              Week ››
+            </Link>
+          </div>
         </div>
       </div>
 
