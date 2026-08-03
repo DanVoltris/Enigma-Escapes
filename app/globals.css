@@ -2657,6 +2657,14 @@ a:hover {
 }
 
 /* ---------- responsive ---------- */
+/* calendar day nav: ‹ Day · date picker · Day › */
+.cal-daynav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* block-off-hours screen */
 .blk-rooms {
   display: grid;
