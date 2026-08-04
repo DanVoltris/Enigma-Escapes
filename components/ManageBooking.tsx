@@ -19,6 +19,7 @@ export default function ManageBooking({
   windowDays,
   hoursAway,
   phone,
+  textsEnabled,
   canReschedule,
 }: {
   bookingId: string;
@@ -31,6 +32,7 @@ export default function ManageBooking({
   windowDays: number;
   hoursAway: number;
   phone: string;
+  textsEnabled: boolean;
   canReschedule: boolean;
 }) {
   const router = useRouter();
@@ -84,7 +86,9 @@ export default function ManageBooking({
       <div className="manage-done">
         <h3>{done}</h3>
         <p>
-          We&apos;ve emailed nothing yet — your booking page above is always up to date.{" "}
+          {textsEnabled
+            ? "We’ve texted you a confirmation, and this page always shows your booking as it stands now."
+            : "This page always shows your booking as it stands now."}{" "}
           {phone && <>Questions? Call {phone}.</>}
         </p>
       </div>

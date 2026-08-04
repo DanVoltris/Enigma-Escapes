@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBooking } from "@/lib/db";
 import { isValidISODate } from "@/lib/format";
 import { cancelForCustomer, rescheduleForCustomer, selfServiceBlock } from "@/lib/manage-booking";
+import { notifyBookingCancelled, notifyBookingRescheduled } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     if (action === "cancel") {
       const result = await cancelForCustomer(booking);
+      await notifyBookingCancelled(booking); // best-effort; never throws
       return NextResponse.json({
         ok: true,
         refundedCents: result.refundedCents,
@@ -39,6 +41,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const result = await rescheduleForCustomer(booking, date, time);
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
+    // Confirm the new date/time by text (customer + business cell).
+    const moved = result.items[0];
+    if (moved) await notifyBookingRescheduled(booking, moved, req.nextUrl.origin);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("customer booking change failed:", err);

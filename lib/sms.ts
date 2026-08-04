@@ -4,7 +4,7 @@
 // Twilio number texts come from). Without them every send is a silent no-op,
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
 import { getBusinessDetails } from "./settings";
-import { formatTime } from "./format";
+import { formatDateLong, formatTime } from "./format";
 import type { Booking } from "./types";
 
 const SID = process.env.TWILIO_ACCOUNT_SID;
@@ -61,6 +61,63 @@ export async function notifyRequestDecision(
     );
   } catch (err) {
     console.error("request decision SMS failed:", err);
+  }
+}
+
+// Confirms a customer's own reschedule, with the new date and time. Also
+// texts the business cell so staff see the change without watching the screen.
+export async function notifyBookingRescheduled(
+  booking: Booking,
+  item: { roomName: string; date: string; time: string },
+  origin: string
+): Promise<void> {
+  if (!smsConfigured()) return;
+  const when = `${formatDateLong(item.date)} at ${formatTime(item.time)}`;
+  try {
+    await sendSms(
+      booking.customer.phone,
+      `Booking updated! ${item.roomName} is now ${when}. Ref ${booking.reference}. Details: ${origin}/booking/${booking.id}`
+    );
+  } catch (err) {
+    console.error("reschedule SMS failed:", err);
+  }
+  try {
+    const business = (await getBusinessDetails()).value;
+    const staffPhone = business?.cell || business?.phone;
+    if (staffPhone) {
+      await sendSms(
+        staffPhone,
+        `Rescheduled ${booking.reference}: ${item.roomName} moved to ${when} — ${booking.customer.firstName} ${booking.customer.lastName}`
+      );
+    }
+  } catch (err) {
+    console.error("reschedule staff SMS failed:", err);
+  }
+}
+
+// Confirms a customer's own cancellation.
+export async function notifyBookingCancelled(booking: Booking): Promise<void> {
+  if (!smsConfigured()) return;
+  const first = booking.items[0];
+  try {
+    await sendSms(
+      booking.customer.phone,
+      `Your Enigma Escapes booking ${booking.reference}${first ? ` (${first.roomName})` : ""} is cancelled. Any refund follows your original payment method.`
+    );
+  } catch (err) {
+    console.error("cancellation SMS failed:", err);
+  }
+  try {
+    const business = (await getBusinessDetails()).value;
+    const staffPhone = business?.cell || business?.phone;
+    if (staffPhone) {
+      await sendSms(
+        staffPhone,
+        `Cancelled ${booking.reference}${first ? `: ${first.roomName} ${first.date} ${formatTime(first.time)}` : ""} — ${booking.customer.firstName} ${booking.customer.lastName}`
+      );
+    }
+  } catch (err) {
+    console.error("cancellation staff SMS failed:", err);
   }
 }
 

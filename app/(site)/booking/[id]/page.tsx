@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ManageBooking from "@/components/ManageBooking";
+import { smsConfigured } from "@/lib/sms";
 import { getBooking } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
@@ -85,6 +86,7 @@ export default async function ManageBookingPage({ params }: { params: Promise<{ 
               </div>
             ) : (
               <ManageBooking
+                textsEnabled={smsConfigured()}
                 bookingId={booking.id}
                 roomId={booking.items[0]?.roomId ?? ""}
                 roomName={booking.items[0]?.roomName ?? ""}
