@@ -1,5 +1,5 @@
 import TodayBoard, { type TodayRow } from "@/components/manager/TodayBoard";
-import { allowedLocations, requirePermission } from "@/lib/auth";
+import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import { bookingsForDate } from "@/lib/db";
 import { formatDateLong, isValidISODate, nowMinutesInBusinessTZ, todayISO } from "@/lib/format";
 import { terminalConfigured } from "@/lib/stripe-terminal";
@@ -60,6 +60,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   return (
     <TodayBoard
       terminalReady={terminalReady}
+      canSetUpTerminal={hasPermission(staff, "settings")}
       rows={rows}
       date={date}
       isToday={date === today}

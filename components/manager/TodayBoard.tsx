@@ -42,6 +42,7 @@ const newLine = (method: PaymentMethod, amountCents: number, payer = ""): Line =
 
 export default function TodayBoard({
   terminalReady,
+  canSetUpTerminal,
   rows,
   date,
   isToday,
@@ -49,6 +50,7 @@ export default function TodayBoard({
   nowMinutes,
 }: {
   terminalReady: boolean; // a card reader is paired for this venue
+  canSetUpTerminal: boolean; // may configure it — only they see the setup hint
   rows: TodayRow[];
   date: string;
   isToday: boolean;
@@ -165,6 +167,7 @@ export default function TodayBoard({
                     {r.balanceCents > 0 ? (
                       <TakePayment
                         terminalReady={terminalReady}
+                        canSetUpTerminal={canSetUpTerminal}
                         bookingId={r.bookingId}
                         balanceCents={r.balanceCents}
                         guests={r.quantity}
@@ -194,6 +197,7 @@ export default function TodayBoard({
 // balance on the terminal, or split it evenly between the guests, then adjust.
 function TakePayment({
   terminalReady,
+  canSetUpTerminal,
   bookingId,
   balanceCents,
   guests,
@@ -201,6 +205,7 @@ function TakePayment({
   onDone,
 }: {
   terminalReady: boolean;
+  canSetUpTerminal: boolean;
   bookingId: string;
   balanceCents: number;
   guests: number;
@@ -418,6 +423,12 @@ function TakePayment({
         >
           + Add another payer
         </button>
+        {!terminalReady && canSetUpTerminal && (
+          <span className="sub">
+            Card reader not set up —{" "}
+            <Link href="/manager/settings/payments">pair one in Settings → Payments</Link>
+          </span>
+        )}
         <span className={remaining === 0 ? "sub" : "field-error"}>
           {remaining === 0
             ? "Adds up exactly"
