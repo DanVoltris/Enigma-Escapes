@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { allowedLocations, requirePermission } from "@/lib/auth";
+import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import CalendarDateJump from "@/components/manager/CalendarDateJump";
 import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
 import CalendarView, { type SessionBooking } from "@/components/manager/CalendarView";
@@ -103,9 +103,11 @@ export default async function ManagerCalendar({
         <h1 className="mgr-page-title" style={{ marginBottom: 0 }}>
           Calendar
         </h1>
-        <Link href="/manager/blocks" className="btn btn-outline">
-          Block off hours
-        </Link>
+        {hasPermission(staff, "blocks") && (
+          <Link href="/manager/blocks" className="btn btn-outline">
+            Block off hours
+          </Link>
+        )}
       </div>
 
       <nav className="mgr-subtabs" aria-label="Calendar views">
