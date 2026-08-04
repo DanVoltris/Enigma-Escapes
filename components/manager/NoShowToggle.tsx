@@ -32,10 +32,10 @@ export default function NoShowToggle({ id, initial }: { id: string; initial: boo
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <span className={`mgr-pill${noShow ? "" : " on"}`}>{noShow ? "Marked no-show" : "Attending"}</span>
-        <button type="button" className="btn btn-outline" onClick={toggle} disabled={busy}>
-          {busy ? "Saving…" : noShow ? "Mark as attending" : "Mark as no-show"}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span className={`bk-status${noShow ? " noshow" : ""}`}>{noShow ? "No-show" : "Attending"}</span>
+        <button type="button" className="link-button" onClick={toggle} disabled={busy}>
+          {busy ? "Saving…" : noShow ? "mark attending" : "mark no-show"}
         </button>
       </div>
       {error && <p className="field-error" style={{ marginTop: 8 }}>{error}</p>}

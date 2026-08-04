@@ -3368,3 +3368,33 @@ a:hover {
     width: 100%;
   }
 }
+
+/* booking detail: quiet text actions + a plain status word, instead of a row
+   of competing buttons */
+.bk-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.bk-status {
+  font-weight: 700;
+  color: var(--good, #1f7a4d);
+}
+.bk-status.noshow {
+  color: var(--danger);
+}
+.bk-status.cancelled {
+  color: var(--danger);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 13px;
+}
+.bk-cancelled-note {
+  border-left: 3px solid var(--danger);
+  padding: 8px 10px;
+  background: #fdf3f3;
+  font-size: 13px;
+  margin-bottom: 10px;
+}

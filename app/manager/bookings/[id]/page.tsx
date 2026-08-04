@@ -69,11 +69,14 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     <>
       <div className="cust-topbar">
         <Link href="/manager/bookings">← Back to all bookings</Link>
-        <div className="cust-topbar-actions">
-          <a href={`mailto:${customer.email}`} className="btn btn-outline">
-            Email customer
-          </a>
-          <NoShowToggle id={booking.id} initial={booking.noShow} />
+        <div className="bk-actions">
+          <a href={`mailto:${customer.email}`}>Email customer</a>
+          {/* A cancelled booking is not attending anything — no toggle, just the fact. */}
+          {booking.status === "cancelled" ? (
+            <span className="bk-status cancelled">Cancelled</span>
+          ) : (
+            <NoShowToggle id={booking.id} initial={booking.noShow} />
+          )}
         </div>
       </div>
 
@@ -90,6 +93,15 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
 
             <div className="cust-info">
               <h2>Booking {booking.reference}</h2>
+              {booking.status === "cancelled" && (
+                <p className="bk-cancelled-note">
+                  <strong>This booking was cancelled.</strong> The spots are back on sale and nothing further is owed
+                  {pricing.refundOwedCents
+                    ? ` — a refund of ${formatMoney(pricing.refundOwedCents)} is still to be settled`
+                    : ""}
+                  .
+                </p>
+              )}
               <p>
                 Placed {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
                 <br />
@@ -170,8 +182,9 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               </div>
               <div>
                 <div className="label">Total due</div>
-                <div className={`value${pricing.balanceCents > 0 ? " due" : ""}`}>
-                  {formatMoney(pricing.balanceCents)}
+                {/* A cancelled booking owes nothing — don't flash a red balance at staff. */}
+                <div className={`value${pricing.balanceCents > 0 && booking.status !== "cancelled" ? " due" : ""}`}>
+                  {booking.status === "cancelled" ? "—" : formatMoney(pricing.balanceCents)}
                 </div>
               </div>
             </div>
