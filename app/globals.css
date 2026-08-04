@@ -2034,18 +2034,35 @@ a:hover {
 .site-footer {
   border-top: 1px solid var(--border);
   margin-top: 48px;
-  padding: 24px 0 40px;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-.site-footer .inner {
+  padding: 22px 24px 34px;
   display: flex;
-  gap: 8px 24px;
-  flex-wrap: wrap;
-  align-items: baseline;
+  justify-content: center;
 }
-.site-footer strong {
-  color: var(--text);
+/* "Powered by VoltrisBooking" — the wordmark is set in type rather than an
+   image file so it stays crisp at any size and needs no asset. */
+.powered-by {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-decoration: none;
+}
+.powered-by:hover {
+  text-decoration: none;
+}
+.powered-by:hover .vb-mark {
+  opacity: 0.75;
+}
+.vb-mark {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #16212b;
+  transition: opacity 0.15s ease;
+}
+.vb-mark-accent {
+  color: #7cc3ee; /* the wordmarks light blue, fixed so it never follows the venues theme */
 }
 
 /* chart hover tooltip (follows the crosshair / cursor) */
@@ -3230,8 +3247,8 @@ a:hover {
   .intg-code {
     overflow-x: auto;
   }
-  .site-footer .inner {
-    padding: 16px 14px;
+  .site-footer {
+    padding: 18px 14px 30px;
   }
 
   /* manager portal */
