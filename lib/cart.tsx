@@ -15,6 +15,10 @@ type CartState = {
   promo: AppliedPromo | null; // validated against the server before being set
   paymentOption: PaymentOption;
   expiresAt: number | null; // epoch ms when the hold lapses
+  // Token from an accepted sub-4h booking request. Lives here (not in
+  // sessionStorage) so it survives reloads, tab changes and links opened from
+  // a text message — checkout sends it so the server allows the booking.
+  requestToken: string | null;
 };
 
 const EMPTY: CartState = {
@@ -23,6 +27,7 @@ const EMPTY: CartState = {
   promo: null,
   paymentOption: "deposit",
   expiresAt: null,
+  requestToken: null,
 };
 
 export function itemKey(i: { roomId: string; date: string; time: string }): string {
@@ -38,6 +43,7 @@ type CartContextValue = CartState & {
   setCustomer: (customer: Customer) => void;
   setPromo: (promo: AppliedPromo | null) => void;
   setPaymentOption: (option: PaymentOption) => void;
+  setRequestToken: (token: string | null) => void;
   clear: () => void;
 };
 
@@ -127,11 +133,27 @@ export function CartProvider({
     setState((s) => ({ ...s, paymentOption }));
   }, []);
 
+  const setRequestToken = useCallback((requestToken: string | null) => {
+    setState((s) => ({ ...s, requestToken }));
+  }, []);
+
   const clear = useCallback(() => setState(EMPTY), []);
 
   return (
     <CartContext.Provider
-      value={{ ...state, hydrated, taxPercent, taxLabel, addItem, removeItem, setCustomer, setPromo, setPaymentOption, clear }}
+      value={{
+        ...state,
+        hydrated,
+        taxPercent,
+        taxLabel,
+        addItem,
+        removeItem,
+        setCustomer,
+        setPromo,
+        setPaymentOption,
+        setRequestToken,
+        clear,
+      }}
     >
       {children}
     </CartContext.Provider>

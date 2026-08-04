@@ -9,11 +9,12 @@ import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
 import { amountDueCents, computeTotals } from "@/lib/pricing";
 
-// Set by the request-completion flow — lets the server allow a sub-4h booking
-// that was manager-approved.
-function requestToken(): string | undefined {
+// The manager-approved token that lets the server accept a sub-4h booking.
+// Held in the cart (persisted), with the URL as a fallback for browsers where
+// storage is unavailable — e.g. a link opened inside the Messages app.
+function tokenFromUrl(): string | undefined {
   try {
-    return window.sessionStorage.getItem("vb-request-token") ?? undefined;
+    return new URLSearchParams(window.location.search).get("rt") ?? undefined;
   } catch {
     return undefined;
   }
@@ -55,7 +56,7 @@ function formatCvc(v: string): string {
 // nobody charged. canceled: the customer backed out of Stripe checkout.
 export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled: boolean; canceled: boolean }) {
   const router = useRouter();
-  const { items, customer, promo, paymentOption, taxPercent, setPromo, setPaymentOption, clear } = useCart();
+  const { items, customer, promo, paymentOption, taxPercent, requestToken, setPromo, setPaymentOption, clear } = useCart();
 
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoInput, setPromoInput] = useState("");
@@ -111,7 +112,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       const res = await fetch("/api/checkout/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken() }),
+        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken ?? tokenFromUrl() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start the payment. Please try again.");
@@ -150,14 +151,11 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken() }),
+        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken ?? tokenFromUrl() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong completing your booking.");
-      try {
-        window.sessionStorage.removeItem("vb-request-token");
-      } catch {}
-      clear();
+      clear(); // also drops the request token
       router.push(`/confirmation/${data.id}`);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong. Please try again.");

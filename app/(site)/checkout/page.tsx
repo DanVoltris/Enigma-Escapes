@@ -54,7 +54,9 @@ export default function CheckoutDetailsPage() {
       phone: phone.trim(),
       subscribe,
     });
-    router.push("/checkout/payment");
+    // carry the request token forward when it is only on the URL (storage-less browsers)
+    const rt = new URLSearchParams(window.location.search).get("rt");
+    router.push(rt ? `/checkout/payment?rt=${encodeURIComponent(rt)}` : "/checkout/payment");
   }
 
   return (

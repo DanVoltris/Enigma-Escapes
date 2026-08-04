@@ -18,7 +18,7 @@ export default function RequestCompletion({
   customer: Customer;
 }) {
   const router = useRouter();
-  const { hydrated, clear, addItem, setCustomer } = useCart();
+  const { hydrated, clear, addItem, setCustomer, setRequestToken } = useCart();
   const seeded = useRef(false);
 
   useEffect(() => {
@@ -29,11 +29,11 @@ export default function RequestCompletion({
     clear();
     addItem(item);
     setCustomer(customer);
-    try {
-      window.sessionStorage.setItem("vb-request-token", token);
-    } catch {}
-    router.replace("/checkout");
-  }, [hydrated, clear, addItem, setCustomer, router, token, item, customer]);
+    setRequestToken(token);
+    // Also on the URL, so the booking still goes through if storage is
+    // unavailable (private browsing, in-app browsers).
+    router.replace(`/checkout?rt=${encodeURIComponent(token)}`);
+  }, [hydrated, clear, addItem, setCustomer, setRequestToken, router, token, item, customer]);
 
   return <p className="empty-state">Setting up your booking…</p>;
 }
