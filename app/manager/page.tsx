@@ -6,7 +6,7 @@ import PerfFilter from "@/components/manager/PerfFilter";
 import StaffNotes from "@/components/manager/StaffNotes";
 import RoomBadge from "@/components/RoomBadge";
 import { listActivity, listBookings, listStaffNotes } from "@/lib/db";
-import { allowedLocations, requireStaff } from "@/lib/auth";
+import { allowedLocations, hasPermission, requireStaff } from "@/lib/auth";
 import { listAllLocations } from "@/lib/hours";
 import {
   addDaysISO,
@@ -36,9 +36,11 @@ export default async function ManagerDashboard({
   searchParams: Promise<{ range?: string; view?: string; from?: string; to?: string; loc?: string }>;
 }) {
   const params = await searchParams;
-  const view = params.view === "performance" ? "performance" : "operations";
-
   const staff = await requireStaff("/manager");
+  // Venue performance is revenue analytics — same bar as the Reports tab, so
+  // staff without it get the operations view and never see the sub-tab.
+  const canSeePerformance = hasPermission(staff, "reports");
+  const view = params.view === "performance" && canSeePerformance ? "performance" : "operations";
   const scope = allowedLocations(staff);
   const [everyBooking, allLocations] = await Promise.all([listBookings(), listAllLocations()]);
   const locations = scope ? allLocations.filter((l) => scope.includes(l)) : allLocations;
@@ -64,14 +66,16 @@ export default async function ManagerDashboard({
     <>
       <h1 className="mgr-page-title">Dashboard</h1>
 
-      <nav className="mgr-subtabs" aria-label="Dashboard views">
-        <Link href="/manager" className={`mgr-subtab${view === "operations" ? " active" : ""}`}>
-          Operations
-        </Link>
-        <Link href="/manager?view=performance" className={`mgr-subtab${view === "performance" ? " active" : ""}`}>
-          Venue performance
-        </Link>
-      </nav>
+      {canSeePerformance && (
+        <nav className="mgr-subtabs" aria-label="Dashboard views">
+          <Link href="/manager" className={`mgr-subtab${view === "operations" ? " active" : ""}`}>
+            Operations
+          </Link>
+          <Link href="/manager?view=performance" className={`mgr-subtab${view === "performance" ? " active" : ""}`}>
+            Venue performance
+          </Link>
+        </nav>
+      )}
 
       {view === "operations" ? (
         <OperationsView bookings={perfBookings} today={today} loc={loc} locations={locations} />

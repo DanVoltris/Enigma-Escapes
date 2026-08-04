@@ -41,19 +41,17 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   staff: "Manage staff accounts and their access",
 };
 
-// Front desk runs their store day to day: bookings, requests, blocking hours,
-// room info and performance. Held back: exporting customer lists, promo codes,
-// business/payment settings and staff administration.
+// Front desk is day-to-day only: the calendar, taking and editing bookings,
+// answering requests, checklists and notes. Deliberately NOT theirs: blocking
+// hours, revenue reports, room/pricing edits, customer records and exports,
+// promo codes, settings and staff admin — those are manager/admin work.
+// (Any single one can still be ticked on for an individual in Settings → Team.)
 const CLERK_PERMISSIONS: Permission[] = [
   "calendar",
   "bookings.view",
   "bookings.create",
   "bookings.modify",
   "requests",
-  "customers.view",
-  "experiences",
-  "blocks",
-  "reports",
   "checklists",
   "notes",
 ];
