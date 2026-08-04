@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
@@ -82,7 +82,8 @@ export default async function ManagerReports({
 }: {
   searchParams: Promise<{ tab?: string; range?: string; from?: string; to?: string; status?: string; view?: string }>;
 }) {
-  await requirePermission("reports", "/manager/reports");
+  const staff = await requirePermission("reports", "/manager/reports");
+  const scope = allowedLocations(staff);
   const params = await searchParams;
   const tab: TabKey = TABS.some((t) => t.key === params.tab) ? (params.tab as TabKey) : "sales";
   const today = todayISO();
@@ -116,7 +117,13 @@ export default async function ManagerReports({
   const status = params.status === "active" || params.status === "noshow" ? params.status : "all";
   const view = params.view === "table" ? ("table" as const) : ("chart" as const);
 
-  const bookings = await listBookings();
+  const everyBooking = await listBookings();
+  // Scoped staff see only their stores sessions, and only those sessions money.
+  const bookings = scope
+    ? everyBooking
+        .filter((b) => b.items.some((i) => scope.includes(i.location)))
+        .map((b) => ({ ...b, items: b.items.filter((i) => scope.includes(i.location)) }))
+    : everyBooking;
 
   // Purchase-dated set for transactional tabs (+ the same window one period back
   // for the delta arrows); inventory/capacity tabs slice by session date instead.

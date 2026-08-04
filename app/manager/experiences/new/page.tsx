@@ -1,13 +1,16 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import ExperienceForm from "@/components/manager/ExperienceForm";
 import { listAllLocations } from "@/lib/hours";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewExperiencePage() {
-  await requirePermission("experiences", "/manager/experiences/new");
-  const locations = await listAllLocations();
+  const staff = await requirePermission("experiences", "/manager/experiences/new");
+  const scope = allowedLocations(staff);
+  const all = await listAllLocations();
+  // Store-scoped staff can only add rooms at their own store.
+  const locations = scope ? all.filter((l) => scope.includes(l)) : all;
   return (
     <>
       <p style={{ marginBottom: 16 }}>

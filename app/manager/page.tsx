@@ -6,6 +6,7 @@ import PerfFilter from "@/components/manager/PerfFilter";
 import StaffNotes from "@/components/manager/StaffNotes";
 import RoomBadge from "@/components/RoomBadge";
 import { listActivity, listBookings, listStaffNotes } from "@/lib/db";
+import { allowedLocations, requireStaff } from "@/lib/auth";
 import { listAllLocations } from "@/lib/hours";
 import {
   addDaysISO,
@@ -37,7 +38,16 @@ export default async function ManagerDashboard({
   const params = await searchParams;
   const view = params.view === "performance" ? "performance" : "operations";
 
-  const [bookings, locations] = await Promise.all([listBookings(), listAllLocations()]);
+  const staff = await requireStaff("/manager");
+  const scope = allowedLocations(staff);
+  const [everyBooking, allLocations] = await Promise.all([listBookings(), listAllLocations()]);
+  const locations = scope ? allLocations.filter((l) => scope.includes(l)) : allLocations;
+  // Scoped staff see only their stores sessions across both dashboard views.
+  const bookings = scope
+    ? everyBooking
+        .filter((b) => b.items.some((i) => scope.includes(i.location)))
+        .map((b) => ({ ...b, items: b.items.filter((i) => scope.includes(i.location)) }))
+    : everyBooking;
   const today = todayISO();
 
   // Location filter for the performance view: keep bookings that include the

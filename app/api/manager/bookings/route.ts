@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { buildBooking } from "@/lib/create-booking";
 import { logActivity, saveBooking } from "@/lib/db";
 
@@ -18,6 +18,9 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await buildBooking(body as Record<string, unknown>, "in_person");
+  if (!("error" in result) && !result.booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+    return NextResponse.json({ error: "That session is at a location your account doesn\u2019t cover." }, { status: 403 });
+  }
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
   try {

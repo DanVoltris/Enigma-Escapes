@@ -796,6 +796,8 @@ a:hover {
 .field input[type="text"],
 .field input[type="email"],
 .field input[type="tel"],
+.field input[type="password"],
+.field input[type="url"],
 .field input[type="number"] {
   width: 100%;
   font-family: inherit;
@@ -2676,10 +2678,17 @@ a:hover {
 }
 .login-card h1 {
   font-size: 21px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+}
+.login-card .card-sub {
+  margin-bottom: 22px; /* the intro was colliding with the first field label */
+}
+.login-card .field {
+  margin-bottom: 16px;
 }
 .login-card .btn {
   width: 100%;
+  margin-top: 6px;
 }
 
 /* who's signed in, top-right of the portal */

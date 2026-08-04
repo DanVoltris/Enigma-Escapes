@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import RoomBadge from "@/components/RoomBadge";
 import { listExperiences } from "@/lib/experiences";
 import { formatMoney, formatTime } from "@/lib/format";
@@ -11,9 +11,12 @@ export default async function ManagerExperiences({
 }: {
   searchParams: Promise<{ saved?: string }>;
 }) {
-  await requirePermission("experiences", "/manager/experiences");
+  const staff = await requirePermission("experiences", "/manager/experiences");
+  const scope = allowedLocations(staff);
   const { saved } = await searchParams;
-  const experiences = await listExperiences();
+  const all = await listExperiences();
+  // Store-scoped staff manage only their own rooms.
+  const experiences = scope ? all.filter((e) => scope.includes(e.location)) : all;
 
   return (
     <>

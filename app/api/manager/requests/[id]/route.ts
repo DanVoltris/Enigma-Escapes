@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { remainingSpots } from "@/lib/capacity";
 import { bookedCount, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
@@ -22,6 +22,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const request = await getRequestById(id);
   if (!request) return NextResponse.json({ error: "That request no longer exists." }, { status: 404 });
+  if (!canSeeLocation(guard.staff, request.location)) {
+    return NextResponse.json({ error: "That request is for another location." }, { status: 403 });
+  }
   if (request.status === "expired") {
     return NextResponse.json({ error: "That request's session time has passed." }, { status: 400 });
   }

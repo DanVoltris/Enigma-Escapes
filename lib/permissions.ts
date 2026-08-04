@@ -41,12 +41,19 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   staff: "Manage staff accounts and their access",
 };
 
+// Front desk runs their store day to day: bookings, requests, blocking hours,
+// room info and performance. Held back: exporting customer lists, promo codes,
+// business/payment settings and staff administration.
 const CLERK_PERMISSIONS: Permission[] = [
   "calendar",
   "bookings.view",
   "bookings.create",
   "bookings.modify",
   "requests",
+  "customers.view",
+  "experiences",
+  "blocks",
+  "reports",
   "checklists",
   "notes",
 ];

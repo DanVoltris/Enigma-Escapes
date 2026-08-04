@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import CustomerRow from "@/components/manager/CustomerRow";
 import { aggregateCustomers, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
@@ -11,12 +11,14 @@ export default async function ManagerCustomers({
 }: {
   searchParams: Promise<{ q?: string; sub?: string }>;
 }) {
-  await requirePermission("customers.view", "/manager/customers");
+  const staff = await requirePermission("customers.view", "/manager/customers");
+  const scope = allowedLocations(staff);
   const { q: rawQ, sub } = await searchParams;
   const q = (rawQ ?? "").trim().toLowerCase();
   const subscribersOnly = sub === "1";
 
-  const [bookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
+  const [allBookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
+  const bookings = scope ? allBookings.filter((b) => b.items.some((i) => scope.includes(i.location))) : allBookings;
   let customers = await aggregateCustomers(bookings, manual);
   if (subscribersOnly) customers = customers.filter((c) => c.subscribed);
   if (q) {

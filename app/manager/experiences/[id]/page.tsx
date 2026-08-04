@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { allowedLocations, canSeeLocation, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import ExperienceForm from "@/components/manager/ExperienceForm";
 import { getExperience } from "@/lib/experiences";
@@ -8,10 +8,14 @@ import { listAllLocations } from "@/lib/hours";
 export const dynamic = "force-dynamic";
 
 export default async function EditExperiencePage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("experiences", "/manager/experiences/[id]");
+  const staff = await requirePermission("experiences", "/manager/experiences/[id]");
   const { id } = await params;
-  const [experience, locations] = await Promise.all([getExperience(id), listAllLocations()]);
+  const [experience, allLocations] = await Promise.all([getExperience(id), listAllLocations()]);
   if (!experience) notFound();
+  // A room at someone elses store is simply not theirs to edit.
+  if (!canSeeLocation(staff, experience.location)) notFound();
+  const scope = allowedLocations(staff);
+  const locations = scope ? allLocations.filter((l) => scope.includes(l)) : allLocations;
 
   return (
     <>

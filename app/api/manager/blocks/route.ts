@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { createBlocks, deleteBlocksForDate } from "@/lib/blocks";
 import { logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
   for (const roomId of roomIds) {
     const exp = await getExperience(roomId);
     if (!exp) continue;
+    if (!canSeeLocation(guard.staff, exp.location)) continue; // not their store
     const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
     const dayTimes = startTimesFor(exp, date, hours);
     const times = wholeDay ? dayTimes : dayTimes.filter((t) => wantedTimes.includes(t));
