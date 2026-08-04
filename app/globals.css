@@ -2676,6 +2676,63 @@ a:hover {
 }
 
 /* ---------- responsive ---------- */
+/* front desk: today's arrivals */
+.today-list { display: grid; gap: 10px; }
+.today-row { border: 1px solid var(--border); background: #fff; }
+.today-row.past { opacity: 0.62; }
+.today-row.open { border-color: var(--accent); }
+.today-head {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; background: none; border: 0; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.today-head:hover { background: var(--muted-bg); }
+.today-time { min-width: 78px; font-weight: 700; font-size: 15px; }
+.today-what, .today-who { display: flex; flex-direction: column; min-width: 0; }
+.today-what { flex: 1; }
+.today-who { min-width: 150px; }
+.today-room { font-weight: 700; }
+.today-money { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.today-caret { color: var(--text-secondary); flex-shrink: 0; }
+.today-detail {
+  border-top: 1px solid var(--border); padding: 16px 14px;
+  background: var(--muted-bg); display: grid; gap: 16px;
+}
+.today-contact { display: grid; gap: 6px; font-size: 14px; }
+.today-paid-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* split-payment builder */
+.today-pay {
+  background: #fff; border: 1px solid var(--border);
+  border-top: 3px solid var(--accent); padding: 14px;
+}
+.today-pay-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.today-split-buttons { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.today-pay-lines { display: grid; gap: 8px; }
+.today-pay-line { display: flex; gap: 8px; align-items: center; }
+.today-pay-line > input[type="text"] {
+  flex: 1; min-width: 0; font: inherit; padding: 9px 11px;
+  border: 1px solid var(--border); background: #fff;
+}
+.today-pay-line > div:not(.today-amount) { min-width: 168px; }
+.today-amount {
+  display: flex; align-items: center; gap: 4px;
+  border: 1px solid var(--border); padding: 0 10px; background: #fff;
+}
+.today-amount span { color: var(--text-secondary); }
+.today-amount input { width: 84px; border: 0; font: inherit; padding: 9px 0; background: none; }
+.today-pay-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.today-pay-foot .btn { margin-left: auto; }
+@media (max-width: 640px) {
+  .today-head { flex-wrap: wrap; gap: 8px 12px; }
+  .today-who { min-width: 0; }
+  .today-pay-line { flex-wrap: wrap; }
+  .today-pay-foot .btn { margin-left: 0; width: 100%; }
+}
+
 /* customer "manage my booking" page */
 .manage-sessions {
   display: grid;

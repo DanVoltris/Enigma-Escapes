@@ -6,6 +6,7 @@ import GameResultForm from "@/components/manager/GameResultForm";
 import NoShowToggle from "@/components/manager/NoShowToggle";
 import { getBooking, listPromos } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
+import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import { listTaxes } from "@/lib/taxes";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
@@ -51,7 +52,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
   const activity: { text: string; at: string }[] = [
     ...manualPayments.map((p) => ({
       text: `Payment of ${formatMoney(p.amountCents)} recorded (${
-        { cash: "Cash", card: "Card (terminal)", etransfer: "E-transfer", other: "Other" }[p.method]
+        PAYMENT_METHOD_LABEL[p.method]
       })${p.note ? ` — ${p.note}` : ""}`,
       at: p.at,
     })),

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
 import SingleSelect from "@/components/SingleSelect";
 import { formatMoney } from "@/lib/format";
+import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS } from "@/lib/payment-methods";
 import type { BookingPayment, Participant } from "@/lib/types";
 
 export type PurchaseLine = {
@@ -39,12 +40,7 @@ type Props = {
 
 type TabKey = "purchases" | "promos" | "customers" | "taxes" | "payments" | "questions";
 
-const METHOD_LABEL: Record<BookingPayment["method"], string> = {
-  cash: "Cash",
-  card: "Card (terminal)",
-  etransfer: "E-transfer",
-  other: "Other",
-};
+const METHOD_LABEL = PAYMENT_METHOD_LABEL;
 
 function fmtWhen(iso: string): string {
   return new Date(iso).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" });
@@ -498,12 +494,7 @@ function PaymentsTab({
                 value={method}
                 onChange={(v) => setMethod(v as BookingPayment["method"])}
                 ariaLabel="How the payment was taken"
-                options={[
-                  { value: "cash", label: "Cash" },
-                  { value: "card", label: "Card (terminal)" },
-                  { value: "etransfer", label: "E-transfer" },
-                  { value: "other", label: "Other" },
-                ]}
+                options={PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABEL[m] }))}
               />
             </div>
             <div className="field">

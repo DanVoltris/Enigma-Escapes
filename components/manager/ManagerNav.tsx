@@ -9,6 +9,7 @@ import type { Permission } from "@/lib/permissions";
 // behind them re-check permission server-side.
 const TABS: { href: string; label: string; need?: Permission | Permission[] }[] = [
   { href: "/manager", label: "Dashboard" },
+  { href: "/manager/today", label: "Today", need: "bookings.view" },
   { href: "/manager/calendar", label: "Calendar", need: "calendar" },
   { href: "/manager/bookings", label: "Bookings", need: "bookings.view" },
   { href: "/manager/requests", label: "Requests", need: "requests" },

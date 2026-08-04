@@ -3,20 +3,16 @@ import { apiGuard } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { getBooking, logActivity, updateBookingFields } from "@/lib/db";
 import { formatMoney } from "@/lib/format";
+import { isPaymentMethod, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import type { BookingPayment } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const METHODS: BookingPayment["method"][] = ["cash", "card", "etransfer", "other"];
-const METHOD_LABEL: Record<BookingPayment["method"], string> = {
-  cash: "Cash",
-  card: "Card (terminal)",
-  etransfer: "E-transfer",
-  other: "Other",
-};
+const METHOD_LABEL = PAYMENT_METHOD_LABEL;
 
-// Record a payment taken outside the app (cash, card terminal, e-transfer).
-// This is bookkeeping only — no card is charged here.
+// Records money taken at the desk. Accepts a single payment or a list, so a
+// party can split the bill across people and across methods in one action.
+// Bookkeeping only — no card is charged here.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const guard = await apiGuard("bookings.modify");
   if (guard.response) return guard.response;
@@ -28,17 +24,31 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { method?: unknown; amountCents?: unknown; note?: unknown };
-  const method = METHODS.includes(d.method as BookingPayment["method"])
-    ? (d.method as BookingPayment["method"])
-    : null;
-  const amountCents = Number.isInteger(d.amountCents) ? (d.amountCents as number) : NaN;
-  const note = typeof d.note === "string" ? d.note.trim().slice(0, 200) : "";
-
-  if (!method) return NextResponse.json({ error: "Choose how the payment was taken." }, { status: 400 });
-  if (!Number.isFinite(amountCents) || amountCents <= 0) {
-    return NextResponse.json({ error: "Enter a payment amount greater than zero." }, { status: 400 });
+  const d = (body ?? {}) as Record<string, unknown>;
+  const rawList = Array.isArray(d.payments) ? d.payments : [d];
+  if (rawList.length === 0) return NextResponse.json({ error: "Add at least one payment." }, { status: 400 });
+  if (rawList.length > 20) {
+    return NextResponse.json({ error: "That's a lot of splits — 20 at most." }, { status: 400 });
   }
+
+  const lines: { method: BookingPayment["method"]; amountCents: number; note: string; payer: string }[] = [];
+  for (const raw of rawList) {
+    const o = (raw ?? {}) as Record<string, unknown>;
+    if (!isPaymentMethod(o.method)) {
+      return NextResponse.json({ error: "Choose how each payment was taken." }, { status: 400 });
+    }
+    const cents = Number.isInteger(o.amountCents) ? (o.amountCents as number) : NaN;
+    if (!Number.isFinite(cents) || cents <= 0) {
+      return NextResponse.json({ error: "Every payment needs an amount greater than zero." }, { status: 400 });
+    }
+    lines.push({
+      method: o.method,
+      amountCents: cents,
+      note: typeof o.note === "string" ? o.note.trim().slice(0, 200) : "",
+      payer: typeof o.payer === "string" ? o.payer.trim().slice(0, 60) : "",
+    });
+  }
+  const amountCents = lines.reduce((sum, l) => sum + l.amountCents, 0);
 
   try {
     const booking = await getBooking(id);
@@ -48,28 +58,32 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     if (amountCents > booking.pricing.balanceCents) {
       return NextResponse.json(
-        { error: `That's more than the ${formatMoney(booking.pricing.balanceCents)} due. Enter the amount actually owing.` },
+        { error: `That totals more than the ${formatMoney(booking.pricing.balanceCents)} due — adjust the amounts.` },
         { status: 400 }
       );
     }
 
-    const payment: BookingPayment = {
+    const now = new Date().toISOString();
+    const newPayments: BookingPayment[] = lines.map((l) => ({
       id: randomUUID(),
-      method,
-      amountCents,
-      note: note || null,
-      at: new Date().toISOString(),
-    };
+      method: l.method,
+      amountCents: l.amountCents,
+      payer: l.payer || null,
+      note: l.note || null,
+      at: now,
+    }));
     const pricing = {
       ...booking.pricing,
       paidCents: booking.pricing.paidCents + amountCents,
       balanceCents: booking.pricing.balanceCents - amountCents,
-      payments: [...(booking.pricing.payments ?? []), payment],
+      payments: [...(booking.pricing.payments ?? []), ...newPayments],
     };
     await updateBookingFields(id, { pricing });
     await logActivity(
       "Recorded payment",
-      `${formatMoney(amountCents)} ${METHOD_LABEL[method]} on ${booking.reference}`
+      lines.length === 1
+        ? `${formatMoney(amountCents)} ${METHOD_LABEL[lines[0].method]} on ${booking.reference}`
+        : `${formatMoney(amountCents)} on ${booking.reference}, split ${lines.length} ways`
     );
     return NextResponse.json({ ok: true, pricing });
   } catch (err) {

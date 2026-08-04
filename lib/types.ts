@@ -107,10 +107,15 @@ export type Promo = {
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
 // original online checkout amount is pricing.paidCents minus these records.
+// How money was taken at the desk. A booking can hold several of these, so a
+// party can split the bill across people and across methods.
+export type PaymentMethod = "card" | "debit" | "cash" | "etransfer" | "giftcard" | "cheque" | "other";
+
 export type BookingPayment = {
   id: string;
-  method: "cash" | "card" | "etransfer" | "other";
+  method: PaymentMethod;
   amountCents: number;
+  payer?: string | null; // which guest paid this share, when split
   note: string | null;
   at: string; // ISO timestamp
 };
