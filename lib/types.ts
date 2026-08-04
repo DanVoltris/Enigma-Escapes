@@ -123,13 +123,22 @@ export type BookingPricing = {
   paidCents: number;
   balanceCents: number;
   payments?: BookingPayment[]; // manual payment records (stored in pricing JSONB)
+  // Stripe's id for the money taken, kept so a cancellation can refund it.
+  stripePaymentIntent?: string | null;
+  // Set when a booking is cancelled: what was owed back and whether Stripe
+  // already returned it (false = staff still need to refund by hand).
+  refundOwedCents?: number;
+  refundedCents?: number;
+  refundedAt?: string | null;
 };
 
 export type BookingSource = "online" | "in_person";
 
 // "pending" = created for a Stripe checkout that hasn't been paid yet; it holds
 // its spots until pendingExpiresAt, then stops counting against availability.
-export type BookingStatus = "paid" | "pending";
+// "cancelled" frees the slot immediately and stops counting toward revenue,
+// but the booking stays visible to staff so refunds can be settled.
+export type BookingStatus = "paid" | "pending" | "cancelled";
 
 export type Booking = {
   id: string;

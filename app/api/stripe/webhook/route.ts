@@ -33,7 +33,11 @@ export async function POST(req: NextRequest) {
       try {
         // Text only on the pending→paid transition, so retries can't double-send.
         const wasPending = (await getBooking(bookingId))?.status === "pending";
-        const booking = await finalizeBookingPayment(bookingId, (session.amount_total as number | null) ?? 0);
+        const booking = await finalizeBookingPayment(
+          bookingId,
+          (session.amount_total as number | null) ?? 0,
+          typeof session.payment_intent === "string" ? session.payment_intent : null
+        );
         if (booking) await logActivity("Payment received", `${booking.reference} — paid via Stripe`);
         if (booking && wasPending) await notifyBookingConfirmed(booking, req.nextUrl.origin);
       } catch (err) {

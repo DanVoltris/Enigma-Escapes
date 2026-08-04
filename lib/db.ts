@@ -35,7 +35,7 @@ function toBooking(row: BookingRow): Booking {
     pricing: row.pricing,
     source: row.source ?? "online",
     noShow: row.no_show ?? false,
-    status: row.status === "pending" ? "pending" : "paid",
+    status: row.status === "pending" || row.status === "cancelled" ? row.status : "paid",
     pendingExpiresAt: row.pending_expires_at ?? null,
     gameResult: row.game_result ?? null,
   };
@@ -57,13 +57,16 @@ export async function saveGameResult(id: string, result: Booking["gameResult"]):
 // A booking that should count against availability and appear in the manager:
 // paid, or a pending Stripe checkout whose hold hasn't lapsed yet.
 export function isLiveBooking(b: Booking): boolean {
+  if (b.status === "cancelled") return false;
   if (b.status !== "pending") return true;
   return b.pendingExpiresAt !== null && b.pendingExpiresAt > new Date().toISOString();
 }
 
 // Same test on a raw row, for queries that don't build full bookings.
 function rowIsLive(status: string | null | undefined, pendingExpiresAt: string | null | undefined): boolean {
-  if ((status ?? "paid") !== "pending") return true;
+  const s = status ?? "paid";
+  if (s === "cancelled") return false; // the seats go straight back on sale
+  if (s !== "pending") return true;
   return pendingExpiresAt != null && pendingExpiresAt > new Date().toISOString();
 }
 
@@ -95,7 +98,11 @@ export async function saveBooking(booking: Booking): Promise<void> {
 
 // Marks a pending Stripe booking as paid, recording what was actually charged.
 // Idempotent — the webhook and the redirect-return can both call it.
-export async function finalizeBookingPayment(id: string, paidCents: number): Promise<Booking | undefined> {
+export async function finalizeBookingPayment(
+  id: string,
+  paidCents: number,
+  stripePaymentIntent?: string | null
+): Promise<Booking | undefined> {
   const booking = await getBooking(id);
   if (!booking) return undefined;
   if (booking.status === "paid") return booking;
@@ -103,6 +110,8 @@ export async function finalizeBookingPayment(id: string, paidCents: number): Pro
     ...booking.pricing,
     paidCents,
     balanceCents: booking.pricing.totalCents - paidCents,
+    // remembered so a later cancellation can refund the right charge
+    ...(stripePaymentIntent ? { stripePaymentIntent } : {}),
   };
   const res = await rest(`bookings?id=eq.${id}`, {
     method: "PATCH",
@@ -176,10 +185,53 @@ export async function getBookingByReference(reference: string): Promise<Booking 
 
 // Every live booking, newest first (expired unpaid checkouts drop out). Fine
 // at this scale; add pagination when the venue has thousands of bookings.
-export async function listBookings(): Promise<Booking[]> {
+// Live bookings only by default, so revenue, capacity and customer stats never
+// count cancellations. The Bookings list passes includeCancelled so staff can
+// still see them (and settle any refund).
+export async function listBookings(opts?: { includeCancelled?: boolean }): Promise<Booking[]> {
   const res = await rest("bookings?select=*&order=created_at.desc");
   if (!res.ok) throw await restError(res, "Loading bookings");
-  return ((await res.json()) as BookingRow[]).map(toBooking).filter(isLiveBooking);
+  const all = ((await res.json()) as BookingRow[]).map(toBooking);
+  if (opts?.includeCancelled) {
+    // still drop lapsed pending checkouts — those were never real bookings
+    return all.filter((b) => b.status === "cancelled" || isLiveBooking(b));
+  }
+  return all.filter(isLiveBooking);
+}
+
+// Cancels a booking: frees the slot, records what's owed back and whether
+// Stripe already returned it. Refund figures live in the pricing JSONB.
+export async function cancelBooking(
+  id: string,
+  refund: { owedCents: number; refundedCents: number }
+): Promise<Booking | undefined> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const booking = await getBooking(id);
+  if (!booking) return undefined;
+  const pricing = {
+    ...booking.pricing,
+    refundOwedCents: refund.owedCents,
+    refundedCents: refund.refundedCents,
+    refundedAt: refund.refundedCents > 0 ? new Date().toISOString() : null,
+  };
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ status: "cancelled", pricing }),
+  });
+  if (!res.ok) throw await restError(res, "Cancelling the booking");
+  return { ...booking, status: "cancelled", pricing };
+}
+
+// Moves a booking's sessions to a new date/time (same rooms, same prices).
+export async function rescheduleBooking(id: string, items: Booking["items"]): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) throw await restError(res, "Rescheduling the booking");
 }
 
 // All booked spot counts for one date, keyed "roomId|time". One query per date

@@ -106,6 +106,7 @@ export type CheckoutSession = {
   payment_status: string;
   amount_total: number | null;
   metadata: Record<string, string> | null;
+  payment_intent: string | null; // kept on the booking so refunds have a target
 };
 
 export async function retrieveCheckoutSession(id: string): Promise<CheckoutSession> {
@@ -116,7 +117,18 @@ export async function retrieveCheckoutSession(id: string): Promise<CheckoutSessi
     payment_status: s.payment_status as string,
     amount_total: (s.amount_total as number | null) ?? null,
     metadata: (s.metadata as Record<string, string> | null) ?? null,
+    payment_intent: typeof s.payment_intent === "string" ? s.payment_intent : null,
   };
+}
+
+// Refunds a payment in full or part. Returns the refunded amount in cents, or
+// null when Stripe is not configured (nothing was ever really charged).
+export async function refundPayment(paymentIntentId: string, amountCents: number): Promise<number | null> {
+  if (!stripeConfigured()) return null;
+  if (!/^pi_[a-zA-Z0-9_]+$/.test(paymentIntentId)) throw new Error("Invalid payment id.");
+  if (amountCents <= 0) return 0;
+  const r = await stripeRequest("POST", "/v1/refunds", { payment_intent: paymentIntentId, amount: amountCents });
+  return typeof r.amount === "number" ? r.amount : amountCents;
 }
 
 // Verifies a Stripe webhook signature header ("t=...,v1=...") against the raw

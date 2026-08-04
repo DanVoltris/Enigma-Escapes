@@ -74,7 +74,7 @@ export async function notifyBookingConfirmed(booking: Booking, origin: string): 
   try {
     await sendSms(
       booking.customer.phone,
-      `Booking confirmed! ${first.roomName} ${first.date} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details: ${link}`
+      `Booking confirmed! ${first.roomName} ${first.date} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details: ${link} — change or cancel (up to 24h before): ${origin}/booking/${booking.id}`
     );
   } catch (err) {
     console.error("customer SMS failed:", err);

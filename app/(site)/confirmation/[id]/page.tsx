@@ -32,7 +32,7 @@ export default async function ConfirmationPage({
       try {
         const session = await retrieveCheckoutSession(sid);
         if (session.payment_status === "paid" && session.metadata?.bookingId === booking.id) {
-          const finalized = await finalizeBookingPayment(booking.id, session.amount_total ?? 0);
+          const finalized = await finalizeBookingPayment(booking.id, session.amount_total ?? 0, session.payment_intent);
           if (finalized) {
             booking = finalized;
             await logActivity("Payment received", `${booking.reference} — paid via Stripe`);
@@ -137,6 +137,12 @@ export default async function ConfirmationPage({
               ))}
             </div>
           )}
+
+          <p className="confirm-note" style={{ marginTop: 20 }}>
+            Need to change something?{" "}
+            <Link href={`/booking/${booking.id}`}>Manage this booking</Link> — reschedule or cancel yourself up to
+            24 hours before your session.
+          </p>
 
           <div style={{ marginTop: 24 }}>
             <Link href="/" className="btn">

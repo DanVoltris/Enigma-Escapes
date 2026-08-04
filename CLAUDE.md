@@ -83,6 +83,14 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 - Blocked hours: managers take sessions out of service on `/manager/blocks` (linked from
   Calendar) — per-slot rows in `slot_blocks`. Blocked slots are hidden from availability (site
   + partner feed) and refused by create-booking (walk-ins included) and the requests API.
+- Self-service changes: the confirmation text and page link to `/booking/<id>` (the booking's
+  UUID is the secret), where customers reschedule or cancel until
+  `SELF_SERVICE_CUTOFF_MINUTES` (24h, lib/manage-booking.ts) before the session — enforced
+  server-side, not just in the UI. Cancelling sets status `cancelled`, which frees the slot and
+  drops it from revenue/capacity while staying visible on the Bookings list. Refunds go back
+  through Stripe automatically when keys are configured (`pricing.stripePaymentIntent`, saved at
+  payment time); otherwise the amount is recorded in `pricing.refundOwedCents` and shown as
+  "Refund owed" for staff to settle.
 - Booking requests: sessions starting within 4 hours (`REQUEST_WINDOW_MINUTES`, lib/format.ts)
   aren't self-serve — the site collects a request (name + phone, no payment) into
   `booking_requests`; managers accept/decline on `/manager/requests` (accept texts a completion

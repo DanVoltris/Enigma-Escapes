@@ -49,7 +49,7 @@ export default async function ManagerBookings({
   const pay = params.pay === "paid" || params.pay === "unpaid" ? params.pay : "all";
   const today = todayISO();
 
-  let bookings = await listBookings();
+  let bookings = await listBookings({ includeCancelled: true });
   // Location-scoped staff only see bookings that include one of their stores.
   if (scope) bookings = bookings.filter((b) => b.items.some((i) => scope.includes(i.location)));
   if (q) bookings = bookings.filter((b) => matchesQuery(b, q));
@@ -144,6 +144,23 @@ export default async function ManagerBookings({
                       <>
                         <br />
                         <span className="mgr-pill">Awaiting payment</span>
+                      </>
+                    )}
+                    {b.status === "cancelled" && (
+                      <>
+                        <br />
+                        <span className="mgr-pill" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+                          Cancelled
+                        </span>
+                        {/* what the customer is still owed, if Stripe didn't return it automatically */}
+                        {(b.pricing.refundOwedCents ?? 0) > (b.pricing.refundedCents ?? 0) && (
+                          <>
+                            <br />
+                            <span className="mgr-pill" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+                              Refund owed {formatMoney((b.pricing.refundOwedCents ?? 0) - (b.pricing.refundedCents ?? 0))}
+                            </span>
+                          </>
+                        )}
                       </>
                     )}
                   </td>
