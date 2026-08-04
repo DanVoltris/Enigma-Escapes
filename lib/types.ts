@@ -118,6 +118,9 @@ export type BookingPayment = {
   payer?: string | null; // which guest paid this share, when split
   note: string | null;
   at: string; // ISO timestamp
+  // Stripe PaymentIntent behind a card-reader payment. Also the idempotency
+  // key: polling the same intent twice must never record it twice.
+  intentId?: string | null;
 };
 
 export type BookingPricing = {

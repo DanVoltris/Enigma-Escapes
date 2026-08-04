@@ -2,6 +2,8 @@ import TodayBoard, { type TodayRow } from "@/components/manager/TodayBoard";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import { bookingsForDate } from "@/lib/db";
 import { formatDateLong, isValidISODate, nowMinutesInBusinessTZ, todayISO } from "@/lib/format";
+import { terminalConfigured } from "@/lib/stripe-terminal";
+import { getReaderMap } from "@/lib/terminal-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,11 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const { date: raw } = await searchParams;
   const today = todayISO();
   const date = raw && isValidISODate(raw) ? raw : today;
+
+  // "Send to terminal" only appears when Stripe is live AND a reader is
+  // actually paired with a venue — otherwise staff record payments by hand.
+  const readerMap = await getReaderMap();
+  const terminalReady = terminalConfigured() && Object.keys(readerMap).length > 0;
 
   const bookings = await bookingsForDate(date);
   const rows: TodayRow[] = [];
@@ -52,6 +59,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   return (
     <TodayBoard
+      terminalReady={terminalReady}
       rows={rows}
       date={date}
       isToday={date === today}

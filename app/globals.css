@@ -3406,3 +3406,17 @@ a:hover {
   font-size: 13px;
   margin-bottom: 10px;
 }
+
+/* live card-reader status while a customer is tapping */
+.today-reader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--accent-tint);
+  border-left: 3px solid var(--accent);
+  font-size: 14px;
+}

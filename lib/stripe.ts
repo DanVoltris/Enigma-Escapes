@@ -43,7 +43,7 @@ function encodeForm(value: unknown, prefix: string, out: URLSearchParams): void 
   }
 }
 
-async function stripeRequest(method: "GET" | "POST", path: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+export async function stripeRequest(method: "GET" | "POST", path: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (!KEY) throw new Error("Stripe is not configured. Set STRIPE_SECRET_KEY in the environment.");
   const body = new URLSearchParams();
   if (params) encodeForm(params, "", body);

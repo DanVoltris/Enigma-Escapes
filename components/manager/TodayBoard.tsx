@@ -41,12 +41,14 @@ const newLine = (method: PaymentMethod, amountCents: number, payer = ""): Line =
 });
 
 export default function TodayBoard({
+  terminalReady,
   rows,
   date,
   isToday,
   dateLabel,
   nowMinutes,
 }: {
+  terminalReady: boolean; // a card reader is paired for this venue
   rows: TodayRow[];
   date: string;
   isToday: boolean;
@@ -162,6 +164,7 @@ export default function TodayBoard({
 
                     {r.balanceCents > 0 ? (
                       <TakePayment
+                        terminalReady={terminalReady}
                         bookingId={r.bookingId}
                         balanceCents={r.balanceCents}
                         guests={r.quantity}
@@ -190,12 +193,14 @@ export default function TodayBoard({
 // Split-payment builder: one line per payer/method. Start with the whole
 // balance on the terminal, or split it evenly between the guests, then adjust.
 function TakePayment({
+  terminalReady,
   bookingId,
   balanceCents,
   guests,
   customerName,
   onDone,
 }: {
+  terminalReady: boolean;
   bookingId: string;
   balanceCents: number;
   guests: number;
@@ -205,6 +210,84 @@ function TakePayment({
   const [lines, setLines] = useState<Line[]>([newLine("card", balanceCents, customerName)]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Live card-reader charge: null when idle, otherwise the payment in flight.
+  const [onReader, setOnReader] = useState<{ intentId: string; readerId: string; cents: number } | null>(null);
+  const [readerNote, setReaderNote] = useState<string | null>(null);
+
+  // Sends one line's amount to the reader at this venue and waits for the tap.
+  async function chargeOnReader(line: Line) {
+    const cents = Math.round((Number(line.amount) || 0) * 100);
+    if (cents <= 0) {
+      setError("Enter an amount first.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setReaderNote("Waking the reader…");
+    try {
+      const res = await fetch("/api/manager/terminal/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId, amountCents: cents, payer: line.payer.trim() }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((d as { error?: string }).error ?? "Could not reach the reader.");
+      setOnReader({ intentId: d.intentId, readerId: d.readerId, cents });
+      setReaderNote("Waiting for the customer to tap…");
+      poll(d.intentId as string, line.payer.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reach the reader.");
+      setReaderNote(null);
+      setBusy(false);
+    }
+  }
+
+  // Poll until Stripe reports the tap. The server records the payment itself
+  // (once), so a slow network here can never double-charge anyone.
+  function poll(intentId: string, payer: string) {
+    let tries = 0;
+    const tick = async () => {
+      tries += 1;
+      try {
+        const res = await fetch(
+          `/api/manager/terminal/status?intent=${encodeURIComponent(intentId)}&booking=${encodeURIComponent(
+            bookingId
+          )}&payer=${encodeURIComponent(payer)}`
+        );
+        const d = await res.json().catch(() => ({}));
+        if (d.status === "succeeded" && d.recorded) {
+          setReaderNote("Paid — thank you!");
+          setOnReader(null);
+          setBusy(false);
+          onDone();
+          return;
+        }
+        if (d.error) setReaderNote(`Reader says: ${d.error}`);
+        if (tries > 150) {
+          // ~5 minutes: stop nagging Stripe and hand control back to staff.
+          setReaderNote("The reader timed out — cancel and try again.");
+          setBusy(false);
+          return;
+        }
+        setTimeout(tick, 2000);
+      } catch {
+        setTimeout(tick, 2000);
+      }
+    };
+    setTimeout(tick, 2000);
+  }
+
+  async function cancelReader() {
+    if (!onReader) return;
+    await fetch("/api/manager/terminal/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ readerId: onReader.readerId, intentId: onReader.intentId }),
+    }).catch(() => {});
+    setOnReader(null);
+    setReaderNote(null);
+    setBusy(false);
+  }
 
   const enteredCents = lines.reduce((s, l) => s + Math.round((Number(l.amount) || 0) * 100), 0);
   const remaining = balanceCents - enteredCents;
@@ -293,6 +376,13 @@ function TakePayment({
                 aria-label="Amount"
               />
             </div>
+            {/* Card lines can go straight to the reader instead of being typed
+                into a separate machine and recorded by hand. */}
+            {l.method === "card" && terminalReady && !onReader && (
+              <button type="button" className="link-button" onClick={() => chargeOnReader(l)} disabled={busy}>
+                Send to terminal
+              </button>
+            )}
             {lines.length > 1 && (
               <button
                 type="button"
@@ -306,6 +396,19 @@ function TakePayment({
           </div>
         ))}
       </div>
+
+      {(onReader || readerNote) && (
+        <div className="today-reader">
+          <span>
+            {onReader ? <strong>{formatMoney(onReader.cents)} on the reader</strong> : null} {readerNote}
+          </span>
+          {onReader && (
+            <button type="button" className="link-button danger" onClick={cancelReader}>
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="today-pay-foot">
         <button
