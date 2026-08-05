@@ -3,6 +3,7 @@ import { allowedLocations, requirePermission } from "@/lib/auth";
 import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
+import { listBlocks } from "@/lib/blocks";
 import { listBookings } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { locationHoursMap } from "@/lib/hours";
@@ -13,6 +14,7 @@ import {
   dateBadgeParts,
   formatDateLong,
   formatMoney,
+  formatTime,
   isValidISODate,
   nowMinutesInBusinessTZ,
   todayISO,
@@ -37,7 +39,7 @@ const TABS = [
   { section: "Inventory", key: "extras", label: "Extras" },
   { section: "Inventory", key: "vouchers", label: "Gift vouchers" },
   { section: "Misc", key: "guests", label: "Guests" },
-  { section: "Misc", key: "capacity", label: "Capacity" },
+  { section: "Misc", key: "capacity", label: "Session fill" },
   { section: "Misc", key: "discounts", label: "Discounts" },
   { section: "Misc", key: "abandonment", label: "Cart abandonment" },
   { section: "Misc", key: "games", label: "Games" },
@@ -669,67 +671,170 @@ async function CapacityTab({
   to: string;
   today: string;
 }) {
-  // Utilization = guests booked ÷ seats offered, for sessions up to today.
+  // These rooms are booked PRIVATELY: one group takes the whole room, so a
+  // session with 3 guests is completely sold. Measuring seats-sold-vs-capacity
+  // would call that 30% full and imply lost inventory that was never for sale.
+  // What matters is how much of the SCHEDULE sold, so that's what this reports.
   const end = to < today ? to : today;
   if (from > end) return <p className="mgr-empty">This window is entirely in the future — no sessions have run yet.</p>;
   const days = eachDay(from, end);
-  if (days.length > 190) return <p className="mgr-empty">Narrow the range to 190 days or fewer to compute capacity.</p>;
+  if (days.length > 190) return <p className="mgr-empty">Narrow the range to 190 days or fewer to compute this.</p>;
 
-  const [experiences, hoursMap] = await Promise.all([listExperiences({ activeOnly: true }), locationHoursMap()]);
-  const bookedByExp = new Map<string, number>();
+  const [experiences, hoursMap, blocks] = await Promise.all([
+    listExperiences({ activeOnly: true }),
+    locationHoursMap(),
+    listBlocks(from),
+  ]);
+  // A slot taken out of service was never on sale — it shouldn't count against you.
+  const blocked = new Set(blocks.filter((b) => b.date <= end).map((b) => `${b.roomId}|${b.date}|${b.time}`));
+
+  // What actually sold, per session.
+  type Sold = { guests: number; revenueCents: number };
+  const sold = new Map<string, Sold>();
   for (const b of bookings) {
     for (const i of b.items) {
       if (i.date < from || i.date > end) continue;
-      bookedByExp.set(i.roomId, (bookedByExp.get(i.roomId) ?? 0) + i.quantity);
+      const k = `${i.roomId}|${i.date}|${i.time}`;
+      const cur = sold.get(k) ?? { guests: 0, revenueCents: 0 };
+      cur.guests += i.quantity;
+      cur.revenueCents += i.priceCents * i.quantity;
+      sold.set(k, cur);
     }
   }
 
   const rows = experiences.map((e) => {
     let offered = 0;
-    for (const d of days) offered += startTimesFor(e, d, hoursMap.get(e.location) ?? null).length * e.capacity;
-    const booked = bookedByExp.get(e.id) ?? 0;
-    const pct = offered > 0 ? Math.round((booked / offered) * 100) : 0;
-    return { name: e.name, location: e.location, offered, booked, pct };
+    let booked = 0;
+    let guests = 0;
+    let revenueCents = 0;
+    for (const d of days) {
+      for (const t of startTimesFor(e, d, hoursMap.get(e.location) ?? null)) {
+        const k = `${e.id}|${d}|${t}`;
+        if (blocked.has(k)) continue;
+        offered += 1;
+        const s = sold.get(k);
+        if (s) {
+          booked += 1;
+          guests += s.guests;
+          revenueCents += s.revenueCents;
+        }
+      }
+    }
+    return {
+      name: e.name,
+      location: e.location,
+      offered,
+      booked,
+      pct: offered > 0 ? Math.round((booked / offered) * 100) : 0,
+      avgGroup: booked > 0 ? guests / booked : 0,
+      perSessionCents: booked > 0 ? Math.round(revenueCents / booked) : 0,
+    };
   });
+  rows.sort((a, b) => b.pct - a.pct);
+
+  // Which start times sell and which are dead — the actionable view.
+  const byTime = new Map<string, { offered: number; booked: number }>();
+  for (const e of experiences) {
+    for (const d of days) {
+      for (const t of startTimesFor(e, d, hoursMap.get(e.location) ?? null)) {
+        if (blocked.has(`${e.id}|${d}|${t}`)) continue;
+        const cur = byTime.get(t) ?? { offered: 0, booked: 0 };
+        cur.offered += 1;
+        if (sold.has(`${e.id}|${d}|${t}`)) cur.booked += 1;
+        byTime.set(t, cur);
+      }
+    }
+  }
+  const timeRows = [...byTime.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  const totalOffered = rows.reduce((s, r) => s + r.offered, 0);
+  const totalBooked = rows.reduce((s, r) => s + r.booked, 0);
 
   return (
-    <div className="mgr-card">
-      <h2>Seat utilization</h2>
-      <p className="card-sub">
-        Guests booked against every seat offered between {formatDateLong(from)} and {formatDateLong(end)}.
-      </p>
-      <div className="mgr-table-wrap">
-        <table className="mgr-table">
-          <thead>
-            <tr>
-              <th>Experience</th>
-              <th className="num">Seats offered</th>
-              <th className="num">Booked</th>
-              <th style={{ width: 220 }}>Utilization</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.name}>
-                <td>
-                  {r.name}
-                  <br />
-                  <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>{r.location}</span>
-                </td>
-                <td className="num">{r.offered}</td>
-                <td className="num">{r.booked}</td>
-                <td>
-                  <div className="mgr-meter" title={`${r.pct}%`}>
-                    <div className="fill" style={{ width: `${Math.min(100, r.pct)}%` }} />
-                  </div>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{r.pct}%</span>
-                </td>
+    <>
+      <div className="mgr-card">
+        <h2>Session fill by room</h2>
+        <p className="card-sub">
+          Your rooms are booked privately — one group per session — so this counts how much of the schedule sold, not
+          seats. {formatDateLong(from)} to {formatDateLong(end)}: <strong>{totalBooked}</strong> of{" "}
+          <strong>{totalOffered}</strong> sessions booked
+          {totalOffered > 0 && <> ({Math.round((totalBooked / totalOffered) * 100)}%)</>}. Blocked-off slots are
+          excluded.
+        </p>
+        <div className="mgr-table-wrap">
+          <table className="mgr-table">
+            <thead>
+              <tr>
+                <th>Experience</th>
+                <th className="num">Sessions offered</th>
+                <th className="num">Booked</th>
+                <th style={{ width: 200 }}>Filled</th>
+                <th className="num">Avg group</th>
+                <th className="num">Revenue / booked session</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.name}>
+                  <td>
+                    {r.name}
+                    <br />
+                    <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>{r.location}</span>
+                  </td>
+                  <td className="num">{r.offered}</td>
+                  <td className="num">{r.booked}</td>
+                  <td>
+                    <div className="mgr-meter" title={`${r.pct}%`}>
+                      <div className="fill" style={{ width: `${Math.min(100, r.pct)}%` }} />
+                    </div>
+                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{r.pct}%</span>
+                  </td>
+                  <td className="num">{r.booked > 0 ? r.avgGroup.toFixed(1) : "—"}</td>
+                  <td className="num">{r.booked > 0 ? formatMoney(r.perSessionCents) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      <div className="mgr-card">
+        <h2>Which start times sell</h2>
+        <p className="card-sub">
+          Every room pooled together, so you can see the quiet hours worth cutting or promoting.
+        </p>
+        <div className="mgr-table-wrap">
+          <table className="mgr-table">
+            <thead>
+              <tr>
+                <th>Start time</th>
+                <th className="num">Offered</th>
+                <th className="num">Booked</th>
+                <th style={{ width: 200 }}>Filled</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timeRows.map(([t, v]) => {
+                const pct = v.offered > 0 ? Math.round((v.booked / v.offered) * 100) : 0;
+                return (
+                  <tr key={t}>
+                    <td>{formatTime(t)}</td>
+                    <td className="num">{v.offered}</td>
+                    <td className="num">{v.booked}</td>
+                    <td>
+                      <div className="mgr-meter" title={`${pct}%`}>
+                        <div className="fill" style={{ width: `${Math.min(100, pct)}%` }} />
+                      </div>
+                      <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{pct}%</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }
 
