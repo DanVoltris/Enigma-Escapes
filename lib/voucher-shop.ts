@@ -4,7 +4,7 @@
 import { randomInt } from "crypto";
 import { rest, restError } from "./supabase";
 
-export { DENOMINATIONS_CENTS, MIN_CUSTOM_CENTS, MAX_CUSTOM_CENTS, isSellableAmount } from "./voucher-shop-config";
+export { DENOMINATIONS_CENTS, isSellableAmount } from "./voucher-shop-config";
 
 // Unambiguous alphabet: no O/0, I/1, S/5 — these get read aloud over the phone
 // and copied off printed cards.
@@ -59,6 +59,7 @@ export async function createPurchasedVoucher(input: PurchaseInput): Promise<stri
       recipient_email: input.recipientEmail,
       message: input.message,
       source: "online",
+      kind: "purchased",
     }),
   });
   if (!res.ok) throw await restError(res, "Creating that gift voucher");

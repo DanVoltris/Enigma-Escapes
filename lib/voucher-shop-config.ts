@@ -1,16 +1,17 @@
 // What the gift-voucher shop sells — pure constants, safe for the browser
 // bundle (lib/voucher-shop.ts holds the server-only minting logic).
 
-// Drawn from what the business has actually sold historically — one room
-// ($30) up to a big group ($300). Edit this list to change the offer.
-export const DENOMINATIONS_CENTS = [3000, 6000, 9000, 12000, 15000, 30000];
+// Mirrors the old system's "Select gift voucher" list: multiples of the $28
+// per-guest rate, one to seven guests. Edit this list to change the offer.
+export const DENOMINATIONS_CENTS = [2800, 5600, 8400, 11200, 14000, 16800, 19600];
 
-// Anything outside this can't be bought, even with a hand-crafted request.
-export const MIN_CUSTOM_CENTS = 2500;
-export const MAX_CUSTOM_CENTS = 50000;
+export function voucherLabel(cents: number): string {
+  const d = cents / 100;
+  return `Gift Voucher for $${d} ( $${d.toFixed(2)} )`;
+}
 
+// Only the listed products can be bought — no custom amounts, matching the
+// old system, and a hand-crafted request can't mint anything else.
 export function isSellableAmount(cents: number): boolean {
-  if (!Number.isInteger(cents)) return false;
-  if (DENOMINATIONS_CENTS.includes(cents)) return true;
-  return cents >= MIN_CUSTOM_CENTS && cents <= MAX_CUSTOM_CENTS;
+  return Number.isInteger(cents) && DENOMINATIONS_CENTS.includes(cents);
 }

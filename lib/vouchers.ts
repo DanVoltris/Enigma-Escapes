@@ -33,6 +33,7 @@ type VoucherRow = {
   days_of_week?: number[];
   exclusion_dates?: string[];
   expiry_date?: string | null;
+  kind?: string;
 };
 
 function toVoucher(r: VoucherRow): Voucher {
@@ -46,6 +47,7 @@ function toVoucher(r: VoucherRow): Voucher {
     email: r.email,
     message: r.message ?? null,
     lastUsedAt: r.last_used_at,
+    kind: r.kind === "purchased" ? "purchased" : "comp",
     redemptionType: r.redemption_type === "spaces" ? "spaces" : "value",
     spacesTotal: r.spaces_total ?? null,
     spacesLeft: r.spaces_left ?? null,
@@ -69,7 +71,7 @@ function toVoucher(r: VoucherRow): Voucher {
 const LIST_COLS =
   "code,face_cents,remaining_cents,active,created_at,purchaser,email,last_used_at," +
   "redemption_type,spaces_total,spaces_left,one_time_use,items_scope,item_ids," +
-  "date_option,date_from,date_to,time_option,time_from,time_to,days_of_week,exclusion_dates,expiry_date";
+  "date_option,date_from,date_to,time_option,time_from,time_to,days_of_week,exclusion_dates,expiry_date,kind";
 
 // PostgREST caps a response at 1,000 rows, so page through — there are already
 // more vouchers than that, and a silent truncation would understate the

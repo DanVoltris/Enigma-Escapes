@@ -17,6 +17,9 @@ export type Voucher = {
   email: string | null;
   message: string | null; // gift message, when one was written
   lastUsedAt: string | null;
+  // "purchased" = bought by a customer (online or in the old system);
+  // "comp" = created by staff as a giveaway — shown under Promo codes.
+  kind: "purchased" | "comp";
 
   // Redemption rules (defaults mirror the old system: a plain dollar balance,
   // good on anything, any day, any time, never expiring).

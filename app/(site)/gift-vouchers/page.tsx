@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
-import { DENOMINATIONS_CENTS, MAX_CUSTOM_CENTS, MIN_CUSTOM_CENTS } from "@/lib/voucher-shop-config";
+import { DENOMINATIONS_CENTS, voucherLabel } from "@/lib/voucher-shop-config";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MESSAGE_MAX = 200;
@@ -35,8 +35,6 @@ type Errors = Partial<Record<"amount" | "buyerName" | "buyerEmail" | "recipientE
 
 export default function GiftVouchersPage() {
   const [amountCents, setAmountCents] = useState<number>(DENOMINATIONS_CENTS[0]);
-  const [customAmount, setCustomAmount] = useState("");
-  const [useCustom, setUseCustom] = useState(false);
   const [message, setMessage] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [buyerName, setBuyerName] = useState("");
@@ -52,15 +50,14 @@ export default function GiftVouchersPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [issued, setIssued] = useState<{ code: string; amountCents: number } | null>(null);
 
-  const chosenCents = useCustom ? Math.round(Number(customAmount) * 100) : amountCents;
 
   async function buy(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
     const next: Errors = {};
 
-    if (!Number.isFinite(chosenCents) || chosenCents < MIN_CUSTOM_CENTS || chosenCents > MAX_CUSTOM_CENTS) {
-      next.amount = `Choose an amount between ${formatMoney(MIN_CUSTOM_CENTS)} and ${formatMoney(MAX_CUSTOM_CENTS)}.`;
+    if (!DENOMINATIONS_CENTS.includes(amountCents)) {
+      next.amount = "Choose one of the listed gift vouchers.";
     }
     if (!buyerName.trim()) next.buyerName = "Enter your name.";
     if (!EMAIL_RE.test(buyerEmail.trim())) next.buyerEmail = "Enter a valid email address.";
@@ -85,7 +82,7 @@ export default function GiftVouchersPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amountCents: chosenCents,
+          amountCents: amountCents,
           buyerName: buyerName.trim(),
           buyerEmail: buyerEmail.trim(),
           recipientEmail: recipientEmail.trim() || null,
@@ -132,44 +129,26 @@ export default function GiftVouchersPage() {
 
       <div className="checkout-grid">
         <form className="form-card" onSubmit={buy} noValidate>
-          <h3>Choose an amount</h3>
-          <div className="gv-amounts">
-            {DENOMINATIONS_CENTS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`gv-amount${!useCustom && amountCents === c ? " on" : ""}`}
-                onClick={() => {
-                  setUseCustom(false);
-                  setAmountCents(c);
-                  setErrors((e) => ({ ...e, amount: undefined }));
-                }}
-              >
-                {formatMoney(c)}
-              </button>
-            ))}
-            <button
-              type="button"
-              className={`gv-amount${useCustom ? " on" : ""}`}
-              onClick={() => setUseCustom(true)}
+          <h3>Buy a gift voucher</h3>
+          <div className={`field ${errors.amount ? "invalid" : ""}`} style={{ maxWidth: 360 }}>
+            <label htmlFor="gv-select">
+              Select gift voucher <span className="req">*</span>
+            </label>
+            <select
+              id="gv-select"
+              value={amountCents}
+              onChange={(e) => {
+                setAmountCents(Number(e.target.value));
+                setErrors((er) => ({ ...er, amount: undefined }));
+              }}
             >
-              Other
-            </button>
+              {DENOMINATIONS_CENTS.map((c) => (
+                <option key={c} value={c}>
+                  {voucherLabel(c)}
+                </option>
+              ))}
+            </select>
           </div>
-          {useCustom && (
-            <div className={`field ${errors.amount ? "invalid" : ""}`} style={{ maxWidth: 200 }}>
-              <label htmlFor="custom">Amount ($)</label>
-              <input
-                id="custom"
-                type="number"
-                min={MIN_CUSTOM_CENTS / 100}
-                max={MAX_CUSTOM_CENTS / 100}
-                step="1"
-                value={customAmount}
-                onChange={(e) => setCustomAmount(e.target.value)}
-              />
-            </div>
-          )}
           {errors.amount && <p className="field-error">{errors.amount}</p>}
 
           <h3>Who it&apos;s for</h3>
@@ -262,7 +241,7 @@ export default function GiftVouchersPage() {
 
           <div className="form-actions">
             <button type="submit" className="btn" disabled={busy}>
-              {busy ? "Working…" : `Buy voucher — ${formatMoney(Number.isFinite(chosenCents) ? chosenCents : 0)}`}
+              {busy ? "Working…" : `Buy voucher — ${formatMoney(Number.isFinite(amountCents) ? amountCents : 0)}`}
             </button>
           </div>
         </form>
@@ -271,11 +250,11 @@ export default function GiftVouchersPage() {
           <h2>Gift voucher</h2>
           <div className="summary-line">
             <span>Voucher value</span>
-            <span>{formatMoney(Number.isFinite(chosenCents) ? chosenCents : 0)}</span>
+            <span>{formatMoney(Number.isFinite(amountCents) ? amountCents : 0)}</span>
           </div>
           <div className="summary-total">
             <span>Total</span>
-            <span>{formatMoney(Number.isFinite(chosenCents) ? chosenCents : 0)}</span>
+            <span>{formatMoney(Number.isFinite(amountCents) ? amountCents : 0)}</span>
           </div>
           <p className="field-hint" style={{ marginTop: 12 }}>
             No tax is charged on the voucher itself — tax applies when it&apos;s spent on a room.
