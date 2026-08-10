@@ -3563,3 +3563,54 @@ a:hover {
 /* A voucher code that links to its detail screen. */
 a.vch-code { text-decoration: none; }
 a.vch-code:hover { outline: 1px solid var(--accent); }
+
+/* Gift voucher shop -------------------------------------------------------- */
+.gv-amounts { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.gv-amount {
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+.gv-amount:hover { border-color: var(--accent); }
+.gv-amount.on {
+  background: var(--btn-bg, var(--accent));
+  color: var(--btn-fg, #16212b);
+  border-color: var(--btn-bg, var(--accent));
+  font-weight: 600;
+}
+
+.gv-done { max-width: 620px; margin: 0 auto; text-align: center; padding: 20px 0 40px; }
+.gv-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 30px;
+  letter-spacing: 2px;
+  padding: 20px;
+  border: 2px solid var(--accent);
+  background: var(--accent-tint);
+  margin: 22px 0 14px;
+  word-break: break-all;
+}
+.gv-worth { font-size: 18px; font-weight: 600; }
+.gv-note { color: var(--text-secondary); margin-bottom: 24px; }
+
+/* Promo entry (checkout details step) */
+.promo-entry { display: flex; gap: 8px; align-items: stretch; }
+.promo-entry input { flex: 1 1 auto; min-width: 0; }
+.promo-applied {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--accent-tint);
+  border-left: 3px solid var(--accent);
+  font-size: 15px;
+}
+
+@media (max-width: 560px) {
+  .gv-code { font-size: 22px; letter-spacing: 1px; }
+}

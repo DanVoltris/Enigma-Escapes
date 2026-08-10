@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import CartSummary from "@/components/CartSummary";
 import HoldBanner from "@/components/HoldBanner";
 import ProgressSteps from "@/components/ProgressSteps";
+import PromoField from "@/components/PromoField";
 import { useCart } from "@/lib/cart";
 import { trackInitiateCheckout } from "@/lib/tracking";
 
@@ -138,6 +139,9 @@ export default function CheckoutDetailsPage() {
                 />
                 {errors.phone && <p className="field-error">{errors.phone}</p>}
               </div>
+
+              <h3>Promo code</h3>
+              <PromoField />
 
               <div className="form-actions">
                 <button type="submit" className="btn">

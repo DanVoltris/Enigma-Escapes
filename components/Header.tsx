@@ -26,6 +26,9 @@ export default function Header() {
           <Link href="/" className="header-home-link">
             Back to home
           </Link>
+          <Link href="/gift-vouchers" className="header-home-link">
+            Gift vouchers
+          </Link>
           <Link href="/manager" className="header-home-link">
             Manager
           </Link>
