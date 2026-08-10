@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/db";
-import { activeTaxPercent } from "@/lib/taxes";
-import { getPricingMode } from "@/lib/pricing-settings";
+import { getLocale } from "@/lib/locale";
+import { createVoucherCheckoutSession, stripeConfigured } from "@/lib/stripe";
 import { createPurchasedVoucher, isSellableAmount } from "@/lib/voucher-shop";
+import { VOUCHER_PRODUCTS } from "@/lib/voucher-shop-config";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ function str(v: unknown, max: number): string | null {
 // Public: buy a gift voucher. The amount is re-checked against the sellable
 // list here — a browser can ask for any number, and this is the only place a
 // voucher gets minted.
+//
+// With Stripe configured this returns a hosted-checkout URL and issues
+// nothing; the voucher is minted only once Stripe confirms payment. Without
+// Stripe it falls back to the same simulated payment the booking flow uses.
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -28,7 +33,10 @@ export async function POST(req: NextRequest) {
 
   const amountCents = typeof o.amountCents === "number" ? Math.round(o.amountCents) : NaN;
   if (!isSellableAmount(amountCents)) {
-    return NextResponse.json({ error: "That voucher amount isn't available. Pick one of the listed amounts." }, { status: 400 });
+    return NextResponse.json(
+      { error: "That voucher amount isn't available. Pick one of the listed amounts." },
+      { status: 400 }
+    );
   }
 
   const buyerName = str(o.buyerName, 120);
@@ -41,25 +49,34 @@ export async function POST(req: NextRequest) {
   if (recipientEmail && !EMAIL_RE.test(recipientEmail)) {
     return NextResponse.json({ error: "That recipient email doesn't look right." }, { status: 400 });
   }
+  const message = str(o.message, 400);
 
   try {
-    const code = await createPurchasedVoucher({
-      amountCents,
-      buyerName,
-      buyerEmail,
-      recipientEmail,
-      message: str(o.message, 400),
-    });
-    await logActivity("Gift voucher purchased", `${code} — $${(amountCents / 100).toFixed(2)} by ${buyerName}`);
+    if (stripeConfigured()) {
+      const product = VOUCHER_PRODUCTS.find((p) => p.cents === amountCents);
+      const { currencyCode } = await getLocale();
+      const session = await createVoucherCheckoutSession(
+        {
+          amountCents,
+          productName: product?.name ?? `Gift Voucher for $${(amountCents / 100).toFixed(2)}`,
+          buyerName,
+          buyerEmail,
+          recipientEmail,
+          message,
+        },
+        currencyCode,
+        req.nextUrl.origin
+      );
+      return NextResponse.json({ url: session.url }, { status: 200 });
+    }
 
-    // The voucher is worth its face value; tax on a gift voucher is charged
-    // when it's spent on a room, not when it's bought.
-    const [taxPercent, mode] = await Promise.all([activeTaxPercent(), getPricingMode()]);
-    return NextResponse.json({ code, amountCents, taxPercent, taxInclusive: mode.taxInclusive }, { status: 201 });
+    const code = await createPurchasedVoucher({ amountCents, buyerName, buyerEmail, recipientEmail, message });
+    await logActivity("Gift voucher purchased", `${code} — $${(amountCents / 100).toFixed(2)} by ${buyerName}`);
+    return NextResponse.json({ code, amountCents }, { status: 201 });
   } catch (err) {
     console.error("gift voucher purchase failed:", err);
     return NextResponse.json(
-      { error: "Could not create your gift voucher right now. Nothing was charged — please try again." },
+      { error: "Could not start your gift voucher purchase. Nothing was charged — please try again." },
       { status: 500 }
     );
   }

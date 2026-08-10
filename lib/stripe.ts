@@ -101,6 +101,49 @@ export async function createCheckoutSession(
   return { id: session.id as string, url: session.url as string };
 }
 
+// Hosted Checkout for a gift voucher. The buyer's details ride along in
+// metadata so the voucher can be minted after payment clears — nothing is
+// issued until Stripe says the money arrived.
+export async function createVoucherCheckoutSession(
+  input: {
+    amountCents: number;
+    productName: string;
+    buyerName: string;
+    buyerEmail: string;
+    recipientEmail: string | null;
+    message: string | null;
+  },
+  currencyCode: string,
+  origin: string
+): Promise<{ id: string; url: string }> {
+  const session = await stripeRequest("POST", "/v1/checkout/sessions", {
+    mode: "payment",
+    customer_email: input.buyerEmail,
+    metadata: {
+      kind: "voucher",
+      amountCents: String(input.amountCents),
+      buyerName: input.buyerName,
+      buyerEmail: input.buyerEmail,
+      recipientEmail: input.recipientEmail ?? "",
+      // Stripe caps a metadata value at 500 characters.
+      message: (input.message ?? "").slice(0, 480),
+    },
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: currencyCode.toLowerCase(),
+          unit_amount: input.amountCents,
+          product_data: { name: input.productName },
+        },
+      },
+    ],
+    success_url: `${origin}/gift-vouchers/done?sid={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/gift-vouchers?canceled=1`,
+  });
+  return { id: session.id as string, url: session.url as string };
+}
+
 export type CheckoutSession = {
   id: string;
   payment_status: string;

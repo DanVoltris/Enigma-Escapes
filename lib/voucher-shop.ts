@@ -33,6 +33,56 @@ export async function generateVoucherCode(): Promise<string> {
   throw new Error("Could not generate a unique voucher code");
 }
 
+// Mints the voucher for a paid Stripe session, exactly once. The webhook and
+// the customer returning from Stripe both call this; the unique index on
+// stripe_session_id means the loser of that race just reads back the winner's
+// voucher instead of issuing a second one.
+export async function fulfilVoucherSession(session: {
+  id: string;
+  amountCents: number;
+  buyerName: string;
+  buyerEmail: string;
+  recipientEmail: string | null;
+  message: string | null;
+}): Promise<string> {
+  const existing = await rest(
+    `gift_vouchers?stripe_session_id=eq.${encodeURIComponent(session.id)}&select=code&limit=1`
+  );
+  if (!existing.ok) throw await restError(existing, "Looking up that gift voucher");
+  const found = (await existing.json()) as { code: string }[];
+  if (found[0]) return found[0].code;
+
+  const code = await generateVoucherCode();
+  const res = await rest("gift_vouchers?on_conflict=stripe_session_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+    body: JSON.stringify({
+      code,
+      face_cents: session.amountCents,
+      remaining_cents: session.amountCents,
+      active: true,
+      created_at: new Date().toISOString(),
+      purchaser: session.buyerName,
+      email: session.buyerEmail,
+      recipient_email: session.recipientEmail,
+      message: session.message,
+      source: "online",
+      kind: "purchased",
+      stripe_session_id: session.id,
+    }),
+  });
+  if (!res.ok) throw await restError(res, "Creating that gift voucher");
+
+  // Read back rather than trust our own insert — if the other caller won the
+  // race, ours was ignored and theirs is the real code.
+  const after = await rest(
+    `gift_vouchers?stripe_session_id=eq.${encodeURIComponent(session.id)}&select=code&limit=1`
+  );
+  if (!after.ok) throw await restError(after, "Confirming that gift voucher");
+  const rows = (await after.json()) as { code: string }[];
+  return rows[0]?.code ?? code;
+}
+
 export type PurchaseInput = {
   amountCents: number;
   buyerName: string;

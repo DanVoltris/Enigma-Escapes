@@ -114,6 +114,36 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 - Cart state (items, customer info, hold timer) lives in React context persisted to
   localStorage (`lib/cart.tsx`).
 
+## Turning on Stripe
+
+Three environment variables, set in Vercel (Project → Settings → Environment
+Variables) and in `.env.local` for local testing. Nothing else changes — the
+code already branches on whether the keys are present.
+
+1. `STRIPE_SECRET_KEY` — Stripe Dashboard → Developers → API keys → Secret key.
+   Use `sk_test_…` first; swap to `sk_live_…` when you're ready to take money.
+2. `STRIPE_WEBHOOK_SECRET` — Developers → Webhooks → Add endpoint:
+   URL `https://<your-domain>/api/stripe/webhook`, event
+   `checkout.session.completed`. Copy the signing secret (`whsec_…`).
+3. Redeploy (Vercel → Deployments → Redeploy). Env vars are read at boot.
+
+What flips on automatically:
+
+- **Bookings** go through Stripe-hosted checkout. The booking saves as
+  `pending` (holding its slots for 30 min) and is finalized to `paid` both on
+  the customer's return and by the webhook, idempotently.
+- **Gift vouchers** do the same: the code is only minted once Stripe confirms
+  payment, by whichever of the webhook or return-page lands first (a unique
+  index on the session id stops a double issue).
+- **Refunds** on customer cancellations go back through Stripe instead of being
+  recorded as "refund owed".
+- **Terminal** (card reader) charging from the Today screen — see
+  Settings → Payments to assign a reader per location.
+
+Verify with Stripe test cards: `4242 4242 4242 4242`, any future expiry, any
+CVC. Check Stripe Dashboard → Payments, and the Webhooks page for delivery
+attempts if a booking doesn't finalize.
+
 ## Design rules
 
 - White background, sharp corners (no border-radius anywhere), light sky blue accent

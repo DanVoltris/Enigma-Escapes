@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { stripeConfigured, verifyStripeWebhook, webhookConfigured } from "@/lib/stripe";
+import { fulfilVoucherSession } from "@/lib/voucher-shop";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,28 @@ export async function POST(req: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data?.object ?? {};
-    const bookingId = (session.metadata as Record<string, string> | undefined)?.bookingId;
+    const meta = (session.metadata as Record<string, string> | undefined) ?? {};
+
+    // Gift voucher purchases: mint the code now that the money has arrived.
+    if (meta.kind === "voucher" && session.payment_status === "paid") {
+      try {
+        const code = await fulfilVoucherSession({
+          id: session.id as string,
+          amountCents: Number(meta.amountCents) || ((session.amount_total as number | null) ?? 0),
+          buyerName: meta.buyerName ?? "Gift voucher",
+          buyerEmail: meta.buyerEmail ?? "",
+          recipientEmail: meta.recipientEmail || null,
+          message: meta.message || null,
+        });
+        await logActivity("Gift voucher purchased", `${code} — paid via Stripe`);
+      } catch (err) {
+        console.error("webhook voucher fulfil failed:", err);
+        return NextResponse.json({ error: "Could not issue the gift voucher." }, { status: 500 });
+      }
+      return NextResponse.json({ received: true });
+    }
+
+    const bookingId = meta.bookingId;
     if (session.payment_status === "paid" && bookingId) {
       try {
         // Text only on the pending→paid transition, so retries can't double-send.
