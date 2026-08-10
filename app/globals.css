@@ -3526,3 +3526,40 @@ a:hover {
   .vch-summary { grid-template-columns: repeat(2, 1fr); }
   .vch-views { margin-left: 0; }
 }
+
+/* Gift voucher detail ------------------------------------------------------ */
+.vch-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.vch-detail-head .amt { font-size: 26px; font-weight: 600; margin-top: 8px; }
+.vch-detail-head .sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.vch-state { padding: 6px 12px; border: 1px solid var(--border); font-size: 14px; }
+.vch-state.good { border-color: #1f7a4d; color: #1f7a4d; font-weight: 600; }
+.vch-state.bad { border-color: #c43b3b; color: #c43b3b; }
+
+.vch-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin-bottom: 8px; }
+.vch-row .field { margin-bottom: 0; }
+
+.vch-days, .vch-items, .vch-chips { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.vch-items { flex-direction: column; gap: 8px; margin-top: 10px; }
+.vch-chips { margin-top: 10px; }
+.vch-check { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; cursor: pointer; }
+
+.vch-save {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0 0 22px;
+}
+
+/* A voucher code that links to its detail screen. */
+a.vch-code { text-decoration: none; }
+a.vch-code:hover { outline: 1px solid var(--accent); }
