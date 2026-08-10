@@ -15,6 +15,7 @@ import {
   formatTime,
   todayISO,
 } from "@/lib/format";
+import { preTaxUnitCents } from "@/lib/pricing";
 import { useSiteConfig } from "@/lib/site-config";
 import type { Slot } from "@/lib/types";
 
@@ -35,7 +36,11 @@ function passesFilters(slot: Slot, filters: string[]): boolean {
 
 export default function BrowsePage() {
   const router = useRouter();
-  const { items, addItem, pricingMode } = useCart();
+  const { items, addItem, pricingMode, taxPercent, taxLabel } = useCart();
+  // Tax-inclusive prices are LISTED pre-tax (like other booking sites), with the
+  // tax added back at checkout so the all-in figure stays a round number.
+  const unitCents = (cents: number) =>
+    pricingMode.taxInclusive ? preTaxUnitCents(cents, taxPercent) : cents;
   const site = useSiteConfig(); // booking window + slot labels from Settings
 
   const [date, setDate] = useState(todayISO());
@@ -321,8 +326,8 @@ export default function BrowsePage() {
                 </div>
                 <div className="slot-price">
                   <span className="label">{site.availableLabel}</span>
-                  <span className="amount">{formatMoney(slot.priceCents)}</span>
-                  <span className="label">{pricingMode.taxInclusive ? "each, tax incl." : "each"}</span>
+                  <span className="amount">{formatMoney(unitCents(slot.priceCents))}</span>
+                  <span className="label">{pricingMode.taxInclusive ? `each + ${taxLabel}` : "each"}</span>
                 </div>
                 <div className="slot-action">
                   {soldOut ? (
@@ -397,8 +402,11 @@ export default function BrowsePage() {
                           <span className="quantity-label">
                             Guests
                             <span className="unit-price">
-                              {formatMoney(slot.priceCents)} each{pricingMode.taxInclusive ? " (tax included)" : ""} ·
-                          minimum {slot.minParty}
+                              {formatMoney(unitCents(slot.priceCents))} each
+                          {pricingMode.taxInclusive
+                            ? ` + ${taxLabel} (${formatMoney(slot.priceCents)} all in)`
+                            : ""}{" "}
+                          · minimum {slot.minParty}
                             </span>
                           </span>
                           <div className="stepper">
@@ -466,8 +474,11 @@ export default function BrowsePage() {
                       <span className="quantity-label">
                         Quantity
                         <span className="unit-price">
-                          {formatMoney(slot.priceCents)} each{pricingMode.taxInclusive ? " (tax included)" : ""} ·
-                          minimum {slot.minParty}
+                          {formatMoney(unitCents(slot.priceCents))} each
+                          {pricingMode.taxInclusive
+                            ? ` + ${taxLabel} (${formatMoney(slot.priceCents)} all in)`
+                            : ""}{" "}
+                          · minimum {slot.minParty}
                         </span>
                       </span>
                       <div className="stepper">

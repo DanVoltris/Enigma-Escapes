@@ -78,6 +78,12 @@ export function computeTotals(
   return { subtotalCents, discountCents, gstCents, totalCents, depositCents };
 }
 
+// The pre-tax portion of a tax-inclusive listed price — what to SHOW when the
+// site lists prices the way tax-exclusive systems do ($28.57 + GST = $30.00).
+export function preTaxUnitCents(priceCents: number, taxPercent: number): number {
+  return Math.round(priceCents / (1 + taxPercent / 100));
+}
+
 export function amountDueCents(totals: Totals, option: PaymentOption): number {
   return option === "deposit" ? totals.depositCents : totals.totalCents;
 }
