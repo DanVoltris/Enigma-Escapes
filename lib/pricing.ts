@@ -79,9 +79,13 @@ export function computeTotals(
 }
 
 // The pre-tax portion of a tax-inclusive listed price — what to SHOW when the
-// site lists prices the way tax-exclusive systems do ($28.57 + GST = $30.00).
+// site lists prices the way tax-exclusive systems do. Rounded UP so a $30
+// all-in room lists as $28.58, matching the venue's other booking site (the
+// exact figure is $28.5714; $28.57 would also work but reads a cent low).
+// DISPLAY ONLY — every charge is computed from the tax-inclusive price, so
+// totals still land on exact multiples of $30.
 export function preTaxUnitCents(priceCents: number, taxPercent: number): number {
-  return Math.round(priceCents / (1 + taxPercent / 100));
+  return Math.ceil(priceCents / (1 + taxPercent / 100));
 }
 
 export function amountDueCents(totals: Totals, option: PaymentOption): number {
