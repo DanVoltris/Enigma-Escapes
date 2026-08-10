@@ -33,6 +33,7 @@ const PK: Record<string, string> = {
   slot_blocks: "id", // manager-blocked slots (maintenance, private events)
   staff_accounts: "id", // portal logins
   staff_sessions: "token_hash", // active staff sessions (revocable)
+  gift_vouchers: "code", // prepaid dollar balances
 };
 
 // Query-string keys that are PostgREST directives, not column filters.

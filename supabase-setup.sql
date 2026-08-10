@@ -163,3 +163,19 @@ create table if not exists staff_sessions (
   created_at timestamptz not null default now()
 );
 alter table staff_sessions enable row level security;
+
+-- Gift vouchers: prepaid dollar balances (distinct from promo_codes, which are
+-- percentage discounts). remaining_cents is the outstanding liability.
+create table if not exists gift_vouchers (
+  code text primary key,
+  face_cents integer not null,
+  remaining_cents integer not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  purchaser text,
+  email text,
+  message text,
+  last_used_at timestamptz
+);
+alter table gift_vouchers enable row level security;
+create index if not exists gift_vouchers_created_idx on gift_vouchers (created_at desc);

@@ -3427,3 +3427,102 @@ a:hover {
   border-left: 3px solid var(--accent);
   font-size: 14px;
 }
+
+/* Gift vouchers ------------------------------------------------------------ */
+.vch-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.vch-summary > div {
+  background: #fff;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vch-summary .n { font-size: 22px; font-weight: 600; line-height: 1.1; }
+.vch-summary .l { font-size: 13px; color: var(--text-secondary); }
+
+.vch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.vch-search {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  font: inherit;
+  background: #fff;
+}
+.vch-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.vch-filters, .vch-views { display: flex; flex-wrap: wrap; gap: 6px; }
+.vch-views { margin-left: auto; }
+
+.vch-chip {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.vch-chip:hover { border-color: var(--accent); color: var(--text); }
+.vch-chip.on {
+  background: var(--btn-bg, var(--accent));
+  color: var(--btn-fg, #16212b);
+  border-color: var(--btn-bg, var(--accent));
+  font-weight: 600;
+}
+
+.vch-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  background: var(--accent-tint);
+  padding: 2px 6px;
+  word-break: break-all;
+}
+
+.vch-toggle {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.vch-toggle.on { border-color: #1f7a4d; color: #1f7a4d; font-weight: 600; }
+.vch-toggle:disabled { opacity: 0.5; cursor: default; }
+
+.vch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.vch-card {
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.vch-card.off { background: #fafafa; opacity: 0.72; }
+.vch-card .amt { font-size: 24px; font-weight: 600; line-height: 1.1; }
+.vch-card .sub, .vch-card .who { font-size: 13px; color: var(--text-secondary); }
+.vch-card .mgr-meter { width: 100%; }
+
+@media (max-width: 720px) {
+  .vch-summary { grid-template-columns: repeat(2, 1fr); }
+  .vch-views { margin-left: 0; }
+}
