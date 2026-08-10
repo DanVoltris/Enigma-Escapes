@@ -13,8 +13,8 @@ export default function CartSummary({
   editable?: boolean;
   showCustomer?: boolean;
 }) {
-  const { items, customer, promo, paymentOption, taxPercent, taxLabel, removeItem } = useCart();
-  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent);
+  const { items, customer, promo, paymentOption, taxPercent, pricingMode, taxLabel, removeItem } = useCart();
+  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent, pricingMode);
   const dueNow = amountDueCents(totals, paymentOption);
 
   return (

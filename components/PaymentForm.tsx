@@ -56,7 +56,7 @@ function formatCvc(v: string): string {
 // nobody charged. canceled: the customer backed out of Stripe checkout.
 export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled: boolean; canceled: boolean }) {
   const router = useRouter();
-  const { items, customer, promo, paymentOption, taxPercent, requestToken, setPromo, setPaymentOption, clear } = useCart();
+  const { items, customer, promo, paymentOption, taxPercent, pricingMode, requestToken, setPromo, setPaymentOption, clear } = useCart();
 
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoInput, setPromoInput] = useState("");
@@ -77,7 +77,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
     if (items.length > 0 && !customer) router.replace("/checkout");
   }, [items.length, customer, router]);
 
-  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent);
+  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent, pricingMode);
   // Only offer the deposit option when it's actually less than the full amount
   // (an all-100%-deposit cart requires full payment up front).
   const depositOffered = totals.depositCents < totals.totalCents;

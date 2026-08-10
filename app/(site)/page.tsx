@@ -35,7 +35,7 @@ function passesFilters(slot: Slot, filters: string[]): boolean {
 
 export default function BrowsePage() {
   const router = useRouter();
-  const { items, addItem } = useCart();
+  const { items, addItem, pricingMode } = useCart();
   const site = useSiteConfig(); // booking window + slot labels from Settings
 
   const [date, setDate] = useState(todayISO());
@@ -322,7 +322,7 @@ export default function BrowsePage() {
                 <div className="slot-price">
                   <span className="label">{site.availableLabel}</span>
                   <span className="amount">{formatMoney(slot.priceCents)}</span>
-                  <span className="label">each</span>
+                  <span className="label">{pricingMode.taxInclusive ? "each, tax incl." : "each"}</span>
                 </div>
                 <div className="slot-action">
                   {soldOut ? (
@@ -397,7 +397,8 @@ export default function BrowsePage() {
                           <span className="quantity-label">
                             Guests
                             <span className="unit-price">
-                              {formatMoney(slot.priceCents)} each · minimum {slot.minParty}
+                              {formatMoney(slot.priceCents)} each{pricingMode.taxInclusive ? " (tax included)" : ""} ·
+                          minimum {slot.minParty}
                             </span>
                           </span>
                           <div className="stepper">
@@ -465,7 +466,8 @@ export default function BrowsePage() {
                       <span className="quantity-label">
                         Quantity
                         <span className="unit-price">
-                          {formatMoney(slot.priceCents)} each · minimum {slot.minParty}
+                          {formatMoney(slot.priceCents)} each{pricingMode.taxInclusive ? " (tax included)" : ""} ·
+                          minimum {slot.minParty}
                         </span>
                       </span>
                       <div className="stepper">

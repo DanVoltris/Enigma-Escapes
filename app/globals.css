@@ -3104,6 +3104,13 @@ a:hover {
   margin-bottom: 6px;
 }
 
+.mgr-example {
+  background: var(--accent-tint);
+  border-left: 3px solid var(--accent);
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
 /* in-app confirmation dialog (replaces window.confirm) */
 .confirm-overlay {
   position: fixed;

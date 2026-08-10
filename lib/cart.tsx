@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { HOLD_MINUTES } from "./pricing";
+import { DEFAULT_PRICING_MODE, HOLD_MINUTES, type PricingMode } from "./pricing";
 import { trackAddToCart } from "./tracking";
 import type { CartItem, Customer, PaymentOption } from "./types";
 
@@ -38,6 +38,7 @@ type CartContextValue = CartState & {
   hydrated: boolean; // true once the localStorage restore has run — seed AFTER this
   taxPercent: number;
   taxLabel: string;
+  pricingMode: PricingMode;
   addItem: (item: CartItem) => void;
   removeItem: (key: string) => void;
   setCustomer: (customer: Customer) => void;
@@ -66,12 +67,14 @@ export function CartProvider({
   // The active tax rate/label, so totals match what the server will charge.
   const [taxPercent, setTaxPercent] = useState(5);
   const [taxLabel, setTaxLabel] = useState("Tax");
+  const [pricingMode, setPricingMode] = useState<PricingMode>(DEFAULT_PRICING_MODE);
   useEffect(() => {
     fetch("/api/tax")
       .then((r) => r.json())
       .then((d) => {
         if (typeof d.percent === "number") setTaxPercent(d.percent);
         if (typeof d.label === "string") setTaxLabel(d.label);
+        if (d.mode) setPricingMode(d.mode as PricingMode);
       })
       .catch(() => {});
   }, []);
@@ -146,6 +149,7 @@ export function CartProvider({
         hydrated,
         taxPercent,
         taxLabel,
+        pricingMode,
         addItem,
         removeItem,
         setCustomer,

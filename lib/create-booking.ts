@@ -9,6 +9,7 @@ import { getRequestByToken } from "./requests";
 import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
 import { amountDueCents, computeTotals } from "./pricing";
+import { getPricingMode } from "./pricing-settings";
 import { getSiteSettings } from "./site-settings";
 import type { Booking, BookingSource, CartItem, Customer } from "./types";
 
@@ -142,7 +143,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     return { error: "Could not verify availability right now. Please try again shortly.", status: 500 };
   }
 
-  const totals = computeTotals(items, percentOff, await activeTaxPercent());
+  const totals = computeTotals(items, percentOff, await activeTaxPercent(), await getPricingMode());
   const paidCents = amountDueCents(totals, paymentOption);
   const id = randomUUID();
   const booking: Booking = {
