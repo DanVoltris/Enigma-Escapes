@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
-import { DENOMINATIONS_CENTS, voucherLabel } from "@/lib/voucher-shop-config";
+import { DENOMINATIONS_CENTS, VOUCHER_PRODUCTS, voucherLabel } from "@/lib/voucher-shop-config";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MESSAGE_MAX = 200;
@@ -34,7 +34,7 @@ function luhnValid(digits: string): boolean {
 type Errors = Partial<Record<"amount" | "buyerName" | "buyerEmail" | "recipientEmail" | "card", string>>;
 
 export default function GiftVouchersPage() {
-  const [amountCents, setAmountCents] = useState<number>(DENOMINATIONS_CENTS[0]);
+  const [amountCents, setAmountCents] = useState<number>(VOUCHER_PRODUCTS[0].cents);
   const [message, setMessage] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [buyerName, setBuyerName] = useState("");
@@ -142,9 +142,9 @@ export default function GiftVouchersPage() {
                 setErrors((er) => ({ ...er, amount: undefined }));
               }}
             >
-              {DENOMINATIONS_CENTS.map((c) => (
-                <option key={c} value={c}>
-                  {voucherLabel(c)}
+              {VOUCHER_PRODUCTS.map((p) => (
+                <option key={p.cents} value={p.cents}>
+                  {voucherLabel(p)}
                 </option>
               ))}
             </select>
