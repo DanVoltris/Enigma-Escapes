@@ -7,12 +7,22 @@ import { addDaysISO, todayISO } from "@/lib/format";
 // Jump any dated screen straight to a date, keeping whatever filters are on
 // the URL. Today drops the parameter entirely, so the plain URL always means
 // "today" and the page can be bookmarked without pinning a date.
-export default function DateJump({ date, basePath }: { date: string; basePath: string }) {
+// label: set it when the picker sits beside other labelled filters, so the two
+// read as a matched pair instead of one floating above the other.
+export default function DateJump({
+  date,
+  basePath,
+  label,
+}: {
+  date: string;
+  basePath: string;
+  label?: string;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const today = todayISO();
 
-  return (
+  const picker = (
     <DatePicker
       value={date}
       min={addDaysISO(today, -730)}
@@ -25,5 +35,13 @@ export default function DateJump({ date, basePath }: { date: string; basePath: s
         router.push(`${basePath}${s ? `?${s}` : ""}`);
       }}
     />
+  );
+
+  if (!label) return picker;
+  return (
+    <div className="field">
+      <label>{label}</label>
+      {picker}
+    </div>
   );
 }

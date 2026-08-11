@@ -70,7 +70,7 @@ export default function TodayBoard({
         <h1 className="mgr-page-title" style={{ marginBottom: 0 }}>
           {isToday ? "Today" : dateLabel}
         </h1>
-        <div className="day-nav">
+        <div className="day-nav spaced">
           <Link href={`/manager/today?date=${addDaysISO(date, -1)}`} className="btn btn-outline">
             ‹ Day
           </Link>

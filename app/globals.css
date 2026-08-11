@@ -489,6 +489,18 @@ a:hover {
 .day-nav .btn-outline + .btn-outline {
   border-left: none;
 }
+/* Opt-in spacing for rows that mix a date picker or a filter in with the day
+   buttons. The booking site's prev/next pair is meant to read as one joined
+   control, so it must stay flush — hence a modifier rather than a bare gap. */
+.day-nav.spaced {
+  gap: 10px;
+  align-items: flex-end;
+}
+/* A filter dropped into this row is an inline control, not a stacked form
+   field: its 20px bottom margin would lift it clear of everything beside it. */
+.day-nav .field {
+  margin-bottom: 0;
+}
 
 .day-heading {
   font-size: 20px;

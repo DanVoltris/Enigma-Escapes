@@ -156,8 +156,8 @@ async function OperationsView({
           What&apos;s happening at {loc ? `your ${loc} location` : "your venue"}
           {isToday ? " today" : ` on ${formatDateLong(today)}`}.
         </p>
-        <div className="day-nav">
-          <DateJump date={today} basePath="/manager" />
+        <div className="day-nav spaced">
+          <DateJump date={today} basePath="/manager" label="Date" />
           <LocationFilter locations={locations} />
         </div>
       </div>
