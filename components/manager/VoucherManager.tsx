@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDateLong, formatMoney } from "@/lib/format";
-import { voucherTotals, type Voucher } from "@/lib/voucher-types";
+import type { Voucher } from "@/lib/voucher-types";
 
 type Status = "all" | "active" | "inactive" | "unspent" | "partial" | "spent";
 type View = "list" | "grid";
@@ -18,57 +18,72 @@ const STATUS_LABEL: Record<Status, string> = {
   spent: "Fully spent",
 };
 
+type Totals = { total: number; face: number; outstanding: number; live: number };
+
 // How much of a voucher has been used, for the little progress bar.
 function usedPct(v: Voucher): number {
   if (v.faceCents <= 0) return 100;
   return Math.min(100, Math.round(((v.faceCents - v.remainingCents) / v.faceCents) * 100));
 }
 
-function matchesStatus(v: Voucher, s: Status): boolean {
-  switch (s) {
-    case "active":
-      return v.active;
-    case "inactive":
-      return !v.active;
-    case "unspent":
-      return v.remainingCents >= v.faceCents && v.faceCents > 0;
-    case "partial":
-      return v.remainingCents > 0 && v.remainingCents < v.faceCents;
-    case "spent":
-      return v.remainingCents <= 0;
-    default:
-      return true;
-  }
-}
+const PAGE = 60; // one request per page — the table stays in the database
 
-const PAGE = 60; // 1,600+ vouchers — render a page at a time, not the lot
-
-export default function VoucherManager({ vouchers }: { vouchers: Voucher[] }) {
+export default function VoucherManager({
+  initialRows,
+  initialTotal,
+  totals,
+}: {
+  initialRows: Voucher[];
+  initialTotal: number;
+  totals: Totals;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<Status>("all");
   const [view, setView] = useState<View>("list");
-  const [shown, setShown] = useState(PAGE);
+  const [rows, setRows] = useState<Voucher[]>(initialRows);
+  const [matched, setMatched] = useState(initialTotal);
+  const [loading, setLoading] = useState(false);
   const [busyCode, setBusyCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const totals = useMemo(() => voucherTotals(vouchers), [vouchers]);
+  // Ignore a slow response that lands after a newer keystroke's.
+  const reqId = useRef(0);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return vouchers.filter((v) => {
-      if (!matchesStatus(v, status)) return false;
-      if (!q) return true;
-      // Search the code, the buyer and their email — staff get asked for any of them.
-      return (
-        v.code.toLowerCase().includes(q) ||
-        (v.purchaser ?? "").toLowerCase().includes(q) ||
-        (v.email ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [vouchers, query, status]);
+  const fetchPage = useCallback(
+    async (q: string, st: Status, offset: number, append: boolean) => {
+      const mine = ++reqId.current;
+      setLoading(true);
+      try {
+        const p = new URLSearchParams({ q, status: st, limit: String(PAGE), offset: String(offset) });
+        const res = await fetch(`/api/manager/vouchers?${p.toString()}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not load vouchers.");
+        if (mine !== reqId.current) return;
+        const page = data as { rows: Voucher[]; total: number };
+        setRows((cur) => (append ? [...cur, ...page.rows] : page.rows));
+        setMatched(page.total);
+      } catch (err) {
+        if (mine === reqId.current) setError(err instanceof Error ? err.message : "Could not load vouchers.");
+      } finally {
+        if (mine === reqId.current) setLoading(false);
+      }
+    },
+    []
+  );
 
-  const visible = filtered.slice(0, shown);
+  // Debounced so typing doesn't fire a request per character.
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const t = setTimeout(() => fetchPage(query, status, 0, false), 250);
+    return () => clearTimeout(t);
+  }, [query, status, fetchPage]);
+
+  const visible = rows;
 
   async function toggle(v: Voucher) {
     setBusyCode(v.code);
@@ -81,6 +96,8 @@ export default function VoucherManager({ vouchers }: { vouchers: Voucher[] }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not update that voucher.");
+      // Reflect the change without a full page reload.
+      setRows((cur) => cur.map((x) => (x.code === v.code ? { ...x, active: !v.active } : x)));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update that voucher.");
@@ -91,7 +108,6 @@ export default function VoucherManager({ vouchers }: { vouchers: Voucher[] }) {
 
   function narrow(next: Status) {
     setStatus(next);
-    setShown(PAGE);
   }
 
   return (
@@ -122,10 +138,7 @@ export default function VoucherManager({ vouchers }: { vouchers: Voucher[] }) {
             className="vch-search"
             placeholder="Search a code, name or email…"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setShown(PAGE);
-            }}
+            onChange={(e) => setQuery(e.target.value)}
             aria-label="Search gift vouchers"
           />
           <div className="vch-filters" role="group" aria-label="Filter vouchers">
@@ -163,11 +176,12 @@ export default function VoucherManager({ vouchers }: { vouchers: Voucher[] }) {
         {error && <p className="field-error">{error}</p>}
 
         <p className="card-sub" style={{ marginTop: 4 }}>
-          {filtered.length.toLocaleString()} of {vouchers.length.toLocaleString()} vouchers
+          {matched.toLocaleString()} of {totals.total.toLocaleString()} vouchers
           {query.trim() !== "" && <> matching &ldquo;{query.trim()}&rdquo;</>}
+          {loading && <> · searching…</>}
         </p>
 
-        {filtered.length === 0 ? (
+        {visible.length === 0 ? (
           <p className="mgr-empty">No vouchers match that. Try a different code or filter.</p>
         ) : view === "list" ? (
           <div className="mgr-table-wrap">
@@ -253,9 +267,14 @@ export default function VoucherManager({ vouchers }: { vouchers: Voucher[] }) {
           </div>
         )}
 
-        {filtered.length > shown && (
-          <button type="button" className="btn btn-outline" onClick={() => setShown((n) => n + PAGE)}>
-            Show {Math.min(PAGE, filtered.length - shown)} more
+        {visible.length < matched && (
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => fetchPage(query, status, visible.length, true)}
+            disabled={loading}
+          >
+            {loading ? "Loading…" : `Show ${Math.min(PAGE, matched - visible.length)} more`}
           </button>
         )}
       </div>

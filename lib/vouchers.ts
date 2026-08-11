@@ -66,17 +66,95 @@ function toVoucher(r: VoucherRow): Voucher {
   };
 }
 
-// Columns the portal needs. `message` is left out of list views to keep the
-// payload the browser receives small.
+// Only what a row in the list actually renders. The redemption rules —
+// day/date/time windows, item lists, exclusions — are a large share of each
+// record and are needed on the detail screen alone, so shipping them to a
+// browser showing 60 rows was pure weight.
 const LIST_COLS =
-  "code,face_cents,remaining_cents,active,created_at,purchaser,email,last_used_at," +
-  "redemption_type,spaces_total,spaces_left,one_time_use,items_scope,item_ids," +
-  "date_option,date_from,date_to,time_option,time_from,time_to,days_of_week,exclusion_dates,expiry_date,kind";
+  "code,face_cents,remaining_cents,active,created_at,purchaser,email,last_used_at,redemption_type,spaces_left,kind";
 
 // PostgREST caps a response at 1,000 rows, so page through — there are already
 // more vouchers than that, and a silent truncation would understate the
 // outstanding balance the business owes.
 const PAGE_SIZE = 1000;
+
+export type VoucherQuery = {
+  q?: string;
+  status?: "all" | "active" | "inactive" | "unspent" | "partial" | "spent";
+  limit?: number;
+  offset?: number;
+};
+
+export type VoucherPage = { rows: Voucher[]; total: number };
+
+// Searching and paging happen in the database. With a couple of thousand codes
+// on the books, handing the whole table to the browser to filter in JavaScript
+// meant a megabyte on every page load.
+export async function listVoucherPage(query: VoucherQuery = {}): Promise<VoucherPage> {
+  const limit = Math.min(Math.max(query.limit ?? 60, 1), 200);
+  const offset = Math.max(query.offset ?? 0, 0);
+  const parts = [`select=${LIST_COLS}`, "order=created_at.desc", `limit=${limit}`, `offset=${offset}`];
+
+  switch (query.status) {
+    case "active":
+      parts.push("active=is.true");
+      break;
+    case "inactive":
+      parts.push("active=is.false");
+      break;
+    case "unspent":
+    case "partial":
+    case "spent":
+      parts.push(`spend_state=eq.${query.status}`);
+      break;
+    default:
+      break;
+  }
+
+  const q = (query.q ?? "").trim();
+  if (q) {
+    // Commas and parens would break out of the or() grouping, so drop them.
+    const safe = q.replace(/[(),*]/g, "").slice(0, 80);
+    if (safe) {
+      const like = `*${safe}*`;
+      parts.push(`or=(code.ilike.${like},purchaser.ilike.${like},email.ilike.${like})`);
+    }
+  }
+
+  // Prefer: count=exact gives the match count in the Content-Range header, so
+  // the UI can say "60 of 1,802" without a second round trip.
+  const res = await rest(`gift_vouchers?${parts.join("&")}`, { headers: { Prefer: "count=exact" } });
+  if (!res.ok) throw await restError(res, "Loading gift vouchers");
+  const rows = ((await res.json()) as VoucherRow[]).map(toVoucher);
+  const range = res.headers.get("content-range") ?? "";
+  const total = Number(range.split("/")[1]) || rows.length;
+  return { rows, total };
+}
+
+// Totals across every voucher, summed in the database rather than by pulling
+// the table into memory.
+export async function voucherTotalsFromDb(): Promise<{
+  total: number;
+  face: number;
+  outstanding: number;
+  live: number;
+}> {
+  const res = await rest("rpc/voucher_totals", { method: "POST", body: "{}" });
+  if (!res.ok) throw await restError(res, "Totalling gift vouchers");
+  return (await res.json()) as { total: number; face: number; outstanding: number; live: number };
+}
+
+// Per-denomination sales figures for the catalogue, grouped in the database.
+export async function productStatsFromDb(): Promise<Record<number, { issued: number; spent: number; valueCents: number }>> {
+  const res = await rest("rpc/voucher_product_stats", { method: "POST", body: "{}" });
+  if (!res.ok) throw await restError(res, "Summarising gift vouchers");
+  const rows = (await res.json()) as { face_cents: number; issued: number; spent: number; value_cents: number }[];
+  const out: Record<number, { issued: number; spent: number; valueCents: number }> = {};
+  for (const r of rows) {
+    out[r.face_cents] = { issued: Number(r.issued), spent: Number(r.spent), valueCents: Number(r.value_cents) };
+  }
+  return out;
+}
 
 export async function listVouchers(): Promise<Voucher[]> {
   const out: Voucher[] = [];

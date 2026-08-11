@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { createStaffCode } from "@/lib/voucher-shop";
+import { listVoucherPage } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 
@@ -60,5 +61,30 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("creating staff code failed:", err);
     return NextResponse.json({ error: "Could not create that code right now. Please try again." }, { status: 500 });
+  }
+}
+
+// Paged, filtered voucher list. The browser asks for a page at a time instead
+// of holding the whole table.
+export async function GET(req: NextRequest) {
+  const guard = await apiGuard("promos");
+  if (guard.response) return guard.response;
+  const sp = req.nextUrl.searchParams;
+  const status = sp.get("status") ?? "all";
+  try {
+    const page = await listVoucherPage({
+      q: sp.get("q") ?? "",
+      status: (["all", "active", "inactive", "unspent", "partial", "spent"] as const).includes(
+        status as never
+      )
+        ? (status as "all")
+        : "all",
+      limit: Number(sp.get("limit")) || 60,
+      offset: Number(sp.get("offset")) || 0,
+    });
+    return NextResponse.json(page);
+  } catch (err) {
+    console.error("listing vouchers failed:", err);
+    return NextResponse.json({ error: "Could not load vouchers right now. Please try again." }, { status: 500 });
   }
 }

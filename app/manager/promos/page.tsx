@@ -3,16 +3,15 @@ import PromoManager from "@/components/manager/PromoManager";
 import VoucherManager from "@/components/manager/VoucherManager";
 import { requirePermission } from "@/lib/auth";
 import { listPromos } from "@/lib/db";
-import { listVouchers } from "@/lib/vouchers";
+import { listVoucherPage, voucherTotalsFromDb } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerPromos() {
   await requirePermission("promos", "/manager/promos");
-  // Every code that has been issued — bought by a customer or handed out by
-  // staff. Both carry a dollar balance and redeem the same way, so they belong
-  // in one list. The Gift vouchers tab manages what's on sale, not these.
-  const [promos, codes] = await Promise.all([listPromos(), listVouchers()]);
+  // Only the first page of codes travels with the HTML; searching and paging
+  // go back to the database. There are a couple of thousand of these.
+  const [promos, page, totals] = await Promise.all([listPromos(), listVoucherPage({ limit: 60 }), voucherTotalsFromDb()]);
 
   return (
     <>
@@ -28,7 +27,7 @@ export default async function ManagerPromos() {
         see its rules or redeem against it.
       </p>
       <NewStaffCode />
-      <VoucherManager vouchers={codes} />
+      <VoucherManager initialRows={page.rows} initialTotal={page.total} totals={totals} />
     </>
   );
 }

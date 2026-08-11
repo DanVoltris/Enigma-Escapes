@@ -1,16 +1,15 @@
 import VoucherProducts from "@/components/manager/VoucherProducts";
 import { requirePermission } from "@/lib/auth";
-import { listVoucherProducts, statsFor } from "@/lib/voucher-products";
-import { listVouchers } from "@/lib/vouchers";
+import { listVoucherProducts } from "@/lib/voucher-products";
+import { productStatsFromDb } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerVouchers() {
   await requirePermission("promos", "/manager/vouchers");
-  // The catalogue, plus how each product has actually sold. Individual codes
-  // live on Promo codes — this tab is only about what's available to buy.
-  const [products, vouchers] = await Promise.all([listVoucherProducts(), listVouchers()]);
-  const stats = Object.fromEntries(statsFor(products, vouchers));
+  // Sales figures are grouped in the database — this page never loads the
+  // individual codes, only the catalogue and a total per denomination.
+  const [products, stats] = await Promise.all([listVoucherProducts(), productStatsFromDb()]);
 
   return (
     <>
