@@ -25,10 +25,7 @@ const SECTIONS: { heading: string; items: { href: string; label: string }[] }[] 
   },
   {
     heading: "Visitor settings",
-    items: [
-      { href: "/manager/settings/customer-accounts", label: "Customer accounts" },
-      { href: "/manager/settings/waivers", label: "Waivers" },
-    ],
+    items: [{ href: "/manager/settings/customer-accounts", label: "Customer accounts" }],
   },
   {
     heading: "Booking & payments",
@@ -37,10 +34,6 @@ const SECTIONS: { heading: string; items: { href: string; label: string }[] }[] 
   {
     heading: "Integrations",
     items: [{ href: "/manager/settings/integrations", label: "Marketing & tracking" }],
-  },
-  {
-    heading: "Developers",
-    items: [{ href: "/manager/settings/developers", label: "API keys" }],
   },
 ];
 
