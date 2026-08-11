@@ -46,7 +46,11 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
   }));
 
   const manualPayments = pricing.payments ?? [];
-  const onlinePaidCents = pricing.paidCents - manualPayments.reduce((s, p) => s + p.amountCents, 0);
+  // A gift voucher counts inside paidCents, so it comes out here to be listed
+  // on its own — otherwise it would silently inflate the card figure.
+  const voucherPaidCents = pricing.voucherRedeemed ? (pricing.voucherCents ?? 0) : 0;
+  const onlinePaidCents =
+    pricing.paidCents - voucherPaidCents - manualPayments.reduce((s, p) => s + p.amountCents, 0);
   const participants = customer.participants ?? [];
   const appliedTo = Array.from(new Set(items.map((i) => i.roomName))).join(", ");
 
@@ -170,6 +174,8 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               appliedTo={appliedTo}
               payments={manualPayments}
               onlinePaidCents={onlinePaidCents}
+              voucherCode={pricing.voucherCode ?? null}
+              voucherPaidCents={voucherPaidCents}
               balanceCents={pricing.balanceCents}
             />
 
@@ -198,9 +204,10 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               </div>
               <div>
                 <div className="label">Total due</div>
-                {/* A cancelled booking owes nothing — don't flash a red balance at staff. */}
+                {/* Always total − paid, so the three figures reconcile. Red only while the
+                    booking is live: nothing is chased on a cancelled one. */}
                 <div className={`value${pricing.balanceCents > 0 && booking.status !== "cancelled" ? " due" : ""}`}>
-                  {booking.status === "cancelled" ? "—" : formatMoney(pricing.balanceCents)}
+                  {formatMoney(pricing.balanceCents)}
                 </div>
               </div>
             </div>

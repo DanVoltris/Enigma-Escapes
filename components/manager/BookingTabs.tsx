@@ -36,6 +36,8 @@ type Props = {
   payments: BookingPayment[];
   onlinePaidCents: number; // paid at checkout, before any manual records
   balanceCents: number;
+  voucherCode: string | null;
+  voucherPaidCents: number;
 };
 
 type TabKey = "purchases" | "promos" | "customers" | "taxes" | "payments" | "questions";
@@ -48,7 +50,8 @@ function fmtWhen(iso: string): string {
 
 export default function BookingTabs(props: Props) {
   const [tab, setTab] = useState<TabKey>("purchases");
-  const paymentCount = (props.onlinePaidCents > 0 ? 1 : 0) + props.payments.length;
+  const paymentCount =
+    (props.onlinePaidCents > 0 ? 1 : 0) + (props.voucherPaidCents > 0 ? 1 : 0) + props.payments.length;
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "purchases", label: "All Purchases", count: props.purchases.length },
@@ -100,6 +103,8 @@ export default function BookingTabs(props: Props) {
             payments={props.payments}
             onlinePaidCents={props.onlinePaidCents}
             balanceCents={props.balanceCents}
+            voucherCode={props.voucherCode}
+            voucherPaidCents={props.voucherPaidCents}
           />
         )}
         {tab === "questions" && (
@@ -409,11 +414,15 @@ function PaymentsTab({
   payments,
   onlinePaidCents,
   balanceCents,
+  voucherCode,
+  voucherPaidCents,
 }: {
   bookingId: string;
   payments: BookingPayment[];
   onlinePaidCents: number;
   balanceCents: number;
+  voucherCode: string | null;
+  voucherPaidCents: number;
 }) {
   const router = useRouter();
   const [method, setMethod] = useState<BookingPayment["method"]>("cash");
@@ -421,6 +430,14 @@ function PaymentsTab({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Recording a payment refreshes the page with a smaller balance, but useState
+  // keeps the figure it started with — so re-fill the box with what's actually
+  // left. Otherwise staff see the amount they just took and record it twice.
+  const [filledFor, setFilledFor] = useState(balanceCents);
+  if (filledFor !== balanceCents) {
+    setFilledFor(balanceCents);
+    setAmount((balanceCents / 100).toFixed(2));
+  }
 
   async function add() {
     const amountCents = Math.round(Number(amount) * 100);
@@ -455,6 +472,17 @@ function PaymentsTab({
 
   return (
     <>
+      {voucherPaidCents > 0 && (
+        <div className="bk-row">
+          <div className="bk-row-main">
+            <span className="cust-purchase-name">Gift voucher</span>
+            <div className="cust-purchase-sub">
+              {voucherCode} — comes back on the voucher if this booking is cancelled
+            </div>
+          </div>
+          <strong>{formatMoney(voucherPaidCents)}</strong>
+        </div>
+      )}
       {onlinePaidCents > 0 && (
         <div className="bk-row">
           <div className="bk-row-main">
@@ -479,7 +507,9 @@ function PaymentsTab({
           </button>
         </div>
       ))}
-      {onlinePaidCents <= 0 && payments.length === 0 && <p className="cust-empty">No payments recorded yet.</p>}
+      {onlinePaidCents <= 0 && voucherPaidCents <= 0 && payments.length === 0 && (
+        <p className="cust-empty">No payments recorded yet.</p>
+      )}
 
       {balanceCents > 0 ? (
         <div className="bk-add">
