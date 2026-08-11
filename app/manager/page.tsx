@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BarChart from "@/components/manager/BarChart";
 import Delta from "@/components/manager/Delta";
+import DateJump from "@/components/manager/DateJump";
 import LocationFilter from "@/components/manager/LocationFilter";
 import PerfFilter from "@/components/manager/PerfFilter";
 import StaffNotes from "@/components/manager/StaffNotes";
@@ -15,6 +16,7 @@ import {
   formatTime,
   nowMinutesInBusinessTZ,
   parseISODate,
+  isValidISODate,
   todayISO,
 } from "@/lib/format";
 import { computeInsights, repeatCustomerRate } from "@/lib/insights";
@@ -33,7 +35,7 @@ type TodayItem = { booking: Booking; item: CartItem };
 export default async function ManagerDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; view?: string; from?: string; to?: string; loc?: string }>;
+  searchParams: Promise<{ range?: string; view?: string; from?: string; to?: string; loc?: string; date?: string }>;
 }) {
   const params = await searchParams;
   const staff = await requireStaff("/manager");
@@ -51,6 +53,9 @@ export default async function ManagerDashboard({
         .map((b) => ({ ...b, items: b.items.filter((i) => scope.includes(i.location)) }))
     : everyBooking;
   const today = todayISO();
+  // The operations view can be pointed at any day — tomorrow's staffing, last
+  // Saturday's numbers — not just today.
+  const viewDate = params.date && isValidISODate(params.date) ? params.date : today;
 
   // Location filter for the performance view: keep bookings that include the
   // location and narrow their items to it, so guest/sales/room stats are
@@ -78,7 +83,7 @@ export default async function ManagerDashboard({
       )}
 
       {view === "operations" ? (
-        <OperationsView bookings={perfBookings} today={today} loc={loc} locations={locations} />
+        <OperationsView bookings={perfBookings} today={viewDate} loc={loc} locations={locations} />
       ) : (
         <PerformanceView
           bookings={perfBookings}
@@ -106,6 +111,7 @@ async function OperationsView({
   locations: string[];
 }) {
   const [staffNotes, activity] = await Promise.all([listStaffNotes(), listActivity(8)]);
+  const isToday = today === todayISO();
 
   const todayItems: TodayItem[] = [];
   for (const booking of bookings) {
@@ -130,9 +136,12 @@ async function OperationsView({
     return { label, value, displayValue: `${value} guest${value === 1 ? "" : "s"}` };
   });
 
+  // "Still to come" only means anything on the current day; on any other date
+  // every session that day is what staff want to see.
   const nowMinutes = nowMinutesInBusinessTZ();
   const upcoming = todayItems
     .filter((t) => {
+      if (!isToday) return true;
       const [h, m] = t.item.time.split(":").map(Number);
       return h * 60 + m >= nowMinutes;
     })
@@ -144,9 +153,13 @@ async function OperationsView({
     <>
       <div className="mgr-actions-row" style={{ marginBottom: 8 }}>
         <p className="mgr-page-sub" style={{ marginBottom: 0 }}>
-          What&apos;s happening at {loc ? `your ${loc} location` : "your venue"} today.
+          What&apos;s happening at {loc ? `your ${loc} location` : "your venue"}
+          {isToday ? " today" : ` on ${formatDateLong(today)}`}.
         </p>
-        <LocationFilter locations={locations} />
+        <div className="day-nav">
+          <DateJump date={today} basePath="/manager" />
+          <LocationFilter locations={locations} />
+        </div>
       </div>
 
       <div className="mgr-stats">

@@ -4,9 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import { addDaysISO, todayISO } from "@/lib/format";
 
-// Jump the calendar straight to any date, keeping the current view + filters.
-// (The Prev/Next links only step a day or a week at a time.)
-export default function CalendarDateJump({ date }: { date: string }) {
+// Jump any dated screen straight to a date, keeping whatever filters are on
+// the URL. Today drops the parameter entirely, so the plain URL always means
+// "today" and the page can be bookmarked without pinning a date.
+export default function DateJump({ date, basePath }: { date: string; basePath: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const today = todayISO();
@@ -21,7 +22,7 @@ export default function CalendarDateJump({ date }: { date: string }) {
         if (d === today) p.delete("date");
         else p.set("date", d);
         const s = p.toString();
-        router.push(`/manager/calendar${s ? `?${s}` : ""}`);
+        router.push(`${basePath}${s ? `?${s}` : ""}`);
       }}
     />
   );

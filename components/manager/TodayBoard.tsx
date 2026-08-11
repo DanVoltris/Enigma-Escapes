@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import DateJump from "@/components/manager/DateJump";
 import RoomBadge from "@/components/RoomBadge";
 import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatMoney, formatTime } from "@/lib/format";
@@ -73,9 +74,7 @@ export default function TodayBoard({
           <Link href={`/manager/today?date=${addDaysISO(date, -1)}`} className="btn btn-outline">
             ‹ Day
           </Link>
-          <Link href="/manager/today" className="btn btn-outline">
-            Today
-          </Link>
+          <DateJump date={date} basePath="/manager/today" />
           <Link href={`/manager/today?date=${addDaysISO(date, 1)}`} className="btn btn-outline">
             Day ›
           </Link>

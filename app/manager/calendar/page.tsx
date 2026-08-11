@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
-import CalendarDateJump from "@/components/manager/CalendarDateJump";
+import DateJump from "@/components/manager/DateJump";
 import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
 import CalendarView, { type SessionBooking } from "@/components/manager/CalendarView";
 import { bookingsForDate } from "@/lib/db";
@@ -130,7 +130,7 @@ export default async function ManagerCalendar({
           <Link href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline" title="Previous day">
             ‹ Day
           </Link>
-          <CalendarDateJump date={date} />
+          <DateJump date={date} basePath="/manager/calendar" />
           <Link href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline" title="Next day">
             Day ›
           </Link>
