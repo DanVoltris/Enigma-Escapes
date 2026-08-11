@@ -83,6 +83,39 @@ export async function fulfilVoucherSession(session: {
   return rows[0]?.code ?? code;
 }
 
+// A staff-issued giveaway code. Same dollar balance as a purchased voucher,
+// but marked "comp" so it files under Promo codes rather than Gift vouchers.
+// Returns the code, or null when the requested one is already taken.
+export async function createStaffCode(input: {
+  code?: string;
+  amountCents: number;
+  note: string | null;
+  createdBy: string;
+}): Promise<string | null> {
+  const code = input.code ?? (await generateVoucherCode());
+  if (input.code && (await codeExists(input.code))) return null;
+
+  const res = await rest("gift_vouchers", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      code,
+      face_cents: input.amountCents,
+      remaining_cents: input.amountCents,
+      active: true,
+      created_at: new Date().toISOString(),
+      purchaser: input.createdBy,
+      message: input.note,
+      source: "manual",
+      kind: "comp",
+    }),
+  });
+  // A racing insert on the same code trips the primary key — report it as taken.
+  if (res.status === 409) return null;
+  if (!res.ok) throw await restError(res, "Creating that code");
+  return code;
+}
+
 export type PurchaseInput = {
   amountCents: number;
   buyerName: string;

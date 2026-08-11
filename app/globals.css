@@ -798,7 +798,12 @@ a:hover {
 .field input[type="tel"],
 .field input[type="password"],
 .field input[type="url"],
-.field input[type="number"] {
+.field input[type="number"],
+.field input[type="date"],
+.field input[type="time"],
+.field input[type="search"],
+.field select,
+.field textarea {
   width: 100%;
   font-family: inherit;
   font-size: 15px;
@@ -3614,3 +3619,73 @@ a.vch-code:hover { outline: 1px solid var(--accent); }
 @media (max-width: 560px) {
   .gv-code { font-size: 22px; letter-spacing: 1px; }
 }
+
+/* Native control reset ------------------------------------------------------
+   Safari renders date, time, search and select with its own macOS chrome —
+   rounded, grey, with a system chevron — which reads as an OS dialog dropped
+   into the page. These give them the same flat, square treatment as every
+   other input, everywhere in the app. */
+input[type="date"],
+input[type="time"],
+input[type="search"],
+input[type="number"],
+select,
+textarea {
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 0;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background-color: #fff;
+  color: var(--text);
+}
+textarea { resize: vertical; }
+
+/* Our own chevron, so the control matches the rest of the design. */
+select {
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%2316212b' stroke-width='1.5' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+
+/* Safari draws its own calendar/clock button and vertically-centred value. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="date"]:focus,
+input[type="time"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+/* The voucher toolbar sets its own padding — don't let the reset fight it. */
+.vch-search { padding: 9px 12px; }

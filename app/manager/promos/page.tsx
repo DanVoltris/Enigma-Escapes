@@ -1,3 +1,4 @@
+import NewStaffCode from "@/components/manager/NewStaffCode";
 import PromoManager from "@/components/manager/PromoManager";
 import VoucherManager from "@/components/manager/VoucherManager";
 import { requirePermission } from "@/lib/auth";
@@ -27,6 +28,7 @@ export default async function ManagerPromos() {
         Dollar-value codes created by the team — giveaways, apologies, event prizes. Each carries a balance and is
         redeemed like a gift voucher; click a code to set its rules.
       </p>
+      <NewStaffCode />
       <VoucherManager vouchers={staffCodes} />
     </>
   );
