@@ -123,3 +123,106 @@ export async function rescheduleForCustomer(
   );
   return { items };
 }
+
+// ---------------------------------------------------------------------------
+// Staff versions. Deliberately free of the 24-hour self-service cutoff: a
+// customer phoning an hour before is exactly the case staff need to handle,
+// and how much (if anything) to refund is their judgement, not a rule.
+// ---------------------------------------------------------------------------
+
+// refundCents is what the staff member chose to give back: the full amount, a
+// part of it, or nothing. Anything left unrefunded is recorded as owed so it
+// shows on the booking rather than disappearing.
+export async function cancelForStaff(
+  booking: Booking,
+  refundCents: number,
+  staffName: string
+): Promise<CancelOutcome> {
+  const paidCents = booking.pricing.paidCents;
+  const wanted = Math.max(0, Math.min(Math.round(refundCents), paidCents));
+  const intent = booking.pricing.stripePaymentIntent ?? null;
+  let refundedCents = 0;
+
+  if (wanted > 0 && intent && stripeConfigured()) {
+    try {
+      refundedCents = (await refundPayment(intent, wanted)) ?? 0;
+    } catch (err) {
+      // Never trap a booking staff have decided to cancel — cancel it and
+      // leave the money flagged for someone to settle by hand.
+      console.error("staff refund failed:", err);
+      refundedCents = 0;
+    }
+  }
+
+  // Whatever was meant to go back but didn't is still owed.
+  const owedCents = Math.max(0, wanted - refundedCents);
+  const updated = await cancelBooking(booking.id, { owedCents, refundedCents });
+  await logActivity(
+    "Booking cancelled by staff",
+    `${booking.reference} — ${staffName} — ${
+      wanted === 0
+        ? "no refund"
+        : refundedCents >= wanted
+          ? `refunded $${(refundedCents / 100).toFixed(2)}`
+          : `REFUND OWED $${(owedCents / 100).toFixed(2)}`
+    }`
+  );
+  return { booking: updated ?? booking, refundedCents, owedCents, automatic: refundedCents >= wanted && wanted > 0 };
+}
+
+// Move a booking to another slot, optionally into a different room — the
+// answer to "the room's broken, put them next door". Price is carried across
+// unchanged; staff re-quote deliberately rather than have it shift silently.
+export async function rescheduleForStaff(
+  booking: Booking,
+  target: { date: string; time: string; roomId?: string },
+  staffName: string
+): Promise<RescheduleResult> {
+  if (booking.items.length !== 1) {
+    return { error: "This booking has several sessions — move them from the calendar instead." };
+  }
+  const item = booking.items[0];
+  const roomId = target.roomId ?? item.roomId;
+  const exp = await getExperience(roomId);
+  if (!exp || !exp.active) return { error: "That experience isn't bookable at the moment." };
+
+  const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
+  if (!startTimesFor(exp, target.date, hours).includes(target.time)) {
+    return { error: `${exp.name} doesn't run at ${formatTime(target.time)} on that day.` };
+  }
+  const { isBlocked } = await import("./blocks");
+  if (await isBlocked(exp.id, target.date, target.time)) {
+    return { error: "That session is blocked off — unblock it first or pick another." };
+  }
+
+  // Its own seats shouldn't count against it when staying in the same slot.
+  const sameSlot = item.roomId === roomId && item.date === target.date && item.time === target.time;
+  const takenElsewhere = (await bookedCount(exp.id, target.date, target.time)) - (sameSlot ? item.quantity : 0);
+  if (remainingSpots(exp, Math.max(0, takenElsewhere)) < item.quantity) {
+    return {
+      error: exp.isPrivate
+        ? `${exp.name} at ${formatTime(target.time)} is already booked.`
+        : `Only room for ${remainingSpots(exp, Math.max(0, takenElsewhere))} there — this booking has ${item.quantity}.`,
+    };
+  }
+
+  const items: Booking["items"] = [
+    {
+      ...item,
+      roomId: exp.id,
+      roomName: exp.name,
+      location: exp.location,
+      badgeBg: exp.badgeBg,
+      badgeFg: exp.badgeFg,
+      durationMinutes: exp.durationMinutes,
+      date: target.date,
+      time: target.time,
+    },
+  ];
+  await rescheduleBooking(booking.id, items);
+  await logActivity(
+    "Booking rescheduled by staff",
+    `${booking.reference} — ${staffName} — ${item.roomName} ${item.date} ${formatTime(item.time)} → ${exp.name} ${target.date} ${formatTime(target.time)}`
+  );
+  return { items };
+}

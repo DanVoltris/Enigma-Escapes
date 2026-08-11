@@ -3734,3 +3734,11 @@ textarea:focus {
   margin-top: 8px;
   padding-top: 10px;
 }
+
+/* Destructive action — cancelling a booking frees the slot for good. */
+.btn-danger {
+  background: #c43b3b;
+  color: #fff;
+  border: 1px solid #c43b3b;
+}
+.btn-danger:hover { background: #a83030; border-color: #a83030; }

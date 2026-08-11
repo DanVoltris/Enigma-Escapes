@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
+import BookingActions from "@/components/manager/BookingActions";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
 import GameResultForm from "@/components/manager/GameResultForm";
 import NoShowToggle from "@/components/manager/NoShowToggle";
 import { getBooking, listPromos } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
+import { stripeConfigured } from "@/lib/stripe";
 import { listTaxes } from "@/lib/taxes";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
@@ -134,6 +136,20 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
             </div>
 
             <GameResultForm bookingId={booking.id} initial={booking.gameResult} />
+
+            {booking.status !== "cancelled" && items.length === 1 && (
+              <BookingActions
+                bookingId={booking.id}
+                paidCents={pricing.paidCents}
+                stripeLive={stripeConfigured()}
+                currentRoomId={items[0].roomId}
+                currentDate={items[0].date}
+                currentTime={items[0].time}
+                rooms={experiences
+                  .filter((e) => e.active)
+                  .map((e) => ({ id: e.id, name: e.name, location: e.location }))}
+              />
+            )}
           </div>
         </aside>
 

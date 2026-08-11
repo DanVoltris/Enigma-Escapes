@@ -99,6 +99,13 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   through Stripe automatically when keys are configured (`pricing.stripePaymentIntent`, saved at
   payment time); otherwise the amount is recorded in `pricing.refundOwedCents` and shown as
   "Refund owed" for staff to settle.
+- Staff can cancel or move any booking from its manager page (`BookingActions`,
+  `cancelForStaff` / `rescheduleForStaff` in lib/manage-booking.ts). Unlike the
+  customer's own link there is no 24-hour cutoff — the phone call an hour before
+  is the case staff exist for. Cancelling asks how much to refund (all, part or
+  nothing); with Stripe live it goes back automatically, otherwise the amount is
+  recorded as owed. Moving can also switch experience, and carries the original
+  price across rather than silently re-quoting.
 - Booking requests: sessions starting within 4 hours (`REQUEST_WINDOW_MINUTES`, lib/format.ts)
   aren't self-serve — the site collects a request (name + phone, no payment) into
   `booking_requests`; managers accept/decline on `/manager/requests` (accept texts a completion
