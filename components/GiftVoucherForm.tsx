@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
-import { DENOMINATIONS_CENTS, VOUCHER_PRODUCTS, voucherLabel } from "@/lib/voucher-shop-config";
+import { voucherLabel, type ShopProduct } from "@/lib/voucher-shop-config";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MESSAGE_MAX = 200;
@@ -33,8 +33,14 @@ function luhnValid(digits: string): boolean {
 
 type Errors = Partial<Record<"amount" | "buyerName" | "buyerEmail" | "recipientEmail" | "card", string>>;
 
-export default function GiftVoucherForm({ stripeEnabled }: { stripeEnabled: boolean }) {
-  const [amountCents, setAmountCents] = useState<number>(VOUCHER_PRODUCTS[0].cents);
+export default function GiftVoucherForm({
+  stripeEnabled,
+  products,
+}: {
+  stripeEnabled: boolean;
+  products: ShopProduct[];
+}) {
+  const [amountCents, setAmountCents] = useState<number>(products[0]?.cents ?? 0);
   const [message, setMessage] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [buyerName, setBuyerName] = useState("");
@@ -56,7 +62,7 @@ export default function GiftVoucherForm({ stripeEnabled }: { stripeEnabled: bool
     setServerError(null);
     const next: Errors = {};
 
-    if (!DENOMINATIONS_CENTS.includes(amountCents)) {
+    if (!products.some((p) => p.cents === amountCents)) {
       next.amount = "Choose one of the listed gift vouchers.";
     }
     if (!buyerName.trim()) next.buyerName = "Enter your name.";
@@ -128,6 +134,15 @@ export default function GiftVoucherForm({ stripeEnabled }: { stripeEnabled: bool
     );
   }
 
+  if (products.length === 0) {
+    return (
+      <div className="empty-state">
+        <h1 className="page-title">Gift vouchers</h1>
+        <p>They&apos;re not on sale online just now — give us a call and we&apos;ll sort one out for you.</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <h1 className="page-title">Gift vouchers</h1>
@@ -151,7 +166,7 @@ export default function GiftVoucherForm({ stripeEnabled }: { stripeEnabled: bool
                 setErrors((er) => ({ ...er, amount: undefined }));
               }}
             >
-              {VOUCHER_PRODUCTS.map((p) => (
+              {products.map((p) => (
                 <option key={p.cents} value={p.cents}>
                   {voucherLabel(p)}
                 </option>

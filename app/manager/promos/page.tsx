@@ -9,11 +9,10 @@ export const dynamic = "force-dynamic";
 
 export default async function ManagerPromos() {
   await requirePermission("promos", "/manager/promos");
-  const [promos, allVouchers] = await Promise.all([listPromos(), listVouchers()]);
-  // Staff-created giveaway codes — dollar balances handed out for marketing,
-  // apologies and events. They redeem like gift vouchers (their balances are
-  // real money the business owes), but this is where the team looks for them.
-  const staffCodes = allVouchers.filter((v) => v.kind === "comp");
+  // Every code that has been issued — bought by a customer or handed out by
+  // staff. Both carry a dollar balance and redeem the same way, so they belong
+  // in one list. The Gift vouchers tab manages what's on sale, not these.
+  const [promos, codes] = await Promise.all([listPromos(), listVouchers()]);
 
   return (
     <>
@@ -22,14 +21,14 @@ export default async function ManagerPromos() {
       <PromoManager promos={promos} />
 
       <h2 className="mgr-page-title" style={{ marginTop: 34 }}>
-        Staff-issued codes
+        Voucher codes
       </h2>
       <p className="mgr-page-sub">
-        Dollar-value codes created by the team — giveaways, apologies, event prizes. Each carries a balance and is
-        redeemed like a gift voucher; click a code to set its rules.
+        Every code in circulation — bought by customers or given out by the team. Each carries a balance; click one to
+        see its rules or redeem against it.
       </p>
       <NewStaffCode />
-      <VoucherManager vouchers={staffCodes} />
+      <VoucherManager vouchers={codes} />
     </>
   );
 }

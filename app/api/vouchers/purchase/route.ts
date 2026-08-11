@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { createVoucherCheckoutSession, stripeConfigured } from "@/lib/stripe";
-import { createPurchasedVoucher, isSellableAmount } from "@/lib/voucher-shop";
-import { VOUCHER_PRODUCTS } from "@/lib/voucher-shop-config";
+import { createPurchasedVoucher } from "@/lib/voucher-shop";
+import { getProductByAmount, isOnSale } from "@/lib/voucher-products";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const o = (body ?? {}) as Record<string, unknown>;
 
   const amountCents = typeof o.amountCents === "number" ? Math.round(o.amountCents) : NaN;
-  if (!isSellableAmount(amountCents)) {
+  if (!Number.isInteger(amountCents) || !(await isOnSale(amountCents))) {
     return NextResponse.json(
       { error: "That voucher amount isn't available. Pick one of the listed amounts." },
       { status: 400 }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (stripeConfigured()) {
-      const product = VOUCHER_PRODUCTS.find((p) => p.cents === amountCents);
+      const product = await getProductByAmount(amountCents);
       const { currencyCode } = await getLocale();
       const session = await createVoucherCheckoutSession(
         {

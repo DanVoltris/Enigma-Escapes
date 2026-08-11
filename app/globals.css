@@ -3689,3 +3689,48 @@ textarea:focus {
 
 /* The voucher toolbar sets its own padding — don't let the reset fight it. */
 .vch-search { padding: 9px 12px; }
+
+/* Gift voucher catalogue --------------------------------------------------- */
+.vp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+.vp-card {
+  border: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vp-card.off { background: #fafafa; }
+.vp-card.off .vp-amount, .vp-card.off .vp-name { opacity: 0.55; }
+.vp-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.vp-switch { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; }
+.vp-switch input { cursor: pointer; }
+.vp-remove {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.vp-remove:hover { color: #c43b3b; }
+.vp-remove:disabled { opacity: 0.4; cursor: default; }
+.vp-amount { font-size: 28px; font-weight: 600; line-height: 1.1; margin-top: 4px; }
+.vp-name { font-weight: 600; }
+.vp-desc { font-size: 13px; color: var(--text-secondary); margin: 0; }
+.vp-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 10px;
+}

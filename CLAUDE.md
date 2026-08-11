@@ -74,6 +74,14 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   photo partners (e.g. Fotaflo) — deliberately PII-free (no emails/phones) until portal auth
   exists. A business-wide virtual-game meeting link (integrations `zoomUrl`) shows on
   confirmations when enabled.
+- Gift vouchers are two things in two places. **Gift vouchers** (`/manager/vouchers`,
+  `voucher_products`) is the catalogue — what customers can buy, with a switch per
+  product to take it on and off sale, and per-product sales figures. **Promo codes**
+  (`/manager/promos`) holds every code in circulation: percentage promos in
+  `promo_codes`, plus every issued balance in `gift_vouchers` — bought by a customer
+  (`kind: purchased`) or handed out by staff (`kind: comp`). The public shop at
+  `/gift-vouchers` only offers products switched on in the catalogue, and the purchase
+  API re-checks that server-side. A voucher with no balance left is forced inactive.
 - Customers: the Customers tab merges booking-derived people with manually added ones
   (`+ Add customer`, stored in a `customers` table keyed by email, `lib/customers.ts`; also
   suggested in the walk-in lookup). Supabase needs: `create table customers (email text primary
