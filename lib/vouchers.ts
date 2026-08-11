@@ -98,6 +98,13 @@ export async function getVoucher(code: string): Promise<Voucher | undefined> {
   return rows[0] ? toVoucher(rows[0]) : undefined;
 }
 
+// A voucher with nothing left on it is finished, so it goes inactive and stays
+// that way. Keeps staff from seeing live-looking codes worth nothing, and
+// stops a spent code being switched back on by accident.
+function isSpent(v: { redemptionType: string; remainingCents: number; spacesLeft: number | null }): boolean {
+  return v.redemptionType === "spaces" ? (v.spacesLeft ?? 0) <= 0 : v.remainingCents <= 0;
+}
+
 async function patchVoucher(code: string, body: Record<string, unknown>): Promise<boolean> {
   const res = await rest(`gift_vouchers?code=eq.${encodeURIComponent(code)}`, {
     method: "PATCH",
@@ -109,6 +116,11 @@ async function patchVoucher(code: string, body: Record<string, unknown>): Promis
 }
 
 export async function setVoucherActive(code: string, active: boolean): Promise<boolean> {
+  if (active) {
+    const v = await getVoucher(code);
+    if (!v) return false;
+    if (isSpent(v)) return patchVoucher(code, { active: false }); // nothing left to activate
+  }
   return patchVoucher(code, { active });
 }
 
@@ -135,6 +147,7 @@ export type VoucherSettings = Pick<
 >;
 
 export async function saveVoucherSettings(code: string, s: VoucherSettings): Promise<boolean> {
+  const current = await getVoucher(code);
   return patchVoucher(code, {
     redemption_type: s.redemptionType,
     spaces_total: s.spacesTotal,
@@ -151,7 +164,10 @@ export async function saveVoucherSettings(code: string, s: VoucherSettings): Pro
     days_of_week: s.daysOfWeek,
     exclusion_dates: s.exclusionDates,
     expiry_date: s.expiryDate,
-    active: s.active,
+    // A fully spent voucher can't be reactivated from the settings screen.
+    active: s.active && !isSpent(s.redemptionType === "spaces"
+      ? { redemptionType: "spaces", remainingCents: 0, spacesLeft: s.spacesLeft }
+      : { redemptionType: "value", remainingCents: current?.remainingCents ?? 1, spacesLeft: null }),
   });
 }
 
@@ -180,7 +196,11 @@ export async function redeemVoucher(
     if (amount > left) return { ok: false, error: `Only ${left} space(s) left on this voucher.` };
     // One-time use burns whatever is left, however little was actually spent.
     const after = v.oneTimeUse ? 0 : left - amount;
-    await patchVoucher(code, { spaces_left: after, last_used_at: new Date().toISOString() });
+    await patchVoucher(code, {
+      spaces_left: after,
+      last_used_at: new Date().toISOString(),
+      ...(after <= 0 ? { active: false } : {}),
+    });
     return { ok: true, spent: amount, remainingCents: v.remainingCents, spacesLeft: after, forfeitedCents: 0 };
   }
 
@@ -189,6 +209,10 @@ export async function redeemVoucher(
   }
   const after = v.oneTimeUse ? 0 : v.remainingCents - amount;
   const forfeited = v.oneTimeUse ? v.remainingCents - amount : 0;
-  await patchVoucher(code, { remaining_cents: after, last_used_at: new Date().toISOString() });
+  await patchVoucher(code, {
+    remaining_cents: after,
+    last_used_at: new Date().toISOString(),
+    ...(after <= 0 ? { active: false } : {}),
+  });
   return { ok: true, spent: amount, remainingCents: after, spacesLeft: v.spacesLeft, forfeitedCents: forfeited };
 }
