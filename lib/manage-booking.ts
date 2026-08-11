@@ -9,6 +9,7 @@ import { formatTime, minutesUntilSlot } from "./format";
 import { getLocationHours } from "./hours";
 import { startTimesFor } from "./schedule";
 import { refundPayment, stripeConfigured } from "./stripe";
+import { refundToVoucher } from "./vouchers";
 import type { Booking } from "./types";
 
 // How close to the session self-service stops. Matches the 24-hour policy
@@ -46,8 +47,28 @@ export type CancelOutcome = {
 // Cancels and, when Stripe is live and there's a real charge on file, refunds
 // it automatically. Without Stripe the booking still cancels and the amount is
 // recorded as owed so staff can settle it.
+// Puts a booking's gift voucher balance back when it's cancelled, and reports
+// how much went back. Voucher money can't be paid out to a card — it returns to
+// the code the customer still holds, to spend on the next booking.
+async function returnVoucher(booking: Booking): Promise<number> {
+  const { voucherCode, voucherCents, voucherRedeemed } = booking.pricing;
+  const cents = voucherCents ?? 0;
+  if (!voucherCode || !voucherRedeemed || cents <= 0) return 0;
+  try {
+    const ok = await refundToVoucher(voucherCode, cents);
+    if (!ok) console.error(`could not return $${(cents / 100).toFixed(2)} to voucher ${voucherCode}`);
+    return ok ? cents : 0;
+  } catch (err) {
+    console.error(`could not return money to voucher ${voucherCode}:`, err);
+    return 0;
+  }
+}
+
 export async function cancelForCustomer(booking: Booking): Promise<CancelOutcome> {
-  const owedCents = booking.pricing.paidCents;
+  // The voucher's share goes back on the voucher; only money that actually
+  // reached a card can be refunded to one.
+  const voucherBackCents = await returnVoucher(booking);
+  const owedCents = Math.max(0, booking.pricing.paidCents - voucherBackCents);
   const intent = booking.pricing.stripePaymentIntent ?? null;
   let refundedCents = 0;
 
@@ -64,6 +85,12 @@ export async function cancelForCustomer(booking: Booking): Promise<CancelOutcome
 
   const updated = await cancelBooking(booking.id, { owedCents, refundedCents });
   const automatic = refundedCents >= owedCents && owedCents > 0;
+  if (voucherBackCents > 0) {
+    await logActivity(
+      "Gift voucher balance restored",
+      `${booking.reference} — $${(voucherBackCents / 100).toFixed(2)} back on ${booking.pricing.voucherCode}`
+    );
+  }
   await logActivity(
     "Booking cancelled by customer",
     `${booking.reference} — ${
@@ -138,8 +165,11 @@ export async function cancelForStaff(
   refundCents: number,
   staffName: string
 ): Promise<CancelOutcome> {
-  const paidCents = booking.pricing.paidCents;
-  const wanted = Math.max(0, Math.min(Math.round(refundCents), paidCents));
+  // Voucher money always goes back on the voucher — there's nowhere else for it
+  // to go — so the staff member's refund figure applies to the card share only.
+  const voucherBackCents = await returnVoucher(booking);
+  const cardPaidCents = Math.max(0, booking.pricing.paidCents - voucherBackCents);
+  const wanted = Math.max(0, Math.min(Math.round(refundCents), cardPaidCents));
   const intent = booking.pricing.stripePaymentIntent ?? null;
   let refundedCents = 0;
 
@@ -157,6 +187,12 @@ export async function cancelForStaff(
   // Whatever was meant to go back but didn't is still owed.
   const owedCents = Math.max(0, wanted - refundedCents);
   const updated = await cancelBooking(booking.id, { owedCents, refundedCents });
+  if (voucherBackCents > 0) {
+    await logActivity(
+      "Gift voucher balance restored",
+      `${booking.reference} — $${(voucherBackCents / 100).toFixed(2)} back on ${booking.pricing.voucherCode}`
+    );
+  }
   await logActivity(
     "Booking cancelled by staff",
     `${booking.reference} — ${staffName} — ${

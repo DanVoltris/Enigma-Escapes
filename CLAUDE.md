@@ -82,6 +82,16 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   (`kind: purchased`) or handed out by staff (`kind: comp`). The public shop at
   `/gift-vouchers` only offers products switched on in the catalogue, and the purchase
   API re-checks that server-side. A voucher with no balance left is forced inactive.
+- Spending a voucher: the single code box at checkout takes promo codes and gift vouchers
+  alike (`GET /api/promo` looks in `promo_codes`, then `gift_vouchers`), and one of each can
+  be used on the same booking — the promo percentage comes off first, then the voucher pays
+  what's left. A voucher is payment, not a discount, so it applies to the tax-inclusive total
+  and settles the deposit first: hold more voucher than the deposit and there's nothing to pay
+  today, with the remainder due at the venue. `pricing.voucherCents` counts inside `paidCents`.
+  The balance is only taken once the booking is actually paid (`takeVoucherFor` in lib/db.ts,
+  guarded by `voucherRedeemed` so the Stripe webhook and the return page can't both spend it),
+  moves under a compare-and-swap so two checkouts can't drain the same code (`spendVoucher`),
+  and goes back on the voucher when the booking is cancelled.
 - Customers: the Customers tab merges booking-derived people with manually added ones
   (`+ Add customer`, stored in a `customers` table keyed by email, `lib/customers.ts`; also
   suggested in the walk-in lookup). Supabase needs: `create table customers (email text primary

@@ -8,8 +8,10 @@ import { getLocationHours } from "./hours";
 import { getRequestByToken } from "./requests";
 import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
-import { amountDueCents, computeTotals } from "./pricing";
+import { cardDueCents, computeTotals, voucherAppliedCents } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
+import { getVoucher } from "./vouchers";
+import { voucherProblem } from "./voucher-types";
 import { getSiteSettings } from "./site-settings";
 import type { Booking, BookingSource, CartItem, Customer } from "./types";
 
@@ -29,6 +31,7 @@ type RawInput = {
   customer?: Partial<Customer>;
   paymentOption?: unknown;
   promoCode?: unknown;
+  voucherCode?: unknown; // gift voucher put towards the booking
   requestToken?: unknown; // accepted booking-request token (sub-4h completions)
 };
 
@@ -63,6 +66,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   const items: CartItem[] = [];
   let percentOff = 0;
   let promoCode: string | null = null;
+  let voucherCode: string | null = null;
 
   try {
     if (raw.promoCode != null && raw.promoCode !== "") {
@@ -144,7 +148,41 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   }
 
   const totals = computeTotals(items, percentOff, await activeTaxPercent(), await getPricingMode());
-  const paidCents = amountDueCents(totals, paymentOption);
+
+  // Gift voucher — a prepaid balance, checked here against the real cart so the
+  // date / time / experience rules on the voucher are enforced server-side. The
+  // balance is not spent yet: that happens once the booking is actually paid.
+  let voucherCents = 0;
+  if (raw.voucherCode != null && raw.voucherCode !== "") {
+    const code = cleanString(raw.voucherCode, 40)?.toUpperCase();
+    let voucher;
+    try {
+      voucher = code ? await getVoucher(code) : undefined;
+    } catch (e) {
+      console.error("voucher lookup failed:", e);
+      return { error: "Could not check the gift voucher right now. Please try again shortly.", status: 500 };
+    }
+    if (!voucher) return err("That gift voucher code is not valid.");
+    const first = items[0];
+    const problem = voucherProblem(voucher, {
+      today,
+      date: first?.date,
+      time: first?.time,
+      roomId: first?.roomId,
+    });
+    if (problem) return err(problem);
+    if (voucher.redemptionType === "spaces") {
+      return err("That voucher is for spaces rather than a dollar amount — please call us to book it.");
+    }
+    voucherCode = voucher.code;
+    voucherCents = voucherAppliedCents(totals, voucher.remainingCents);
+    if (voucherCents <= 0) return err("That gift voucher has no balance left.");
+  }
+
+  // The card covers whatever the voucher doesn't. Both count as paid: the
+  // voucher is money the customer handed over when they bought it.
+  const cardCents = cardDueCents(totals, paymentOption, voucherCents);
+  const paidCents = cardCents + voucherCents;
   const id = randomUUID();
   const booking: Booking = {
     id,
@@ -161,6 +199,9 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       totalCents: totals.totalCents,
       paidCents,
       balanceCents: totals.totalCents - paidCents,
+      voucherCode,
+      voucherCents,
+      voucherRedeemed: false, // set once the balance is actually taken
     },
     source,
     noShow: false,

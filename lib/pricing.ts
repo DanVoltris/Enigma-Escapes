@@ -91,3 +91,18 @@ export function preTaxUnitCents(priceCents: number, taxPercent: number): number 
 export function amountDueCents(totals: Totals, option: PaymentOption): number {
   return option === "deposit" ? totals.depositCents : totals.totalCents;
 }
+
+// How much of a gift voucher this booking can absorb. A voucher is payment,
+// not a discount, so it applies to the tax-inclusive total — $100 of voucher
+// buys $100 of booking. Anything above the total stays on the voucher for
+// next time; the balance is never spent down past what is owed.
+export function voucherAppliedCents(totals: Totals, voucherRemainingCents: number): number {
+  return Math.max(0, Math.min(voucherRemainingCents, totals.totalCents));
+}
+
+// What the card is charged now. The voucher pays the deposit first, so someone
+// holding more voucher than the deposit pays nothing today and settles the rest
+// at the venue.
+export function cardDueCents(totals: Totals, option: PaymentOption, voucherCents: number): number {
+  return Math.max(0, amountDueCents(totals, option) - voucherCents);
+}

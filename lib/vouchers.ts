@@ -193,6 +193,74 @@ async function patchVoucher(code: string, body: Record<string, unknown>): Promis
   return ((await res.json()) as VoucherRow[]).length > 0;
 }
 
+// Writes a new balance ONLY if the row still holds the one we based it on.
+// Two checkouts racing for the same code both read the same balance; without
+// this the second overwrites the first and the voucher pays twice. The filter
+// makes the read-modify-write a compare-and-swap, so the loser sees 0 rows
+// back and retries against the balance that actually won.
+async function swapBalance(code: string, expectCents: number, nextCents: number): Promise<boolean> {
+  const res = await rest(
+    `gift_vouchers?code=eq.${encodeURIComponent(code)}&remaining_cents=eq.${expectCents}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        remaining_cents: nextCents,
+        last_used_at: new Date().toISOString(),
+        // A voucher with nothing left is inactive; putting money back revives it.
+        active: nextCents > 0,
+      }),
+    }
+  );
+  if (!res.ok) throw await restError(res, "Updating that gift voucher balance");
+  return ((await res.json()) as VoucherRow[]).length > 0;
+}
+
+export type SpendResult = { ok: true; spentCents: number; remainingCents: number } | { ok: false; error: string };
+
+// Spend part (or all) of a voucher's balance at checkout. Re-checks every rule
+// server-side, then moves the money under a compare-and-swap. Spends whatever
+// is left when asked for more than that, so the caller can put the shortfall on
+// the customer's card rather than losing the sale.
+export async function spendVoucher(code: string, wantCents: number, ctx: RedeemContext = {}): Promise<SpendResult> {
+  if (!Number.isInteger(wantCents) || wantCents <= 0) {
+    return { ok: false, error: "Enter an amount greater than zero." };
+  }
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const v = await getVoucher(code);
+    if (!v) return { ok: false, error: "No voucher with that code." };
+    const problem = voucherProblem(v, ctx);
+    if (problem) return { ok: false, error: problem };
+    if (v.redemptionType === "spaces") {
+      return { ok: false, error: "That voucher is for spaces, not a dollar balance — ask staff to apply it." };
+    }
+
+    const spend = Math.min(wantCents, v.remainingCents);
+    if (spend <= 0) return { ok: false, error: "This voucher has no balance left." };
+    // One-time-use vouchers burn whatever is left, spent or not.
+    const after = v.oneTimeUse ? 0 : v.remainingCents - spend;
+    if (await swapBalance(code, v.remainingCents, after)) {
+      return { ok: true, spentCents: spend, remainingCents: after };
+    }
+    // Someone else moved the balance — re-read and try again.
+  }
+  return { ok: false, error: "That voucher is busy right now. Please try again in a moment." };
+}
+
+// Puts money back on a voucher — a cancelled booking that was paid with one.
+// Same compare-and-swap, and it never exceeds the original face value.
+export async function refundToVoucher(code: string, cents: number): Promise<boolean> {
+  if (!Number.isInteger(cents) || cents <= 0) return false;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const v = await getVoucher(code);
+    if (!v) return false;
+    const after = Math.min(v.faceCents, v.remainingCents + cents);
+    if (after === v.remainingCents) return true; // already back at face value
+    if (await swapBalance(code, v.remainingCents, after)) return true;
+  }
+  return false;
+}
+
 export async function setVoucherActive(code: string, active: boolean): Promise<boolean> {
   if (active) {
     const v = await getVoucher(code);

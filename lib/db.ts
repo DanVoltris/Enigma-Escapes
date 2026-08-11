@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
+import { todayISO } from "./format";
 import { rest, restError } from "./supabase";
+import { spendVoucher } from "./vouchers";
 import type { ActivityEntry, Booking, BookingSource, Promo, StaffNote } from "./types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -96,6 +98,37 @@ export async function saveBooking(booking: Booking): Promise<void> {
   if (!res.ok) throw await restError(res, "Saving the booking");
 }
 
+// Spends the gift voucher a booking was checked out with, and reports how much
+// actually came off it.
+//
+// Deliberately never throws: by the time this runs the customer's card has
+// already been charged, so a voucher problem must not cost them the booking.
+// If the balance moved between checkout and payment — the only realistic case
+// being the same code used somewhere else in that window — we take whatever is
+// left and the shortfall simply stays owing at the venue.
+export async function takeVoucherFor(booking: Booking): Promise<number> {
+  const p = booking.pricing;
+  const code = p.voucherCode;
+  const want = p.voucherCents ?? 0;
+  if (!code || want <= 0 || p.voucherRedeemed) return p.voucherRedeemed ? want : 0;
+
+  const first = booking.items[0];
+  try {
+    const result = await spendVoucher(code, want, {
+      today: todayISO(),
+      date: first?.date,
+      time: first?.time,
+      roomId: first?.roomId,
+    });
+    if (result.ok) return result.spentCents;
+    console.error(`voucher ${code} could not be spent on ${booking.reference}: ${result.error}`);
+    return 0;
+  } catch (err) {
+    console.error(`voucher ${code} could not be spent on ${booking.reference}:`, err);
+    return 0;
+  }
+}
+
 // Marks a pending Stripe booking as paid, recording what was actually charged.
 // Idempotent — the webhook and the redirect-return can both call it.
 export async function finalizeBookingPayment(
@@ -105,11 +138,19 @@ export async function finalizeBookingPayment(
 ): Promise<Booking | undefined> {
   const booking = await getBooking(id);
   if (!booking) return undefined;
+  // This status check is what makes the whole thing idempotent: the webhook
+  // and the return page race each other, and only the first one through here
+  // gets as far as spending the voucher.
   if (booking.status === "paid") return booking;
+
+  const voucherCents = await takeVoucherFor(booking);
+  const settledCents = paidCents + voucherCents;
   const pricing: Booking["pricing"] = {
     ...booking.pricing,
-    paidCents,
-    balanceCents: booking.pricing.totalCents - paidCents,
+    paidCents: settledCents,
+    balanceCents: booking.pricing.totalCents - settledCents,
+    voucherCents,
+    voucherRedeemed: true,
     // remembered so a later cancellation can refund the right charge
     ...(stripePaymentIntent ? { stripePaymentIntent } : {}),
   };

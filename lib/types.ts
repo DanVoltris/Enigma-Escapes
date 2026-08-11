@@ -131,6 +131,13 @@ export type BookingPricing = {
   paidCents: number;
   balanceCents: number;
   payments?: BookingPayment[]; // manual payment records (stored in pricing JSONB)
+  // Gift voucher put towards this booking. voucherCents counts inside
+  // paidCents — it is money the customer already handed over, not a discount.
+  // voucherRedeemed guards the balance being taken more than once when the
+  // Stripe return page and the webhook both finalize the same booking.
+  voucherCode?: string | null;
+  voucherCents?: number;
+  voucherRedeemed?: boolean;
   // Stripe's id for the money taken, kept so a cancellation can refund it.
   stripePaymentIntent?: string | null;
   // Set when a booking is cancelled: what was owed back and whether Stripe

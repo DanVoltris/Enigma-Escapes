@@ -8,11 +8,15 @@ import type { CartItem, Customer, PaymentOption } from "./types";
 const STORAGE_KEY = "voltris-cart";
 
 type AppliedPromo = { code: string; percentOff: number };
+// A gift voucher is a prepaid balance, not a discount — it pays down the total
+// after tax. remainingCents is what the server said was left when it was applied.
+type AppliedVoucher = { code: string; remainingCents: number };
 
 type CartState = {
   items: CartItem[];
   customer: Customer | null;
   promo: AppliedPromo | null; // validated against the server before being set
+  voucher: AppliedVoucher | null; // ditto; stacks with a promo code
   paymentOption: PaymentOption;
   expiresAt: number | null; // epoch ms when the hold lapses
   // Token from an accepted sub-4h booking request. Lives here (not in
@@ -25,6 +29,7 @@ const EMPTY: CartState = {
   items: [],
   customer: null,
   promo: null,
+  voucher: null,
   paymentOption: "deposit",
   expiresAt: null,
   requestToken: null,
@@ -43,6 +48,7 @@ type CartContextValue = CartState & {
   removeItem: (key: string) => void;
   setCustomer: (customer: Customer) => void;
   setPromo: (promo: AppliedPromo | null) => void;
+  setVoucher: (voucher: AppliedVoucher | null) => void;
   setPaymentOption: (option: PaymentOption) => void;
   setRequestToken: (token: string | null) => void;
   clear: () => void;
@@ -132,6 +138,10 @@ export function CartProvider({
     setState((s) => ({ ...s, promo }));
   }, []);
 
+  const setVoucher = useCallback((voucher: AppliedVoucher | null) => {
+    setState((s) => ({ ...s, voucher }));
+  }, []);
+
   const setPaymentOption = useCallback((paymentOption: PaymentOption) => {
     setState((s) => ({ ...s, paymentOption }));
   }, []);
@@ -154,6 +164,7 @@ export function CartProvider({
         removeItem,
         setCustomer,
         setPromo,
+        setVoucher,
         setPaymentOption,
         setRequestToken,
         clear,

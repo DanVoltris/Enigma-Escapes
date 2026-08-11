@@ -173,8 +173,14 @@ export default async function ConfirmationPage({
                 <span>Total</span>
                 <span>{formatMoney(pricing.totalCents)}</span>
               </div>
+              {(pricing.voucherCents ?? 0) > 0 && (
+                <div className="summary-line">
+                  <span>Gift voucher ({pricing.voucherCode})</span>
+                  <span>-{formatMoney(pricing.voucherCents ?? 0)}</span>
+                </div>
+              )}
               <div className="summary-line">
-                <span>Paid now {booking.paymentOption === "deposit" ? "(deposit)" : ""}</span>
+                <span>Paid {booking.paymentOption === "deposit" ? "(deposit)" : ""}</span>
                 <span>{formatMoney(pricing.paidCents)}</span>
               </div>
               {pricing.balanceCents > 0 && (

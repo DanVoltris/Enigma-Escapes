@@ -7,7 +7,7 @@ import HoldBanner from "@/components/HoldBanner";
 import ProgressSteps from "@/components/ProgressSteps";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
-import { amountDueCents, computeTotals } from "@/lib/pricing";
+import { cardDueCents, computeTotals, voucherAppliedCents } from "@/lib/pricing";
 
 // The manager-approved token that lets the server accept a sub-4h booking.
 // Held in the cart (persisted), with the URL as a fallback for browsers where
@@ -56,7 +56,8 @@ function formatCvc(v: string): string {
 // nobody charged. canceled: the customer backed out of Stripe checkout.
 export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled: boolean; canceled: boolean }) {
   const router = useRouter();
-  const { items, customer, promo, paymentOption, taxPercent, pricingMode, requestToken, setPromo, setPaymentOption, clear } = useCart();
+  const { items, customer, promo, voucher, paymentOption, taxPercent, pricingMode, requestToken, setPromo, setVoucher, setPaymentOption, clear } =
+    useCart();
 
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoInput, setPromoInput] = useState("");
@@ -84,7 +85,19 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
   useEffect(() => {
     if (!depositOffered && paymentOption === "deposit") setPaymentOption("full");
   }, [depositOffered, paymentOption, setPaymentOption]);
-  const dueNow = amountDueCents(totals, paymentOption);
+  // A gift voucher is money already paid, so it comes off the tax-inclusive
+  // total and pays the deposit first — hold more voucher than the deposit and
+  // there is nothing to charge today.
+  const voucherCents = voucher ? voucherAppliedCents(totals, voucher.remainingCents) : 0;
+  const dueNow = cardDueCents(totals, paymentOption, voucherCents);
+  const voucherLeftCents = voucher ? voucher.remainingCents - voucherCents : 0;
+  // What the customer still owes when they arrive. "Nothing to pay" and
+  // "paid in full" are different things once a voucher only covers the deposit.
+  const atVenueCents = Math.max(0, totals.totalCents - voucherCents - dueNow);
+  const nothingToPayNote =
+    atVenueCents > 0
+      ? `Your gift voucher covers everything due today — ${formatMoney(atVenueCents)} is payable at the venue.`
+      : "Your gift voucher covers this booking in full — there is nothing left to pay.";
 
   async function applyPromo() {
     const code = promoInput.trim().toUpperCase();
@@ -95,7 +108,13 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       const res = await fetch(`/api/promo?code=${encodeURIComponent(code)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not check the code. Try again.");
-      setPromo({ code: data.code, percentOff: data.percentOff });
+      // The same box takes either kind — the server says which it found.
+      if (data.kind === "voucher") {
+        setVoucher({ code: data.code, remainingCents: data.remainingCents });
+      } else {
+        setPromo({ code: data.code, percentOff: data.percentOff });
+      }
+      setPromoInput("");
     } catch (err) {
       setPromoError(err instanceof Error ? err.message : "Could not check the code. Try again.");
     } finally {
@@ -112,7 +131,14 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       const res = await fetch("/api/checkout/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken ?? tokenFromUrl() }),
+        body: JSON.stringify({
+          items,
+          customer,
+          paymentOption,
+          promoCode: promo?.code ?? null,
+          voucherCode: voucher?.code ?? null,
+          requestToken: requestToken ?? tokenFromUrl(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start the payment. Please try again.");
@@ -127,23 +153,27 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
     e.preventDefault();
     setServerError(null);
 
-    const digits = cardNumber.replace(/[\s-]/g, "");
-    const expiryMatch = expiry.trim().match(/^(0[1-9]|1[0-2])\s*\/\s*(\d{2})$/);
-    const next: CardErrors = {};
-    if (!cardName.trim()) next.cardName = "Enter the name shown on the card.";
-    if (!/^\d{13,19}$/.test(digits) || !luhnValid(digits)) {
-      next.cardNumber = "Enter a valid card number (13–19 digits).";
+    // Nothing to charge means nothing to validate — a gift voucher covering the
+    // whole amount shouldn't make the customer type in a card.
+    if (dueNow > 0) {
+      const digits = cardNumber.replace(/[\s-]/g, "");
+      const expiryMatch = expiry.trim().match(/^(0[1-9]|1[0-2])\s*\/\s*(\d{2})$/);
+      const next: CardErrors = {};
+      if (!cardName.trim()) next.cardName = "Enter the name shown on the card.";
+      if (!/^\d{13,19}$/.test(digits) || !luhnValid(digits)) {
+        next.cardNumber = "Enter a valid card number (13–19 digits).";
+      }
+      if (!expiryMatch) {
+        next.expiry = "Enter the expiry as MM/YY, e.g. 09/28.";
+      } else {
+        const [, mm, yy] = expiryMatch;
+        const endOfMonth = new Date(2000 + Number(yy), Number(mm), 1);
+        if (endOfMonth <= new Date()) next.expiry = "This card has expired. Use a different card.";
+      }
+      if (!/^\d{3,4}$/.test(cvc.trim())) next.cvc = "Enter the 3 or 4 digit security code.";
+      setCardErrors(next);
+      if (Object.keys(next).length > 0) return;
     }
-    if (!expiryMatch) {
-      next.expiry = "Enter the expiry as MM/YY, e.g. 09/28.";
-    } else {
-      const [, mm, yy] = expiryMatch;
-      const endOfMonth = new Date(2000 + Number(yy), Number(mm), 1);
-      if (endOfMonth <= new Date()) next.expiry = "This card has expired. Use a different card.";
-    }
-    if (!/^\d{3,4}$/.test(cvc.trim())) next.cvc = "Enter the 3 or 4 digit security code.";
-    setCardErrors(next);
-    if (Object.keys(next).length > 0) return;
 
     setSubmitting(true);
     try {
@@ -151,7 +181,14 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer, paymentOption, promoCode: promo?.code ?? null, requestToken: requestToken ?? tokenFromUrl() }),
+        body: JSON.stringify({
+          items,
+          customer,
+          paymentOption,
+          promoCode: promo?.code ?? null,
+          voucherCode: voucher?.code ?? null,
+          requestToken: requestToken ?? tokenFromUrl(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong completing your booking.");
@@ -217,6 +254,15 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                     </button>
                   </p>
                 )}
+                {voucher && (
+                  <p className="promo-note ok">
+                    Gift voucher {voucher.code} applied — {formatMoney(voucherCents)} off this booking.
+                    {voucherLeftCents > 0 && ` ${formatMoney(voucherLeftCents)} stays on the voucher for next time.`}{" "}
+                    <button type="button" className="link-button" onClick={() => setVoucher(null)}>
+                      Remove
+                    </button>
+                  </p>
+                )}
                 {promoError && <p className="promo-note err">{promoError}</p>}
               </>
             )}
@@ -234,7 +280,8 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                 onChange={() => setPaymentOption("full")}
               />
               <span>
-                Pay full balance — <span className="amount">{formatMoney(totals.totalCents)}</span>
+                Pay full balance —{" "}
+                <span className="amount">{formatMoney(Math.max(0, totals.totalCents - voucherCents))}</span>
               </span>
             </label>
             {depositOffered && (
@@ -246,10 +293,15 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                   onChange={() => setPaymentOption("deposit")}
                 />
                 <span>
-                  Pay deposit — <span className="amount">{formatMoney(totals.depositCents)}</span>
+                  Pay deposit —{" "}
+                  <span className="amount">{formatMoney(Math.max(0, totals.depositCents - voucherCents))}</span>
                   <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>
                     {" "}
-                    (then {formatMoney(totals.totalCents - totals.depositCents)} at the venue)
+                    (then{" "}
+                    {formatMoney(
+                      Math.max(0, totals.totalCents - voucherCents - Math.max(0, totals.depositCents - voucherCents))
+                    )}{" "}
+                    at the venue)
                   </span>
                 </span>
               </label>
@@ -267,15 +319,20 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                 </div>
               </div>
               <p style={{ color: "var(--text-secondary)", marginBottom: 20 }}>
-                You&apos;ll be taken to Stripe&apos;s secure checkout to pay — cards and wallets like Apple Pay and
-                Google Pay, depending on your device. Your spots stay held while you pay.
+                {dueNow === 0
+                  ? `${nothingToPayNote} We'll confirm it straight away.`
+                  : "You'll be taken to Stripe's secure checkout to pay — cards and wallets like Apple Pay and Google Pay, depending on your device. Your spots stay held while you pay."}
               </p>
 
               {serverError && <div className="error-banner">{serverError}</div>}
 
               <div className="form-actions">
                 <button type="button" className="btn" onClick={payWithStripe} disabled={submitting}>
-                  {submitting ? "Redirecting…" : `Pay ${formatMoney(dueNow)} securely`}
+                  {submitting
+                    ? "Confirming…"
+                    : dueNow === 0
+                      ? "Confirm booking — nothing to pay"
+                      : `Pay ${formatMoney(dueNow)} securely`}
                 </button>
               </div>
             </div>
@@ -290,12 +347,19 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                 </div>
               </div>
               <p style={{ color: "var(--text-secondary)", marginBottom: 20 }}>
-                This is a simulated payment for testing — no real charge is made and card details never leave your
-                browser.
+                {dueNow === 0
+                  ? `No card is needed. ${nothingToPayNote}`
+                  : "This is a simulated payment for testing — no real charge is made and card details never leave your browser."}
               </p>
 
               {serverError && <div className="error-banner">{serverError}</div>}
 
+              {dueNow === 0 ? (
+                <p className="promo-note ok" style={{ marginBottom: 0 }}>
+                  {nothingToPayNote}
+                </p>
+              ) : (
+              <>
               <div className={`field ${cardErrors.cardName ? "invalid" : ""}`}>
                 <label htmlFor="cardName">
                   Name on card <span className="req">*</span>
@@ -359,10 +423,16 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                   {cardErrors.cvc && <p className="field-error">{cardErrors.cvc}</p>}
                 </div>
               </div>
+              </>
+              )}
 
               <div className="form-actions">
                 <button type="submit" className="btn" disabled={submitting}>
-                  {submitting ? "Processing…" : `Complete booking — ${formatMoney(dueNow)}`}
+                  {submitting
+                    ? "Processing…"
+                    : dueNow === 0
+                      ? "Complete booking — nothing to pay"
+                      : `Complete booking — ${formatMoney(dueNow)}`}
                 </button>
               </div>
             </form>

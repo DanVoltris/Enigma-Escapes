@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildBooking } from "@/lib/create-booking";
-import { logActivity, saveBooking } from "@/lib/db";
+import { finalizeBookingPayment, logActivity, saveBooking } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { createCheckoutSession, PENDING_MINUTES, stripeConfigured } from "@/lib/stripe";
 
@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
   // buildBooking assumes immediate payment; hold the spots unpaid instead.
-  const dueCents = result.booking.pricing.paidCents;
+  // Only the card's share goes to Stripe — the voucher part is already paid
+  // for, and is taken off the balance when the payment is confirmed.
+  const dueCents = result.booking.pricing.paidCents - (result.booking.pricing.voucherCents ?? 0);
   const booking = {
     ...result.booking,
     status: "pending" as const,
@@ -39,6 +41,24 @@ export async function POST(req: NextRequest) {
       balanceCents: result.booking.pricing.totalCents,
     },
   };
+
+  // A voucher big enough to cover everything due leaves nothing to charge, so
+  // there is no Stripe session to make. Finalize it here instead — that spends
+  // the voucher and marks the booking paid through the same idempotent path.
+  if (dueCents <= 0) {
+    try {
+      await saveBooking(booking);
+      await finalizeBookingPayment(booking.id, 0);
+      await logActivity("Booking paid by gift voucher", `${booking.reference} — no card payment needed`);
+    } catch (err) {
+      console.error("finalizing voucher-only booking failed:", err);
+      return NextResponse.json(
+        { error: "Could not complete the booking right now. You have not been charged — please try again shortly." },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ url: `${req.nextUrl.origin}/confirmation/${booking.id}` }, { status: 201 });
+  }
 
   try {
     await saveBooking(booking);

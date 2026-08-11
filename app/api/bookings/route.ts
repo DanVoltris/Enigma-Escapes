@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildBooking } from "@/lib/create-booking";
-import { saveBooking } from "@/lib/db";
+import { saveBooking, takeVoucherFor } from "@/lib/db";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
 import { notifyBookingConfirmed } from "@/lib/sms";
 
@@ -16,6 +16,26 @@ export async function POST(req: NextRequest) {
 
   const result = await buildBooking(body as Record<string, unknown>, "online");
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
+
+  // Nothing goes through Stripe on this path, so the booking counts as paid the
+  // moment it is saved — take the voucher balance now. Before the save, so a
+  // code that has just been emptied elsewhere fails checkout cleanly rather
+  // than confirming a booking nobody paid for.
+  const p = result.booking.pricing;
+  const wantCents = p.voucherCents ?? 0;
+  if (p.voucherCode && wantCents > 0) {
+    const takenCents = await takeVoucherFor(result.booking);
+    if (takenCents <= 0) {
+      return NextResponse.json(
+        { error: "That gift voucher could not be applied. Nothing has been charged — please check the code." },
+        { status: 409 }
+      );
+    }
+    p.voucherCents = takenCents;
+    p.voucherRedeemed = true;
+    p.paidCents = p.paidCents - wantCents + takenCents;
+    p.balanceCents = p.totalCents - p.paidCents;
+  }
 
   try {
     await saveBooking(result.booking);

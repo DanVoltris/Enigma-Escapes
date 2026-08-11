@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { itemKey, useCart } from "@/lib/cart";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
-import { amountDueCents, computeTotals } from "@/lib/pricing";
+import { cardDueCents, computeTotals, voucherAppliedCents } from "@/lib/pricing";
 import RoomBadge from "./RoomBadge";
 
 export default function CartSummary({
@@ -13,9 +13,12 @@ export default function CartSummary({
   editable?: boolean;
   showCustomer?: boolean;
 }) {
-  const { items, customer, promo, paymentOption, taxPercent, pricingMode, taxLabel, removeItem } = useCart();
+  const { items, customer, promo, voucher, paymentOption, taxPercent, pricingMode, taxLabel, removeItem } = useCart();
   const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent, pricingMode);
-  const dueNow = amountDueCents(totals, paymentOption);
+  // The voucher is money already paid, so it lands after tax and pays the
+  // deposit first — the same arithmetic the server does at booking time.
+  const voucherCents = voucher ? voucherAppliedCents(totals, voucher.remainingCents) : 0;
+  const dueNow = cardDueCents(totals, paymentOption, voucherCents);
 
   return (
     <aside className="summary">
@@ -83,6 +86,12 @@ export default function CartSummary({
               <span>Total</span>
               <span>{formatMoney(totals.totalCents)}</span>
             </div>
+            {voucherCents > 0 && (
+              <div className="summary-line">
+                <span>Gift voucher ({voucher?.code})</span>
+                <span>-{formatMoney(voucherCents)}</span>
+              </div>
+            )}
             <div className="summary-line due">
               <span>Amount due now</span>
               <span>{formatMoney(dueNow)}</span>

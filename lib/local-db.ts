@@ -102,38 +102,53 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
     return json(result, 200);
   }
 
+  // PostgREST returns the affected rows when asked; callers use that to tell a
+  // write that matched nothing from one that changed something (a
+  // compare-and-swap depends on the difference). Returning an empty 204 here
+  // regardless would make local mode disagree with the real database.
+  const wantsRows = /return=representation/.test(preferHeader(init));
+
   if (method === "POST") {
     const body = parseBody(init);
     const items = Array.isArray(body) ? body : [body];
     const upsert = /merge-duplicates/.test(preferHeader(init)) || params.has("on_conflict");
     const pk = params.get("on_conflict") ?? PK[table];
+    const written: Row[] = [];
     for (const raw of items) {
       const item = { ...(raw as Row) };
       if (upsert) {
         const idx = rows.findIndex((r) => r[pk] === item[pk]);
         if (idx >= 0) {
           rows[idx] = { ...rows[idx], ...item };
+          written.push(rows[idx]);
           continue;
         }
       }
       if (item.created_at == null) item.created_at = nowISO(); // mimic DB default now()
       rows.push(item);
+      written.push(item);
     }
     persist();
-    return json(null, 201);
+    return json(wantsRows ? written : null, 201);
   }
 
   if (method === "PATCH") {
     const patch = parseBody(init) as Row;
-    for (const r of rows) if (matchesFilters(r, params)) Object.assign(r, patch);
+    const touched: Row[] = [];
+    for (const r of rows) {
+      if (!matchesFilters(r, params)) continue;
+      Object.assign(r, patch);
+      touched.push(r);
+    }
     persist();
-    return json(null, 204);
+    return wantsRows ? json(touched, 200) : json(null, 204);
   }
 
   if (method === "DELETE") {
+    const removed = rows.filter((r) => matchesFilters(r, params));
     db[table] = rows.filter((r) => !matchesFilters(r, params));
     persist();
-    return json(null, 204);
+    return wantsRows ? json(removed, 200) : json(null, 204);
   }
 
   return json({ error: `Unsupported method ${method}` }, 405);
