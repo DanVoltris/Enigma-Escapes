@@ -3891,3 +3891,19 @@ textarea:focus {
 .train-grid tr.dim td {
   opacity: 0.5;
 }
+
+/* Walk-in form: the room being booked is bolded in each person's list, and
+   anyone who can't run it fades back so the trained names stand out. */
+.shift-list .trained {
+  font-weight: 700;
+  color: var(--text);
+  box-shadow: inset 0 -6px 0 #eaf6ff;
+}
+.shift-list li.untrained .who,
+.shift-list li.untrained .rooms {
+  opacity: 0.5;
+}
+.card-sub.warn {
+  color: var(--danger);
+  font-weight: 600;
+}

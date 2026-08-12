@@ -13,7 +13,9 @@ const WALK_IN_MIN = 1;
 type Exp = { id: string; name: string; location: string; priceCents: number; capacity: number; times: string[] };
 type KnownCustomer = { firstName: string; lastName: string; email: string; phone: string };
 
-export default function WalkInForm() {
+// onRoomChange lets the page react to the chosen experience — the on-shift
+// panel above the form uses it to highlight who can run that room.
+export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: string) => void } = {}) {
   const router = useRouter();
   const today = todayISO();
 
@@ -107,9 +109,14 @@ export default function WalkInForm() {
         if (list[0]) {
           setRoomId(list[0].id);
           setTime(list[0].times[0] ?? "");
+          // The form defaults to the first experience, so tell the page too —
+          // otherwise the panel above shows nothing highlighted while the
+          // dropdown clearly has a room selected.
+          onRoomChange?.(list[0].id);
         }
       })
       .catch(() => setError("Could not load experiences. Reload the page."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const selected = useMemo(() => experiences.find((e) => e.id === roomId), [experiences, roomId]);
@@ -159,7 +166,10 @@ export default function WalkInForm() {
           <SingleSelect
             ariaLabel="Experience"
             value={roomId}
-            onChange={setRoomId}
+            onChange={(v) => {
+              setRoomId(v);
+              onRoomChange?.(v);
+            }}
             options={experiences.map((e) => ({ value: e.id, label: `${e.name} — ${e.location}` }))}
           />
         </div>
