@@ -145,6 +145,22 @@ export type BookingPricing = {
   refundOwedCents?: number;
   refundedCents?: number;
   refundedAt?: string | null;
+  // The 20%-off reward spent on this booking, and — once the booking that
+  // earned it was cancelled — the discount being taken back off it. The
+  // booking is re-priced to full, so rewardOwedCents is what staff must now
+  // collect on top of anything already paid.
+  rewardCode?: string | null;
+  rewardVoidedAt?: string | null;
+  rewardOwedCents?: number;
+};
+
+// A note attached to one booking. System-written when something happens that
+// staff need the reason for; the booking page shows them newest first.
+export type BookingNote = {
+  id: string;
+  text: string;
+  at: string; // ISO timestamp
+  author: string; // staff name, or "System"
 };
 
 export type BookingSource = "online" | "in_person";
@@ -169,6 +185,7 @@ export type Booking = {
   status: BookingStatus;
   pendingExpiresAt: string | null; // ISO; only set while status is "pending"
   gameResult: GameResult | null; // staff-recorded outcome, null until logged
+  notes: BookingNote[]; // shown on the booking page, newest first
 };
 
 // How a session actually went — recorded by staff after the game and fed into

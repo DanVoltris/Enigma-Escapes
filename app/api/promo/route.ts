@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPromo } from "@/lib/db";
 import { todayISO } from "@/lib/format";
+import { getRewardCode, rewardProblem } from "@/lib/reward-codes";
 import { getVoucher } from "@/lib/vouchers";
 import { voucherProblem } from "@/lib/voucher-types";
 
@@ -41,6 +42,19 @@ export async function GET(req: NextRequest) {
         code: voucher.code,
         remainingCents: voucher.remainingCents,
       });
+    }
+
+    // Last: a 20%-off reward texted after an earlier booking. The phone and
+    // session rules need the cart, so they're re-checked at booking time; what
+    // can be judged without it is judged here.
+    const reward = await getRewardCode(code);
+    if (reward) {
+      const problem = rewardProblem(reward, {
+        phone: req.nextUrl.searchParams.get("phone") ?? undefined,
+        sessionStart: req.nextUrl.searchParams.get("start") ?? undefined,
+      });
+      if (problem) return NextResponse.json({ error: problem }, { status: 409 });
+      return NextResponse.json({ kind: "promo", code: reward.code, percentOff: reward.percentOff });
     }
 
     return NextResponse.json(

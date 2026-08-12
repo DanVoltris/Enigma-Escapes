@@ -105,7 +105,16 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
     setPromoChecking(true);
     setPromoError(null);
     try {
-      const res = await fetch(`/api/promo?code=${encodeURIComponent(code)}`);
+      // A reward code is locked to the phone that earned it and only works on
+      // a later session, so send both — otherwise the customer only finds out
+      // it's no good after filling everything in.
+      const earliest = [...items]
+        .map((i) => `${i.date}T${i.time}:00`)
+        .sort()[0];
+      const q = new URLSearchParams({ code });
+      if (customer?.phone) q.set("phone", customer.phone);
+      if (earliest) q.set("start", earliest);
+      const res = await fetch(`/api/promo?${q.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not check the code. Try again.");
       // The same box takes either kind — the server says which it found.

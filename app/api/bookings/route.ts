@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildBooking } from "@/lib/create-booking";
 import { saveBooking, takeVoucherFor } from "@/lib/db";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
+import { settleRewardsFor } from "@/lib/reward-flow";
 import { notifyBookingConfirmed } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
     );
   }
   await notifyBookingConfirmed(result.booking, req.nextUrl.origin); // best-effort; never throws
+  await settleRewardsFor(result.booking); // spends any reward used, issues the next one
 
   // An accepted request that just completed checkout gets closed out.
   const token = (body as { requestToken?: unknown }).requestToken;

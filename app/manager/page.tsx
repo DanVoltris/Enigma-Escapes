@@ -148,6 +148,12 @@ async function OperationsView({
     .sort((a, b) => a.item.time.localeCompare(b.item.time));
 
   const recent = bookings.slice(0, 6);
+  // Bookings whose discount was taken back when the booking that earned it was
+  // cancelled. They still owe the difference, so staff need to see them before
+  // the party turns up rather than after.
+  const needsAttention = bookings.filter(
+    (b) => b.status !== "cancelled" && b.pricing.rewardVoidedAt && b.pricing.balanceCents > 0
+  );
 
   return (
     <>
@@ -184,6 +190,27 @@ async function OperationsView({
           <div className="hint">placed today, for any date</div>
         </div>
       </div>
+
+      {needsAttention.length > 0 && (
+        <div className="mgr-card">
+          <h2>Needs attention</h2>
+          <p className="card-sub">
+            A 20% reward was cancelled with the booking that earned it, so these are back at full price. Collect the
+            difference when the party arrives.
+          </p>
+          <ul className="attn-list">
+            {needsAttention.map((b) => (
+              <li key={b.id}>
+                <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
+                <span className="who">
+                  {b.customer.firstName} {b.customer.lastName} · {b.items[0]?.roomName} {b.items[0]?.date}
+                </span>
+                <strong>{formatMoney(Math.max(0, b.pricing.balanceCents))} to collect</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mgr-card">
         <h2>Guests by hour today</h2>

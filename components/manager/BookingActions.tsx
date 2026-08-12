@@ -59,14 +59,16 @@ export default function BookingActions({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not cancel that booking.");
-      const d = data as { refundedCents: number; owedCents: number };
-      setDone(
+      const d = data as { refundedCents: number; owedCents: number; rewardNote?: string | null };
+      const base =
         d.refundedCents > 0
           ? `Cancelled — ${formatMoney(d.refundedCents)} refunded.`
           : d.owedCents > 0
             ? `Cancelled — ${formatMoney(d.owedCents)} still to refund by hand.`
-            : "Cancelled — no refund given."
-      );
+            : "Cancelled — no refund given.";
+      // A cancellation can also void a 20% reward and put another booking back
+      // to full price; say so here, where staff are already looking.
+      setDone(d.rewardNote ? `${base} ${d.rewardNote}` : base);
       setPanel("none");
       router.refresh();
     } catch (err) {

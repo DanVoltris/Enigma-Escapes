@@ -108,6 +108,13 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                   .
                 </p>
               )}
+              {pricing.rewardVoidedAt && booking.status !== "cancelled" && (
+                <p className="bk-alert-note">
+                  <strong>Collect {formatMoney(pricing.rewardOwedCents ?? 0)} from this customer.</strong> Their{" "}
+                  {pricing.rewardCode ? `${pricing.rewardCode} ` : ""}discount was cancelled along with the booking
+                  that earned it, so this booking is back at full price. See the note below.
+                </p>
+              )}
               <p>
                 Placed {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
                 <br />
@@ -235,7 +242,28 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
 
             <div className="mgr-card">
               <h2>Notes</h2>
-              <p className="cust-empty">No notes have been created yet.</p>
+              {booking.notes.length === 0 ? (
+                <p className="cust-empty">No notes have been created yet.</p>
+              ) : (
+                <ul className="cust-activity">
+                  {[...booking.notes]
+                    .sort((a, b) => b.at.localeCompare(a.at))
+                    .map((n) => (
+                      <li key={n.id}>
+                        <span className="dot" aria-hidden="true">
+                          {n.author === "System" ? "!" : initials(n.author, "")}
+                        </span>
+                        <div className="body">
+                          <div>{n.text}</div>
+                          <div className="when">
+                            {n.author} ·{" "}
+                            {new Date(n.at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>

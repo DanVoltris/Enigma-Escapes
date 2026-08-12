@@ -55,6 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       ok: true,
       refundedCents: outcome.refundedCents,
       owedCents: outcome.owedCents,
+      rewardNote: outcome.rewardNote ?? null,
     });
   } catch (err) {
     console.error("staff cancel failed:", err);

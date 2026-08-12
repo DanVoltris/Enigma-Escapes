@@ -6,6 +6,7 @@ import { getExperience } from "./experiences";
 import { addDaysISO, formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES, todayISO } from "./format";
 import { getLocationHours } from "./hours";
 import { getRequestByToken } from "./requests";
+import { getRewardCode, rewardProblem } from "./reward-codes";
 import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
 import { cardDueCents, computeTotals, voucherAppliedCents } from "./pricing";
@@ -66,15 +67,25 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   const items: CartItem[] = [];
   let percentOff = 0;
   let promoCode: string | null = null;
+  let rewardCode: string | null = null;
   let voucherCode: string | null = null;
 
   try {
     if (raw.promoCode != null && raw.promoCode !== "") {
       const code = cleanString(raw.promoCode, 40)?.toUpperCase();
       const promo = code ? await getPromo(code) : undefined;
-      if (!promo || !promo.active) return err("That promo code is not valid.");
-      promoCode = promo.code;
-      percentOff = promo.percentOff;
+      if (promo && promo.active) {
+        promoCode = promo.code;
+        percentOff = promo.percentOff;
+      } else {
+        // Not a promo — it may be a 20% reward code from an earlier booking.
+        // Those are checked against the cart below, once the sessions are
+        // known, because a reward only works on a LATER session.
+        const reward = code ? await getRewardCode(code) : undefined;
+        if (!reward) return err("That promo code is not valid.");
+        rewardCode = reward.code;
+        percentOff = reward.percentOff;
+      }
     }
 
     for (const rawItem of raw.items as Partial<CartItem>[]) {
@@ -147,6 +158,23 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     return { error: "Could not verify availability right now. Please try again shortly.", status: 500 };
   }
 
+  // The reward's rules need the sessions, so they are enforced here rather
+  // than in the block above: it is locked to the phone that earned it, dies
+  // when that booking's session starts, and only discounts a later session.
+  if (rewardCode) {
+    let reward;
+    try {
+      reward = await getRewardCode(rewardCode);
+    } catch (e) {
+      console.error("reward lookup failed:", e);
+      return { error: "Could not check that code right now. Please try again shortly.", status: 500 };
+    }
+    if (!reward) return err("That promo code is not valid.");
+    const earliest = items.map((i) => `${i.date}T${i.time}:00`).sort()[0];
+    const problem = rewardProblem(reward, { phone: customer.phone, sessionStart: earliest });
+    if (problem) return err(problem);
+  }
+
   const totals = computeTotals(items, percentOff, await activeTaxPercent(), await getPricingMode());
 
   // Gift voucher — a prepaid balance, checked here against the real cart so the
@@ -202,6 +230,9 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       voucherCode,
       voucherCents,
       voucherRedeemed: false, // set once the balance is actually taken
+      // Kept so cancelling the booking that earned this reward can find the
+      // booking that spent it and put the price back up.
+      rewardCode,
     },
     source,
     noShow: false,
@@ -210,6 +241,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     status: "paid",
     pendingExpiresAt: null,
     gameResult: null,
+    notes: [],
   };
   return { booking };
 }

@@ -3430,6 +3430,15 @@ a:hover {
   font-size: 13px;
   margin-bottom: 10px;
 }
+/* Money to chase, not a state to explain — amber so staff read it as an action
+   rather than mistaking it for the cancelled notice above. */
+.bk-alert-note {
+  border-left: 3px solid #b45309;
+  padding: 8px 10px;
+  background: #fff8ed;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
 
 /* live card-reader status while a customer is tapping */
 .today-reader {
@@ -3754,3 +3763,31 @@ textarea:focus {
   border: 1px solid #c43b3b;
 }
 .btn-danger:hover { background: #a83030; border-color: #a83030; }
+
+/* Dashboard "needs attention" rows — one line per booking that owes money for
+   a reason staff would otherwise have to go digging for. */
+.attn-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.attn-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+.attn-list li:first-child {
+  border-top: none;
+}
+.attn-list .who {
+  color: var(--muted);
+  font-size: 13px;
+  flex: 1 1 auto;
+}
+.attn-list strong {
+  color: var(--danger);
+}

@@ -9,6 +9,7 @@ import { formatTime, minutesUntilSlot } from "./format";
 import { getLocationHours } from "./hours";
 import { startTimesFor } from "./schedule";
 import { refundPayment, stripeConfigured } from "./stripe";
+import { revokeRewardsFor } from "./reward-flow";
 import { refundToVoucher } from "./vouchers";
 import type { Booking } from "./types";
 
@@ -42,6 +43,9 @@ export type CancelOutcome = {
   refundedCents: number; // what Stripe actually returned
   owedCents: number; // what the customer is due back in total
   automatic: boolean; // false = staff still need to refund by hand
+  // Set when cancelling also killed a 20%-off reward, e.g. "VB-1234 is back at
+  // full price — $18.00 to collect." Staff are told at the moment they cancel.
+  rewardNote?: string | null;
 };
 
 // Cancels and, when Stripe is live and there's a real charge on file, refunds
@@ -84,6 +88,9 @@ export async function cancelForCustomer(booking: Booking): Promise<CancelOutcome
   }
 
   const updated = await cancelBooking(booking.id, { owedCents, refundedCents });
+  // The reward this booking earned dies with it — and if it was already
+  // spent, that booking goes back to full price.
+  const rewardNote = await revokeRewardsFor(booking);
   const automatic = refundedCents >= owedCents && owedCents > 0;
   if (voucherBackCents > 0) {
     await logActivity(
@@ -101,7 +108,7 @@ export async function cancelForCustomer(booking: Booking): Promise<CancelOutcome
           : `REFUND OWED ${(owedCents / 100).toFixed(2)}`
     }`
   );
-  return { booking: updated ?? booking, refundedCents, owedCents, automatic };
+  return { booking: updated ?? booking, refundedCents, owedCents, automatic, rewardNote };
 }
 
 export type RescheduleResult = { error: string } | { items: Booking["items"] };
@@ -187,6 +194,9 @@ export async function cancelForStaff(
   // Whatever was meant to go back but didn't is still owed.
   const owedCents = Math.max(0, wanted - refundedCents);
   const updated = await cancelBooking(booking.id, { owedCents, refundedCents });
+  // The reward this booking earned dies with it — and if it was already
+  // spent, that booking goes back to full price.
+  const rewardNote = await revokeRewardsFor(booking);
   if (voucherBackCents > 0) {
     await logActivity(
       "Gift voucher balance restored",
@@ -203,7 +213,13 @@ export async function cancelForStaff(
           : `REFUND OWED $${(owedCents / 100).toFixed(2)}`
     }`
   );
-  return { booking: updated ?? booking, refundedCents, owedCents, automatic: refundedCents >= wanted && wanted > 0 };
+  return {
+    booking: updated ?? booking,
+    refundedCents,
+    owedCents,
+    automatic: refundedCents >= wanted && wanted > 0,
+    rewardNote,
+  };
 }
 
 // Move a booking to another slot, optionally into a different room — the

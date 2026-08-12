@@ -149,3 +149,28 @@ export async function notifyBookingConfirmed(booking: Booking, origin: string): 
     console.error("staff SMS failed:", err);
   }
 }
+
+// The 20%-off reward, texted the moment a booking is confirmed. Separate from
+// the confirmation so a failure here can never cost the customer their booking
+// confirmation — both are best-effort, but they fail independently.
+export async function notifyRewardCode(
+  booking: Booking,
+  code: string,
+  percentOff: number,
+  validUntil: string
+): Promise<void> {
+  if (!smsConfigured()) return;
+  const by = new Date(validUntil);
+  const deadline = by.toLocaleString("en-CA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  try {
+    await sendSms(
+      booking.customer.phone,
+      `Thanks for booking with Enigma Escapes! Here's ${percentOff}% off your next game: ${code}. Book a later session before ${deadline} to use it — it expires when your ${booking.reference} session starts.`
+    );
+  } catch (err) {
+    console.error("reward SMS failed:", err);
+  }
+}

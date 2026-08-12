@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { todayISO } from "./format";
 import { rest, restError } from "./supabase";
 import { spendVoucher } from "./vouchers";
-import type { ActivityEntry, Booking, BookingSource, Promo, StaffNote } from "./types";
+import type { ActivityEntry, Booking, BookingNote, BookingSource, Promo, StaffNote } from "./types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -23,6 +23,7 @@ type BookingRow = {
   pending_expires_at?: string | null;
   // Staff-recorded game outcome; optional for the same schema-compat reason.
   game_result?: Booking["gameResult"];
+  notes?: BookingNote[] | null;
 };
 
 function toBooking(row: BookingRow): Booking {
@@ -40,7 +41,39 @@ function toBooking(row: BookingRow): Booking {
     status: row.status === "pending" || row.status === "cancelled" ? row.status : "paid",
     pendingExpiresAt: row.pending_expires_at ?? null,
     gameResult: row.game_result ?? null,
+    notes: row.notes ?? [],
   };
+}
+
+// Appends a note to a booking. Its own function for the same reason as
+// saveGameResult below: the notes column only exists after the migration, so a
+// pre-migration schema fails here alone rather than breaking the write that
+// prompted the note. Never throws — a missing note must not sink a refund.
+export async function addBookingNote(id: string, text: string, author = "System"): Promise<boolean> {
+  if (!UUID_RE.test(id)) return false;
+  try {
+    const booking = await getBooking(id);
+    if (!booking) return false;
+    const note: BookingNote = {
+      id: randomUUID(),
+      text: text.slice(0, 1000),
+      at: new Date().toISOString(),
+      author,
+    };
+    const res = await rest(`bookings?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ notes: [...(booking.notes ?? []), note] }),
+    });
+    if (!res.ok) {
+      console.error("saving booking note failed:", await res.text().catch(() => ""));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("saving booking note failed:", err);
+    return false;
+  }
 }
 
 // Records (or re-records) how a session went. Own function rather than
@@ -160,7 +193,12 @@ export async function finalizeBookingPayment(
     body: JSON.stringify({ status: "paid", pending_expires_at: null, pricing }),
   });
   if (!res.ok) throw await restError(res, "Recording the payment");
-  return { ...booking, status: "paid", pendingExpiresAt: null, pricing };
+  const paid: Booking = { ...booking, status: "paid", pendingExpiresAt: null, pricing };
+  // Imported here rather than at the top: reward-flow reaches back into this
+  // module, and a static cycle would leave one of them half-initialised.
+  const { settleRewardsFor } = await import("./reward-flow");
+  await settleRewardsFor(paid);
+  return paid;
 }
 
 export async function setBookingNoShow(id: string, noShow: boolean): Promise<void> {
