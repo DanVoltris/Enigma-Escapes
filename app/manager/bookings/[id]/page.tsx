@@ -5,7 +5,8 @@ import BookingActions from "@/components/manager/BookingActions";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
 import GameResultForm from "@/components/manager/GameResultForm";
 import NoShowToggle from "@/components/manager/NoShowToggle";
-import { getBooking, listPromos } from "@/lib/db";
+import { getBooking, getBookingsByIds, listPromos } from "@/lib/db";
+import { getRewardCode, rewardForBooking } from "@/lib/reward-codes";
 import { listExperiences } from "@/lib/experiences";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import { stripeConfigured } from "@/lib/stripe";
@@ -53,6 +54,16 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     pricing.paidCents - voucherPaidCents - manualPayments.reduce((s, p) => s + p.amountCents, 0);
   const participants = customer.participants ?? [];
   const appliedTo = Array.from(new Set(items.map((i) => i.roomName))).join(", ");
+
+  // Both ends of the 20% reward: the code this booking earned (and where it
+  // was spent), and the code it was booked with (and which booking issued it).
+  const earned = await rewardForBooking(booking.id).catch(() => undefined);
+  const spentWith = pricing.rewardCode ? await getRewardCode(pricing.rewardCode).catch(() => undefined) : undefined;
+  const rewardLinks = await getBookingsByIds(
+    [earned?.usedBooking, spentWith?.earnedBooking].filter((x): x is string => typeof x === "string")
+  ).catch(() => new Map());
+  const earnedSpentOn = earned?.usedBooking ? rewardLinks.get(earned.usedBooking) : undefined;
+  const cameFrom = spentWith?.earnedBooking ? rewardLinks.get(spentWith.earnedBooking) : undefined;
 
   // Activity, newest first: manual payments (timestamped), then creation.
   const activity: { text: string; at: string }[] = [
@@ -123,6 +134,38 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                 <span className="sub">
                   {booking.paymentOption === "deposit" ? "Deposit option" : "Full payment option"}
                 </span>
+                {earned && (
+                  <>
+                    <br />
+                    <span className="sub">
+                      Earned {earned.percentOff}% code <code>{earned.code}</code>
+                      {earnedSpentOn ? (
+                        <>
+                          {" "}
+                          — spent on <Link href={`/manager/bookings/${earnedSpentOn.id}`}>{earnedSpentOn.reference}</Link>
+                        </>
+                      ) : earned.status === "revoked" ? (
+                        " — cancelled with this booking"
+                      ) : (
+                        " — not used yet"
+                      )}
+                    </span>
+                  </>
+                )}
+                {spentWith && (
+                  <>
+                    <br />
+                    <span className="sub">
+                      Booked with {spentWith.percentOff}% code <code>{spentWith.code}</code>
+                      {cameFrom ? (
+                        <>
+                          {" "}
+                          — earned on <Link href={`/manager/bookings/${cameFrom.id}`}>{cameFrom.reference}</Link>
+                        </>
+                      ) : null}
+                    </span>
+                  </>
+                )}
               </p>
             </div>
 

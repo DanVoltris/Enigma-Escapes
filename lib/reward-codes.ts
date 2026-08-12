@@ -202,3 +202,12 @@ export async function revokeRewardFor(
   if (!res.ok) throw await restError(res, "Revoking that reward code");
   return { code: reward.code, usedBooking: reward.usedBooking };
 }
+
+// Every reward ever issued, newest first — the supervisor's view of who was
+// given 20% off and whether it has been spent. Small table by nature (one row
+// per booking), but capped anyway so the page can't grow unbounded.
+export async function listRewardCodes(limit = 200): Promise<RewardCode[]> {
+  const res = await rest(`reward_codes?select=*&order=created_at.desc&limit=${limit}`);
+  if (!res.ok) throw await restError(res, "Loading reward codes");
+  return ((await res.json()) as Row[]).map(toReward);
+}

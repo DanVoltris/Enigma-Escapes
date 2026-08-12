@@ -240,6 +240,18 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
   return rows[0] ? toBooking(rows[0]) : undefined;
 }
 
+// Several bookings at once, for screens that hold a list of ids — one query
+// instead of one per row.
+export async function getBookingsByIds(ids: string[]): Promise<Map<string, Booking>> {
+  const clean = [...new Set(ids.filter((id) => UUID_RE.test(id)))];
+  const out = new Map<string, Booking>();
+  if (clean.length === 0) return out;
+  const res = await rest(`bookings?id=in.(${clean.join(",")})&select=*`);
+  if (!res.ok) throw await restError(res, "Loading those bookings");
+  for (const row of (await res.json()) as BookingRow[]) out.set(row.id, toBooking(row));
+  return out;
+}
+
 // Rewrites a booking's customer JSONB — used by the merge-customers tool to
 // consolidate a typo'd identity onto the kept one. Participants are preserved
 // by the caller (it spreads the existing customer object).

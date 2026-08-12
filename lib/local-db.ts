@@ -92,6 +92,38 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
   const params = new URLSearchParams(qs ?? "");
   const method = (init?.method ?? "GET").toUpperCase();
 
+  // Database functions the app calls through PostgREST. Real Postgres does the
+  // grouping; here it's done in JS so screens that depend on them still render
+  // against the mock store.
+  if (table.startsWith("rpc/")) {
+    const vouchers = db.gift_vouchers ?? [];
+    if (table === "rpc/voucher_totals") {
+      const live = vouchers.filter((v) => v.active && Number(v.remaining_cents) > 0);
+      return json(
+        {
+          total: vouchers.length,
+          face: vouchers.reduce((n, v) => n + Number(v.face_cents ?? 0), 0),
+          outstanding: vouchers.reduce((n, v) => n + Number(v.remaining_cents ?? 0), 0),
+          live: live.length,
+        },
+        200
+      );
+    }
+    if (table === "rpc/voucher_product_stats") {
+      const by = new Map<number, { face_cents: number; issued: number; spent: number; value_cents: number }>();
+      for (const v of vouchers) {
+        const face = Number(v.face_cents ?? 0);
+        const row = by.get(face) ?? { face_cents: face, issued: 0, spent: 0, value_cents: 0 };
+        row.issued += 1;
+        row.value_cents += face;
+        if (Number(v.remaining_cents ?? 0) <= 0) row.spent += 1;
+        by.set(face, row);
+      }
+      return json([...by.values()], 200);
+    }
+    return json({ message: `unknown function ${table}` }, 404);
+  }
+
   if (!(table in PK)) return json([], 404); // unknown table → behave like "not created yet"
   const rows = db[table] ?? (db[table] = []);
 
@@ -190,6 +222,15 @@ function matchOne(row: Row, col: string, expr: string): boolean {
       if (!Array.isArray(cur)) return false;
       const wants = Array.isArray(want) ? want : [want];
       return wants.every((w) => (cur as unknown[]).some((el) => contains(el, w)));
+    }
+    case "in": {
+      // id=in.(a,b,c) — PostgREST's list membership, used when a screen holds
+      // a set of ids and wants them all in one query.
+      const list = val.replace(/^\(/, "").replace(/\)$/, "");
+      return list
+        .split(",")
+        .map((v) => v.trim().replace(/^"|"$/g, ""))
+        .includes(String(cur));
     }
     default:
       return false;

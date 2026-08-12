@@ -29,6 +29,10 @@ export async function settleRewardsFor(booking: Booking): Promise<void> {
     }
   }
 
+  // A booking bought with a reward doesn't earn another one. Otherwise the
+  // chain never breaks and a repeat customer pays 20% less forever.
+  if (spent) return;
+
   try {
     const minted = await mintRewardFor(booking);
     if (minted?.created) {
