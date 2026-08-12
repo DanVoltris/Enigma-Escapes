@@ -132,13 +132,13 @@ export default function CalendarView({
               <span className="chip" style={{ background: "#fff" }} /> 0 booked
             </span>
             <span>
-              <span className="chip" style={{ background: "var(--accent-tint)" }} /> partly booked
+              <span className="chip" style={{ background: "var(--slot-some)" }} /> partly booked
             </span>
             <span>
-              <span className="chip" style={{ background: "var(--accent)" }} /> full
+              <span className="chip" style={{ background: "var(--slot-full)" }} /> full
             </span>
             <span>
-              <span className="chip" style={{ background: "var(--muted-bg)" }} /> not offered at this time
+              <span className="chip chip-na" /> not offered at this time
             </span>
           </div>
         </>

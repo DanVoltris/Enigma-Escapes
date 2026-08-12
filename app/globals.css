@@ -13,6 +13,13 @@
   --sold-text: #8a949c;
   --danger: #c43b3b;
   --danger-tint: #fdf1f1;
+  /* Calendar slot states. --accent-tint and --muted-bg are both a hair off
+     white, which is fine behind text but useless as a fill you have to
+     recognise at a glance across a wide grid — these are deliberately
+     stronger, and step up in weight from empty to full. */
+  --slot-some: #b3ddf7; /* partly booked */
+  --slot-full: #4aabe8; /* full */
+  --slot-na: #d5dbe1; /* not offered at this time */
 }
 
 * {
@@ -2261,16 +2268,25 @@ a:hover {
   color: var(--text);
 }
 .mgr-cal .cell.na {
-  background: var(--muted-bg);
-  color: var(--sold-text);
+  background-color: var(--slot-na);
+  /* Hatched as well as grey: "no session here" is a different kind of thing
+     from "nobody booked", and the stripes survive a colourblind reader and a
+     bad monitor in a way a flat tint doesn't. */
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(22, 33, 43, 0.09) 0 4px,
+    transparent 4px 9px
+  );
+  color: #525c64; /* 4.9:1 on the grey — readable, still clearly secondary */
   font-weight: 400;
 }
 .mgr-cal .cell.some {
-  background: var(--accent-tint);
+  background: var(--slot-some);
+  color: var(--accent-dark);
 }
 .mgr-cal .cell.full {
-  background: var(--accent);
-  color: var(--accent-dark);
+  background: var(--slot-full);
+  color: #05263f;
 }
 /* a booked cell is a <button> that opens the session panel; make it look and
    behave exactly like the old link cell (backgrounds come from .some/.full). */
@@ -3906,4 +3922,15 @@ textarea:focus {
 .card-sub.warn {
   color: var(--danger);
   font-weight: 600;
+}
+
+/* Legend swatch for "not offered" — carries the same hatch as the cells, so
+   the key actually looks like the thing it explains. */
+.mgr-legend .chip-na {
+  background-color: var(--slot-na);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(22, 33, 43, 0.09) 0 4px,
+    transparent 4px 9px
+  );
 }
