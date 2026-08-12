@@ -83,7 +83,13 @@ export default async function ManagerDashboard({
       )}
 
       {view === "operations" ? (
-        <OperationsView bookings={perfBookings} today={viewDate} loc={loc} locations={locations} />
+        <OperationsView
+          bookings={perfBookings}
+          today={viewDate}
+          loc={loc}
+          locations={locations}
+          canSeeRevenue={canSeePerformance}
+        />
       ) : (
         <PerformanceView
           bookings={perfBookings}
@@ -104,11 +110,15 @@ async function OperationsView({
   today,
   loc,
   locations,
+  canSeeRevenue,
 }: {
   bookings: Booking[];
   today: string;
   loc: string | null;
   locations: string[];
+  // Takings are for whoever can see the reports. Front desk and managers run
+  // the day; what the venue earns is not part of that job.
+  canSeeRevenue: boolean;
 }) {
   const [staffNotes, activity] = await Promise.all([listStaffNotes(), listActivity(8)]);
   const isToday = today === todayISO();
@@ -179,11 +189,13 @@ async function OperationsView({
           <div className="value">{guestsToday}</div>
           <div className="hint">people walking through the door</div>
         </div>
-        <div className="mgr-stat">
-          <div className="label">Expected revenue today</div>
-          <div className="value">{formatMoney(expectedRevenueToday)}</div>
-          <div className="hint">before tax and discounts</div>
-        </div>
+        {canSeeRevenue && (
+          <div className="mgr-stat">
+            <div className="label">Expected revenue today</div>
+            <div className="value">{formatMoney(expectedRevenueToday)}</div>
+            <div className="hint">before tax and discounts</div>
+          </div>
+        )}
         <div className="mgr-stat">
           <div className="label">New bookings today</div>
           <div className="value">{newBookingsToday}</div>

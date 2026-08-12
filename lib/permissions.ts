@@ -56,8 +56,10 @@ const CLERK_PERMISSIONS: Permission[] = [
   "notes",
 ];
 
-// Manager gets everything except staff administration; admin gets the lot.
-const MANAGER_PERMISSIONS: Permission[] = PERMISSIONS.filter((p) => p !== "staff");
+// Manager runs the venue day to day but does not see what it earns: reports
+// and the revenue figures gated behind them are owner business, as is staff
+// administration. Admin gets the lot.
+const MANAGER_PERMISSIONS: Permission[] = PERMISSIONS.filter((p) => p !== "staff" && p !== "reports");
 
 export function defaultPermissionsFor(role: StaffRole): Permission[] {
   if (role === "admin") return [...PERMISSIONS];

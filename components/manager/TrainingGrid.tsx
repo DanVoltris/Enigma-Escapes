@@ -27,7 +27,7 @@ export default function TrainingGrid({ members, rooms }: { members: StaffMember[
     setBusy(id);
     setError(null);
     try {
-      const res = await fetch(`/api/manager/staff/${id}`, {
+      const res = await fetch(`/api/manager/roster/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -53,7 +53,7 @@ export default function TrainingGrid({ members, rooms }: { members: StaffMember[
     setBusy(id);
     setError(null);
     try {
-      const res = await fetch(`/api/manager/staff/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/manager/roster/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not remove that person.");
       router.refresh();
@@ -69,7 +69,7 @@ export default function TrainingGrid({ members, rooms }: { members: StaffMember[
     setBusy("new");
     setError(null);
     try {
-      const res = await fetch("/api/manager/staff", {
+      const res = await fetch("/api/manager/roster", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() }),

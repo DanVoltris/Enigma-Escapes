@@ -37,7 +37,7 @@ export default function StaffBoard({
     setBusy(memberId);
     setError(null);
     try {
-      const res = await fetch("/api/manager/staff/clock", {
+      const res = await fetch("/api/manager/roster/clock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberId, action, location }),
