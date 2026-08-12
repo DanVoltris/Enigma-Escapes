@@ -3200,6 +3200,12 @@ a:hover {
   .rpt-layout {
     grid-template-columns: 1fr;
   }
+  /* A 1fr track is minmax(auto, 1fr), and that auto floor grows to the widest
+     child — so the stacked rail was still forcing a 637px column on a 390px
+     screen. min-width:0 lets the track actually shrink. */
+  .rpt-layout > * {
+    min-width: 0;
+  }
   .rpt-nav {
     position: static;
   }
@@ -3933,4 +3939,106 @@ textarea:focus {
     rgba(22, 33, 43, 0.09) 0 4px,
     transparent 4px 9px
   );
+}
+
+/* ============================================================
+   Phone layout
+   The grid is already fluid; these fix the places that assume a
+   desktop-width row, and make touch targets big enough to hit.
+   ============================================================ */
+
+/* Filter rows put a date picker beside a labelled dropdown. Side by side they
+   overrun a 390px screen — the dashboard scrolled sideways by 8px — so let
+   them wrap and fill the width instead of being cut off. */
+@media (max-width: 640px) {
+  .day-nav.spaced {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .day-nav.spaced > * {
+    flex: 1 1 auto;
+  }
+  .day-nav .field {
+    min-width: 0 !important;
+    flex: 1 1 160px;
+  }
+  /* The dropdown reserves 220px so its label never wraps on desktop. On a
+     390px screen that is wider than the space it has, and it pushed the whole
+     page sideways — let it shrink to whatever the row gives it. */
+  .selectmenu,
+  .selectmenu-trigger {
+    min-width: 0;
+    width: 100%;
+  }
+  .mgr-actions-row {
+    gap: 12px;
+  }
+
+  /* The staff-portal bar stacks rather than squeezing the name against the
+     links until both are unreadable. */
+  .mgr-topbar-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Customer header: "Gift vouchers" was wrapping mid-phrase. */
+  .site-header-inner {
+    padding: 16px 16px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .site-nav {
+    gap: 14px;
+    font-size: 12px;
+  }
+
+  .mgr-content,
+  .site-main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* A wide table scrolls inside its own box. Say so, rather than leaving the
+     cut-off edge looking like a rendering fault. */
+  .mgr-table-wrap {
+    position: relative;
+  }
+  .mgr-table-wrap::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    pointer-events: none;
+    background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.95));
+  }
+}
+
+/* Touch: 44px is the smallest reliably hittable target with a finger. Applied
+   by pointer type rather than width, so a tablet gets it and a mouse doesn't
+   lose the tighter desktop spacing. */
+@media (pointer: coarse) {
+  .btn,
+  button.btn,
+  .selectmenu-trigger,
+  .datepicker-trigger,
+  .field input,
+  .field select,
+  .field textarea,
+  .staff-chip,
+  .vch-chip {
+    min-height: 44px;
+  }
+  .mgr-nav a,
+  .site-nav a {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  /* Momentum scrolling for the tables that have to scroll sideways. */
+  .mgr-table-wrap,
+  .mgr-nav {
+    -webkit-overflow-scrolling: touch;
+  }
 }
