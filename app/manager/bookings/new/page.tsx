@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
+import OnShiftPanel from "@/components/manager/OnShiftPanel";
 import WalkInForm from "@/components/manager/WalkInForm";
 
 export default async function NewWalkInPage() {
@@ -14,6 +15,7 @@ export default async function NewWalkInPage() {
         Record a booking taken in person or over the phone. It&apos;s tagged as in-person so you can see the
         split against online bookings on the dashboard.
       </p>
+      <OnShiftPanel />
       <WalkInForm />
     </>
   );

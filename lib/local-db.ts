@@ -35,6 +35,8 @@ const PK: Record<string, string> = {
   staff_sessions: "token_hash", // active staff sessions (revocable)
   gift_vouchers: "code", // prepaid dollar balances
   reward_codes: "code", // 20%-off codes texted after a booking
+  staff_members: "id", // the people who run the games (not logins)
+  staff_shifts: "id", // check in / check out records
 };
 
 // Query-string keys that are PostgREST directives, not column filters.
