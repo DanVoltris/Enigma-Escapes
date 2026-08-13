@@ -1160,11 +1160,16 @@ a:hover {
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  /* Fifteen tabs came to 1283px inside a 1132px strip, so the bar scrolled
+     sideways on every screen — the cap matches the content column, so a wider
+     window never helped. Tighter tabs (below) bring it to ~1105px; this stays
+     as the fallback for genuinely narrow windows and phones. */
   overflow-x: auto;
+  scrollbar-width: thin;
 }
 .mgr-tab {
-  padding: 14px 14px 11px;
+  padding: 14px 8px 11px;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
