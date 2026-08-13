@@ -6,6 +6,7 @@ import { getExperience } from "@/lib/experiences";
 import { formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES } from "@/lib/format";
 import { getLocationHours } from "@/lib/hours";
 import { createRequest } from "@/lib/requests";
+import { notifyNewRequest } from "@/lib/sms";
 import { startTimesFor } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,12 @@ export async function POST(req: NextRequest) {
       date, time, quantity, firstName, lastName, phone, email,
     });
     await logActivity("Booking request received", `${exp.name} ${formatTime(time)} — ${firstName} ${lastName}, ${quantity} guests`);
+    // Best-effort: the request is already saved, so a failed text must never
+    // turn into an error the customer sees.
+    await notifyNewRequest(
+      { roomName: exp.name, location: exp.location, date, time, quantity, firstName, lastName, phone },
+      req.nextUrl.origin
+    );
     return NextResponse.json({ ok: true, id: request.id }, { status: 201 });
   } catch (err) {
     console.error("creating booking request failed:", err);

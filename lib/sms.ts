@@ -174,3 +174,55 @@ export async function notifyRewardCode(
     console.error("reward SMS failed:", err);
   }
 }
+
+// Tells the team a booking request has landed. These are always for a session
+// starting within the next few hours and they expire at session start, so
+// nobody sees one unless they happen to have the Requests tab open — hence a
+// text rather than a badge.
+//
+// Every number is tried independently: one bad number must not stop the rest
+// being told, and none of it can be allowed to fail the customer's request.
+export async function notifyNewRequest(
+  request: {
+    roomName: string;
+    location: string;
+    date: string;
+    time: string;
+    quantity: number;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  },
+  origin: string
+): Promise<number> {
+  if (!smsConfigured()) return 0;
+
+  let numbers: string[] = [];
+  try {
+    const business = (await getBusinessDetails()).value;
+    numbers = business?.requestAlertNumbers ?? [];
+    // Nobody configured yet — fall back to the business line, so a request is
+    // never silently missed just because the setting is empty.
+    if (numbers.length === 0) {
+      const fallback = business?.cell || business?.phone;
+      if (fallback) numbers = [fallback];
+    }
+  } catch (err) {
+    console.error("could not read request alert numbers:", err);
+    return 0;
+  }
+  if (numbers.length === 0) return 0;
+
+  const who = `${request.firstName} ${request.lastName}`.trim();
+  const body =
+    `NEW BOOKING REQUEST — ${request.roomName} (${request.location}) ` +
+    `${formatDateLong(request.date)} at ${formatTime(request.time)}, ${request.quantity} guest` +
+    `${request.quantity === 1 ? "" : "s"}. ${who} ${request.phone}. ` +
+    `Accept or decline: ${origin}/manager/requests`;
+
+  const results = await Promise.allSettled(numbers.map((n) => sendSms(n, body)));
+  results.forEach((r, i) => {
+    if (r.status === "rejected") console.error(`request alert to ${numbers[i]} failed:`, r.reason);
+  });
+  return results.filter((r) => r.status === "fulfilled").length;
+}

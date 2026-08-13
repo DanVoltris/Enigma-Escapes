@@ -27,6 +27,16 @@ export async function PUT(req: NextRequest) {
     website: str(d.website, 200),
     taxLabel: str(d.taxLabel, 80),
     taxNumber: str(d.taxNumber, 40),
+    // Accepts one per line or comma separated — whichever way it gets pasted.
+    requestAlertNumbers: (typeof d.requestAlertNumbers === "string"
+      ? (d.requestAlertNumbers as string).split(/[\n,;]+/)
+      : Array.isArray(d.requestAlertNumbers)
+        ? (d.requestAlertNumbers as unknown[]).map(String)
+        : []
+    )
+      .map((n) => n.trim().slice(0, 40))
+      .filter((n) => n.length > 0)
+      .slice(0, 10),
   };
 
   if (!details.companyName) {
@@ -37,6 +47,13 @@ export async function PUT(req: NextRequest) {
   }
   if (details.website && !/^https?:\/\/\S+$/.test(details.website)) {
     return NextResponse.json({ error: "The website should start with http:// or https://." }, { status: 400 });
+  }
+  const badNumber = (details.requestAlertNumbers ?? []).find((n) => !/^[\d\s()+-]{7,}$/.test(n));
+  if (badNumber) {
+    return NextResponse.json(
+      { error: `"${badNumber}" doesn't look like a phone number. One per line, digits only plus + ( ) - and spaces.` },
+      { status: 400 }
+    );
   }
 
   try {

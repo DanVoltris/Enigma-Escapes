@@ -85,6 +85,33 @@ export default function BusinessDetailsForm({ initial }: { initial: BusinessDeta
       </div>
 
       <div className="mgr-card">
+        <h2>Booking request alerts</h2>
+        <p className="card-sub">
+          Who gets a text the moment a booking request comes in. These are for sessions starting within the next few
+          hours and they expire when the session starts, so nobody sees one unless they happen to have the Requests
+          tab open. One number per line, up to ten.
+        </p>
+        <div className="mgr-form">
+          <div className="field" style={{ maxWidth: 420 }}>
+            <label htmlFor="bd-alerts">Numbers to text</label>
+            <textarea
+              id="bd-alerts"
+              rows={4}
+              value={(d.requestAlertNumbers ?? []).join("\n")}
+              onChange={(e) =>
+                setD((prev) => ({ ...prev, requestAlertNumbers: e.target.value.split("\n") }))
+              }
+              placeholder={"204 555 0134\n204 555 0198"}
+            />
+            <p className="field-hint">
+              Leave empty and the alert goes to the business cell (or the business phone) instead, so a request is
+              never missed entirely.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mgr-card">
         <h2>Tax information</h2>
         <p className="card-sub">Shown on receipts when set (e.g. your GST registration). Rates live under Taxes &amp; fees.</p>
         <div className="mgr-form">
