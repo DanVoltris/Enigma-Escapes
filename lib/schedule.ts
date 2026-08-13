@@ -39,6 +39,9 @@ export function startTimesFor(exp: Experience, date: string, hours?: LocationHou
   if (exp.scheduleMode === "window") {
     const w: DayWindow | undefined = exp.windows[dow];
     if (!w || w.closed) return [];
+    // An explicit list for this weekday beats the interval: it is exactly what
+    // the customer is shown, irregular gaps and all.
+    if (w.times && w.times.length > 0) return [...w.times].sort();
     const first = toMinutes(w.first);
     const last = toMinutes(w.last);
     if (last < first) return [];

@@ -3,7 +3,12 @@ export type ScheduleMode = "times" | "window" | "store";
 
 // Per-weekday booking window for "window" mode. Keys are day-of-week "0".."6"
 // (0 = Sunday). A day missing or closed offers no sessions.
-export type DayWindow = { first: string; last: string; closed: boolean };
+// A day's schedule. `times` is an explicit list for that weekday and wins when
+// present — venues rarely run a clean interval all day (Alice in Wonderland's
+// last two weekend slots are 75 minutes apart where the rest are 90), and the
+// published times are the contract with the customer, so they are stored
+// literally rather than derived.
+export type DayWindow = { first: string; last: string; closed: boolean; times?: string[] };
 export type Windows = Record<string, DayWindow>;
 
 // Per-weekday opening hours for a location ("store" mode source).
