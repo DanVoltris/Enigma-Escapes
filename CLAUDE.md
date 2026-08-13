@@ -97,7 +97,20 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   suggested in the walk-in lookup). Supabase needs: `create table customers (email text primary
   key, first_name text not null, last_name text not null, phone text, subscribe boolean not null
   default false, created_at timestamptz not null default now()); alter table customers enable
-  row level security;` (local mode needs nothing).
+  row level security;` plus `alter table customers add column if not exists imported jsonb;`
+  (local mode needs nothing). Clicking a customer's name opens a summary popup
+  (`CustomerQuickView`); clicking anywhere else in the row opens their full profile, which also
+  works for people who have never booked here.
+- Importing customers from the old booking system: `npm run import:customers -- <file.csv>`
+  (add `--dry-run` for the summary without writing, `--show=<email>` to inspect one parsed row).
+  Takes several files at once, maps columns by header name — the exports' column layout has
+  already changed once — and upserts on email, so re-running a file is a no-op. Where the same
+  legacy account appears in two exports the newer one wins, decided by the timestamp in the
+  filename rather than argument order; two *different* legacy accounts sharing an email have
+  their history added together. The old system's per-customer totals land in the `imported`
+  jsonb column and show on the Customers tab alongside anything booked here. Walk-in placeholder
+  accounts are left out and listed at the end of the run. With `USE_LOCAL_DATA=true` it writes
+  to `.local-data.json` instead — the way to preview an import without touching production.
 - Blocked hours: managers take sessions out of service on `/manager/blocks` (linked from
   Calendar) — per-slot rows in `slot_blocks`. Blocked slots are hidden from availability (site
   + partner feed) and refused by create-booking (walk-ins included) and the requests API.

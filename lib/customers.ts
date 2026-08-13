@@ -6,6 +6,31 @@
 // created_at timestamptz).
 import { rest, restError } from "./supabase";
 
+// History carried over from the old booking system (scripts/import-customers.mjs).
+// Every field is optional: it's jsonb written from a CSV whose columns have
+// already changed once between exports, so nothing here is guaranteed.
+export type ImportedHistory = {
+  source?: string | null;
+  legacyId?: string | null;
+  joinedAt?: string | null;
+  altPhone?: string | null;
+  dob?: string | null;
+  transactions?: number;
+  bookings?: number;
+  bookingValueCents?: number;
+  paidCents?: number;
+  unpaidCents?: number;
+  overpaidCents?: number;
+  creditCents?: number;
+  creditRemainingCents?: number;
+  vouchers?: number;
+  voucherValueCents?: number;
+  waiver?: string | null;
+  lastAttended?: string | null;
+  lastItem?: string | null;
+  mergedFrom?: string[];
+};
+
 export type ManualCustomer = {
   email: string;
   firstName: string;
@@ -13,6 +38,7 @@ export type ManualCustomer = {
   phone: string;
   subscribe: boolean;
   createdAt: string;
+  imported: ImportedHistory | null;
 };
 
 type Row = {
@@ -22,25 +48,47 @@ type Row = {
   phone: string;
   subscribe: boolean;
   created_at: string;
+  imported: ImportedHistory | null;
 };
 
+const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+// PostgREST caps a plain select at 1000 rows, so this pages through with
+// limit/offset — the imported roster runs to several thousand people and
+// silently stopping at 1000 would hide most of them. A hard page ceiling keeps
+// a miscounting backend from looping forever.
+const PAGE = 1000;
+const MAX_PAGES = 100;
+
 export async function listManualCustomers(): Promise<ManualCustomer[]> {
-  const res = await rest("customers?select=*&order=created_at.desc");
-  if (res.status === 404) return []; // table not created yet
-  if (!res.ok) throw await restError(res, "Loading customers");
-  return ((await res.json()) as Row[]).map((r) => ({
+  const rows: Row[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = await rest(
+      `customers?select=*&order=created_at.desc&limit=${PAGE}&offset=${page * PAGE}`
+    );
+    if (res.status === 404) return []; // table not created yet
+    if (!res.ok) throw await restError(res, "Loading customers");
+    const batch = (await res.json()) as Row[];
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return rows.map((r) => ({
     email: r.email,
     firstName: r.first_name,
     lastName: r.last_name,
     phone: r.phone ?? "",
     subscribe: r.subscribe === true,
     createdAt: r.created_at,
+    imported: r.imported && typeof r.imported === "object" ? r.imported : null,
   }));
 }
 
 // One row per email across bookings + manually added customers — the same
 // merge the Customers tab shows (booking stats accumulate; newest booking
 // wins the contact details). Used by the page and the CSV export.
+// Bookings/guests/spent are lifetime figures: anything imported from the old
+// system plus everything booked here. `imported` is kept alongside so the
+// Customers tab can show where the numbers came from.
 export type CustomerRowData = {
   name: string;
   email: string;
@@ -50,6 +98,7 @@ export type CustomerRowData = {
   guests: number;
   spentCents: number;
   lastBooked: string;
+  imported: ImportedHistory | null;
 };
 
 export async function aggregateCustomers(
@@ -58,15 +107,18 @@ export async function aggregateCustomers(
 ): Promise<CustomerRowData[]> {
   const byEmail = new Map<string, CustomerRowData>();
   for (const m of manual) {
+    // Imported people start on their old-system totals; bookings made here are
+    // added on top by the loop below.
     byEmail.set(m.email.toLowerCase(), {
       name: `${m.firstName} ${m.lastName}`,
       email: m.email,
       phone: m.phone,
       subscribed: m.subscribe,
-      bookings: 0,
-      guests: 0,
-      spentCents: 0,
+      bookings: num(m.imported?.bookings),
+      guests: 0, // the old export never recorded party sizes
+      spentCents: num(m.imported?.paidCents),
       lastBooked: m.createdAt,
+      imported: m.imported,
     });
   }
   for (const b of bookings) {
@@ -80,6 +132,7 @@ export async function aggregateCustomers(
       guests: 0,
       spentCents: 0,
       lastBooked: b.createdAt,
+      imported: null,
     };
     row.bookings += 1;
     row.guests += b.items.reduce((s, i) => s + i.quantity, 0);
@@ -116,6 +169,10 @@ export async function upsertManualCustomer(c: ManualCustomer): Promise<void> {
         phone: c.phone,
         subscribe: c.subscribe,
         created_at: c.createdAt,
+        // Left out entirely when there's nothing to say: an upsert only touches
+        // the columns it names, so re-adding someone by hand keeps whatever
+        // history the import gave them.
+        ...(c.imported ? { imported: c.imported } : {}),
       },
     ]),
   });

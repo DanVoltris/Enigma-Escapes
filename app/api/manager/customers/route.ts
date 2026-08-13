@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
       phone,
       subscribe: o.subscribe === true,
       createdAt: new Date().toISOString(),
+      imported: null, // hand-added; any existing import history is left alone
     });
     await logActivity("Customer added", `${firstName} ${lastName} (${email})`);
     return NextResponse.json({ ok: true }, { status: 201 });

@@ -98,6 +98,7 @@ export default async function ManagerCustomers({
                   guests={c.guests}
                   spentCents={c.spentCents}
                   subscribed={c.subscribed}
+                  imported={c.imported}
                 />
               ))}
             </tbody>

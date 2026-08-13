@@ -132,6 +132,10 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
   if (method === "GET") {
     let result = rows.filter((r) => matchesFilters(r, params));
     result = applyOrder(result, params.get("order"));
+    // offset before limit, so paging through a big table (lib/customers.ts)
+    // walks it instead of handing back the same first page every time.
+    const offset = Number(params.get("offset") ?? 0);
+    if (offset > 0) result = result.slice(offset);
     const limit = params.get("limit");
     if (limit) result = result.slice(0, Number(limit));
     return json(result, 200);

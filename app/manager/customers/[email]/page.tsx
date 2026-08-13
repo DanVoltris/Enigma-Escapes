@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from "@/components/manager/CustomerTabs";
+import { listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -21,21 +22,39 @@ export default async function ManagerCustomerDetail({
   const { email: rawEmail } = await params;
   const email = decodeURIComponent(rawEmail).toLowerCase();
 
-  const [all, experiences] = await Promise.all([listBookings(), listExperiences()]);
+  const [all, experiences, manual] = await Promise.all([
+    listBookings(),
+    listExperiences(),
+    listManualCustomers(),
+  ]);
   const bookings = all
     .filter((b) => b.customer.email.toLowerCase() === email)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // Imported and hand-added people have no bookings here yet, so the stored
+  // record is all there is to go on.
+  const record = manual.find((m) => m.email.toLowerCase() === email) ?? null;
 
-  if (bookings.length === 0) notFound();
+  if (bookings.length === 0 && !record) notFound();
 
   const expMap = new Map(experiences.map((e) => [e.id, e]));
 
-  // Most recent booking holds the freshest contact details.
-  const latest = bookings[0];
-  const { customer } = latest;
+  // Most recent booking holds the freshest contact details; failing that, the
+  // stored record does.
+  const latest = bookings[0] ?? null;
+  const customer = latest
+    ? latest.customer
+    : {
+        firstName: record!.firstName,
+        lastName: record!.lastName,
+        email: record!.email,
+        phone: record!.phone,
+        subscribe: record!.subscribe,
+      };
+  const imported = record?.imported ?? null;
   const name = `${customer.firstName} ${customer.lastName}`.trim();
-  const since = bookings[bookings.length - 1].createdAt.slice(0, 10);
+  const since = (latest ? bookings[bookings.length - 1].createdAt : record!.createdAt).slice(0, 10);
   const guests = bookings.reduce((s, b) => s + b.items.reduce((t, i) => t + i.quantity, 0), 0);
+  const num = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
   // Lifetime money totals across every booking (real pricing, incl. tax).
   const sum = (f: (p: (typeof bookings)[number]["pricing"]) => number) =>
@@ -106,11 +125,11 @@ export default async function ManagerCustomerDetail({
           <dl className="cust-facts">
             <div>
               <dt>Bookings</dt>
-              <dd>{bookings.length}</dd>
+              <dd>{bookings.length + num(imported?.bookings)}</dd>
             </div>
             <div>
               <dt>Guests brought</dt>
-              <dd>{guests}</dd>
+              <dd>{guests || "—"}</dd>
             </div>
           </dl>
 
@@ -131,8 +150,48 @@ export default async function ManagerCustomerDetail({
                   {customer.subscribe ? "Subscribed to marketing emails" : "Not subscribed to marketing emails"}
                 </span>
               </span>
+              {imported?.altPhone && (
+                <span className="cust-info-row">
+                  <span className="ico" aria-hidden="true">☎</span>
+                  <a href={`tel:${imported.altPhone}`}>{imported.altPhone}</a>
+                </span>
+              )}
             </p>
           </div>
+
+          {imported && (
+            <div className="cust-info">
+              <h2>Previous booking system</h2>
+              <p>
+                <span className="cust-info-row">
+                  <span className="sub">
+                    {num(imported.bookings)} booking{num(imported.bookings) === 1 ? "" : "s"} ·{" "}
+                    {formatMoney(num(imported.paidCents))} paid
+                  </span>
+                </span>
+                {num(imported.unpaidCents) > 0 && (
+                  <span className="cust-info-row">
+                    <span className="sub">{formatMoney(num(imported.unpaidCents))} left unpaid</span>
+                  </span>
+                )}
+                {num(imported.creditRemainingCents) > 0 && (
+                  <span className="cust-info-row">
+                    <span className="sub">
+                      {formatMoney(num(imported.creditRemainingCents))} credit remaining
+                    </span>
+                  </span>
+                )}
+                {imported.lastAttended && (
+                  <span className="cust-info-row">
+                    <span className="sub">
+                      Last played {imported.lastAttended}
+                      {imported.lastItem ? ` — ${imported.lastItem}` : ""}
+                    </span>
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
         </aside>
 
         <div className="cust-main">
@@ -172,6 +231,13 @@ export default async function ManagerCustomerDetail({
           <div className="mgr-two-col">
             <div className="mgr-card">
               <h2>Activity</h2>
+              {bookings.length === 0 && (
+                <p className="cust-empty">
+                  {imported
+                    ? "Nothing yet — this customer came over from the previous booking system, so their history isn't itemised here."
+                    : "No bookings yet."}
+                </p>
+              )}
               <ul className="cust-activity">
                 {bookings.map((b) => {
                   const created = new Date(b.createdAt);
