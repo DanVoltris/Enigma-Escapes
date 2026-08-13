@@ -3188,6 +3188,15 @@ a:hover {
   margin-top: 22px;
 }
 
+.cust-totals-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* customer summary popup (Customers tab → click a name) */
 .cust-name-btn {
   background: none;

@@ -56,16 +56,25 @@ export default async function ManagerCustomerDetail({
   const guests = bookings.reduce((s, b) => s + b.items.reduce((t, i) => t + i.quantity, 0), 0);
   const num = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
-  // Lifetime money totals across every booking (real pricing, incl. tax).
+  // Lifetime money totals across every booking (real pricing, incl. tax), plus
+  // whatever the old system recorded. That export only carries per-customer
+  // sums — no subtotal/tax split and no per-booking lines — so the legacy money
+  // lands in the three bottom-line figures and the rest stays live-only.
   const sum = (f: (p: (typeof bookings)[number]["pricing"]) => number) =>
     bookings.reduce((s, b) => s + f(b.pricing), 0);
+  const legacy = {
+    total: num(imported?.bookingValueCents),
+    paid: num(imported?.paidCents),
+    due: num(imported?.unpaidCents),
+  };
+  const hasLegacyMoney = legacy.total > 0 || legacy.paid > 0 || legacy.due > 0;
   const totals = {
     subtotal: sum((p) => p.subtotalCents),
     discount: sum((p) => p.discountCents),
     tax: sum((p) => p.gstCents),
-    total: sum((p) => p.totalCents),
-    paid: sum((p) => p.paidCents),
-    due: sum((p) => p.balanceCents),
+    total: sum((p) => p.totalCents) + legacy.total,
+    paid: sum((p) => p.paidCents) + legacy.paid,
+    due: sum((p) => p.balanceCents) + legacy.due,
   };
 
   const purchases: Purchase[] = bookings.flatMap((b) =>
@@ -199,20 +208,26 @@ export default async function ManagerCustomerDetail({
             <CustomerTabs purchases={purchases} payments={payments} taxes={taxes} promos={promos} />
 
             <div className="cust-totals">
-              <div>
-                <div className="label">Subtotal</div>
-                <div className="value">{formatMoney(totals.subtotal)}</div>
-              </div>
+              {/* Subtotal and tax come from bookings made here; with none, they'd
+                  read $0.00 next to real legacy money, so they're left out. */}
+              {bookings.length > 0 && (
+                <div>
+                  <div className="label">Subtotal</div>
+                  <div className="value">{formatMoney(totals.subtotal)}</div>
+                </div>
+              )}
               {totals.discount > 0 && (
                 <div>
                   <div className="label">Discounts</div>
                   <div className="value">−{formatMoney(totals.discount)}</div>
                 </div>
               )}
-              <div>
-                <div className="label">Taxes</div>
-                <div className="value">{formatMoney(totals.tax)}</div>
-              </div>
+              {bookings.length > 0 && (
+                <div>
+                  <div className="label">Taxes</div>
+                  <div className="value">{formatMoney(totals.tax)}</div>
+                </div>
+              )}
               <div>
                 <div className="label">Total</div>
                 <div className="value">{formatMoney(totals.total)}</div>
@@ -226,6 +241,15 @@ export default async function ManagerCustomerDetail({
                 <div className={`value${totals.due > 0 ? " due" : ""}`}>{formatMoney(totals.due)}</div>
               </div>
             </div>
+
+            {hasLegacyMoney && (
+              <p className="cust-totals-note">
+                Includes {formatMoney(legacy.paid)} paid
+                {legacy.due > 0 ? ` and ${formatMoney(legacy.due)} outstanding` : ""} from the previous
+                booking system. That export recorded totals per customer only, so those sessions can&apos;t be
+                listed individually above.
+              </p>
+            )}
           </div>
 
           <div className="mgr-two-col">
