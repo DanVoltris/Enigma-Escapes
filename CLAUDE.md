@@ -14,7 +14,7 @@ account to particular locations. Guards live in `lib/auth.ts`: pages call
 server-side, so hiding a nav tab is never the security boundary. With zero accounts, `/login`
 becomes a one-time first-admin setup that closes permanently once an account exists.
 
-Stack: Next.js (App Router) + TypeScript + React. Supabase (project ref `naztszcfcbjqxxvyydjr`)
+Stack: Next.js (App Router) + TypeScript + React. Supabase (project ref `dvpqsqnnvfjcgvtatfzo`)
 stores `bookings`, `experiences`, and `promo_codes`, accessed server-side only via the
 PostgREST API with plain `fetch` — no Supabase SDK dependency. Route groups: `app/(site)` is
 the customer flow (own layout with cart header), `app/manager` is the portal (own layout,
@@ -30,7 +30,7 @@ npm run dev
 Then open http://localhost:3000. Requires `.env.local` (gitignored) with:
 
 ```
-SUPABASE_URL=https://naztszcfcbjqxxvyydjr.supabase.co
+SUPABASE_URL=https://dvpqsqnnvfjcgvtatfzo.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service_role key — Supabase dashboard → Settings → API keys>
 ```
 
