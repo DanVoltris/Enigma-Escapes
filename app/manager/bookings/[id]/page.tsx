@@ -208,6 +208,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                 currentRoomId={items[0].roomId}
                 currentDate={items[0].date}
                 currentTime={items[0].time}
+                currentQuantity={items[0].quantity}
                 rooms={experiences
                   .filter((e) => e.active)
                   .map((e) => ({ id: e.id, name: e.name, location: e.location }))}

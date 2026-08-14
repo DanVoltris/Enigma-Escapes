@@ -16,6 +16,7 @@ export default function BookingActions({
   currentRoomId,
   currentDate,
   currentTime,
+  currentQuantity,
   rooms,
 }: {
   bookingId: string;
@@ -24,16 +25,20 @@ export default function BookingActions({
   currentRoomId: string;
   currentDate: string;
   currentTime: string;
+  currentQuantity: number;
   rooms: Room[];
 }) {
   const router = useRouter();
-  const [panel, setPanel] = useState<"none" | "cancel" | "move">("none");
+  const [panel, setPanel] = useState<"none" | "cancel" | "move" | "party">("none");
 
   // Cancel
   const [refund, setRefund] = useState<"full" | "partial" | "none">("full");
   const [partial, setPartial] = useState((paidCents / 100).toFixed(2));
   const [notifyCancel, setNotifyCancel] = useState(true);
   const [confirming, setConfirming] = useState(false);
+
+  // Party size
+  const [guests, setGuests] = useState(String(currentQuantity));
 
   // Move
   const [roomId, setRoomId] = useState(currentRoomId);
@@ -100,12 +105,43 @@ export default function BookingActions({
     }
   }
 
+  async function changeParty() {
+    setBusy(true);
+    setError(null);
+    setDone(null);
+    try {
+      const res = await fetch(`/api/manager/bookings/${bookingId}/party`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: Number(guests) }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(d.error ?? "Could not change the party size.");
+        return;
+      }
+      setDone(
+        d.balanceCents > 0
+          ? `Now ${d.quantity} guests — ${formatMoney(d.balanceCents)} still to collect.`
+          : d.balanceCents < 0
+            ? `Now ${d.quantity} guests — ${formatMoney(-d.balanceCents)} to refund.`
+            : `Now ${d.quantity} guests — nothing further owed.`
+      );
+      setPanel("none");
+      router.refresh();
+    } catch {
+      setError("Could not change the party size. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mgr-card">
-      <h2>Cancel or move</h2>
+      <h2>Change this booking</h2>
       <p className="card-sub">
-        For the calls that don&apos;t fit the customer&apos;s own link — a late cancellation, a swap to another room,
-        a date change.
+        For the cases the customer&apos;s own link doesn&apos;t cover — a group that turns up a different size, a
+        swap to another room, a date change, a late cancellation.
       </p>
 
       {done && <p className="mgr-pill on">{done}</p>}
@@ -113,6 +149,9 @@ export default function BookingActions({
 
       {panel === "none" && (
         <div className="vch-save">
+          <button type="button" className="btn btn-outline" onClick={() => setPanel("party")}>
+            Change guest count
+          </button>
           <button type="button" className="btn btn-outline" onClick={() => setPanel("move")}>
             Move to another session
           </button>
@@ -120,6 +159,39 @@ export default function BookingActions({
             Cancel booking
           </button>
         </div>
+      )}
+
+      {panel === "party" && (
+        <>
+          <div className="field" style={{ maxWidth: 220 }}>
+            <label htmlFor="ba-guests">Guests playing</label>
+            <input
+              id="ba-guests"
+              type="number"
+              min="1"
+              max="99"
+              value={guests}
+              onChange={(e) => setGuests(e.target.value)}
+            />
+          </div>
+          <p className="card-sub">
+            The total is re-figured at the price this booking was sold at, keeping any discount. What they have
+            already paid stays put — the balance moves.
+          </p>
+          <div className="vch-save">
+            <button
+              type="button"
+              className="btn"
+              onClick={changeParty}
+              disabled={busy || !guests.trim() || Number(guests) === currentQuantity}
+            >
+              {busy ? "Saving…" : "Save guest count"}
+            </button>
+            <button type="button" className="btn btn-outline" onClick={() => setPanel("none")}>
+              Cancel
+            </button>
+          </div>
+        </>
       )}
 
       {panel === "move" && (

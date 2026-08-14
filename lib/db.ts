@@ -476,6 +476,22 @@ export async function rescheduleBooking(id: string, items: Booking["items"]): Pr
   if (!res.ok) throw await restError(res, "Rescheduling the booking");
 }
 
+// Party size changed by staff: the item and the re-figured money go together,
+// so a failure can't leave a booking for six people priced for four.
+export async function updateBookingPartySize(
+  id: string,
+  items: Booking["items"],
+  pricing: Booking["pricing"]
+): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const res = await rest(`bookings?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ items, pricing }),
+  });
+  if (!res.ok) throw await restError(res, "Changing the party size");
+}
+
 // All booked spot counts for one date, keyed "roomId|time". One query per date
 // (the availability page needs every slot) using a jsonb contains filter.
 // Live pending checkouts count — their spots are held until they expire.

@@ -2,11 +2,21 @@
 // text): reschedule to another time, or cancel. Both are refused once the
 // session is inside the cutoff — at that point staff are already prepping the
 // room, so it's a phone call instead.
-import { remainingSpots } from "./capacity";
-import { bookedCount, cancelBooking, logActivity, rescheduleBooking } from "./db";
+import { maxPerBooking, minPerBooking, remainingSpots } from "./capacity";
+import {
+  addBookingNote,
+  bookedCount,
+  cancelBooking,
+  logActivity,
+  rescheduleBooking,
+  updateBookingPartySize,
+} from "./db";
 import { getExperience } from "./experiences";
-import { formatTime, minutesUntilSlot } from "./format";
+import { formatMoney, formatTime, minutesUntilSlot } from "./format";
 import { getLocationHours } from "./hours";
+import { computeTotals } from "./pricing";
+import { getPricingMode } from "./pricing-settings";
+import { activeTaxPercent } from "./taxes";
 import { startTimesFor } from "./schedule";
 import { refundPayment, stripeConfigured } from "./stripe";
 import { revokeRewardsFor } from "./reward-flow";
@@ -225,6 +235,84 @@ export async function cancelForStaff(
 // Move a booking to another slot, optionally into a different room — the
 // answer to "the room's broken, put them next door". Price is carried across
 // unchanged; staff re-quote deliberately rather than have it shift silently.
+// Change how many people are playing — the group that turns up with two more
+// than they booked, or two fewer.
+//
+// The money is re-figured from the price already on the booking, not today's
+// price list: the same reasoning as a staff move, which carries the original
+// price across rather than silently re-quoting. Any discount they had is kept
+// at the same percentage, worked back out of what was originally charged, so a
+// promo that has since expired isn't quietly taken away from them.
+//
+// What they have paid is left alone. The balance moves instead: more guests
+// means more owed at the desk, fewer means the balance drops and can go
+// negative, which shows as a refund owed rather than being written off.
+export async function changePartySize(
+  booking: Booking,
+  quantity: number,
+  staffName: string
+): Promise<{ items: Booking["items"]; pricing: Booking["pricing"] } | { error: string }> {
+  if (booking.items.length !== 1) {
+    return { error: "This booking has several sessions — change them from the calendar instead." };
+  }
+  if (booking.status === "cancelled") return { error: "This booking is cancelled." };
+  const item = booking.items[0];
+  const exp = await getExperience(item.roomId);
+  if (!exp) return { error: "That experience no longer exists." };
+
+  const min = minPerBooking(exp, booking.source);
+  const max = maxPerBooking(exp);
+  if (!Number.isInteger(quantity) || quantity < min || quantity > max) {
+    return { error: `Guests must be a whole number between ${min} and ${max}.` };
+  }
+  if (quantity === item.quantity) return { error: `That booking is already for ${quantity}.` };
+
+  // Only the extra seats need to fit: the ones they already hold are theirs.
+  const takenElsewhere = (await bookedCount(exp.id, item.date, item.time)) - item.quantity;
+  const room = remainingSpots(exp, Math.max(0, takenElsewhere));
+  if (quantity > room) {
+    return {
+      error: exp.isPrivate
+        ? `${exp.name} at ${formatTime(item.time)} only holds ${room}.`
+        : `Only room for ${room} at ${formatTime(item.time)} — that slot is filling up.`,
+    };
+  }
+
+  // Rebuild the totals at the new size, keeping the per-person price and the
+  // effective discount rate this booking was sold at.
+  const listedBefore = item.priceCents * item.quantity;
+  const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
+  const items: Booking["items"] = [{ ...item, quantity }];
+  const totals = computeTotals(items, percentOff, await activeTaxPercent(), await getPricingMode());
+
+  const paid = booking.pricing.paidCents;
+  const pricing: Booking["pricing"] = {
+    ...booking.pricing,
+    subtotalCents: totals.subtotalCents,
+    discountCents: totals.discountCents,
+    gstCents: totals.gstCents,
+    totalCents: totals.totalCents,
+    balanceCents: totals.totalCents - paid,
+  };
+
+  await updateBookingPartySize(booking.id, items, pricing);
+  await logActivity(
+    "Party size changed by staff",
+    `${booking.reference} — ${staffName} — ${item.quantity} → ${quantity} guests`
+  );
+  await addBookingNote(
+    booking.id,
+    `Party size changed from ${item.quantity} to ${quantity}. Total is now ${formatMoney(totals.totalCents)}; ` +
+      (pricing.balanceCents > 0
+        ? `${formatMoney(pricing.balanceCents)} still to collect.`
+        : pricing.balanceCents < 0
+          ? `${formatMoney(-pricing.balanceCents)} to refund.`
+          : "nothing further owed."),
+    staffName
+  );
+  return { items, pricing };
+}
+
 export async function rescheduleForStaff(
   booking: Booking,
   target: { date: string; time: string; roomId?: string },
