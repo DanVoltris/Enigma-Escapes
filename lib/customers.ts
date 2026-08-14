@@ -64,7 +64,11 @@ export async function listManualCustomers(): Promise<ManualCustomer[]> {
   const rows: Row[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const res = await rest(
-      `customers?select=*&order=created_at.desc&limit=${PAGE}&offset=${page * PAGE}`
+      // email breaks ties: created_at alone is not unique (the old system
+      // bulk-loaded hundreds of people on the same minute) and Postgres gives
+      // no stable order within a tie, so rows shuffle between pages and some
+      // are returned twice while others are never returned at all.
+      `customers?select=*&order=created_at.desc,email.desc&limit=${PAGE}&offset=${page * PAGE}`
     );
     if (res.status === 404) return []; // table not created yet
     if (!res.ok) throw await restError(res, "Loading customers");

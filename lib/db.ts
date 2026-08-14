@@ -290,7 +290,10 @@ export async function listBookings(opts?: { includeCancelled?: boolean }): Promi
   const rows: BookingRow[] = [];
   for (let page = 0; page < BOOKING_MAX_PAGES; page++) {
     const res = await rest(
-      `bookings?select=*&order=created_at.desc&limit=${BOOKING_PAGE}&offset=${page * BOOKING_PAGE}`
+      // id breaks ties: created_at is not unique (imported sessions inherit the
+      // legacy booked-on time, and several share one) and Postgres gives no
+      // stable order within a tie, so paging would drop and duplicate rows.
+      `bookings?select=*&order=created_at.desc,id.desc&limit=${BOOKING_PAGE}&offset=${page * BOOKING_PAGE}`
     );
     if (!res.ok) throw await restError(res, "Loading bookings");
     const batch = (await res.json()) as BookingRow[];
