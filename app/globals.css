@@ -372,6 +372,17 @@ a:hover {
   cursor: pointer;
   white-space: nowrap;
 }
+/* An option that can't be picked — a session already full or blocked off. Shown
+   rather than hidden, so staff can see the time exists and why it's unusable. */
+.selectmenu-option.is-disabled {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.selectmenu-option.is-disabled:hover {
+  background: transparent;
+}
+
 .selectmenu-option:hover {
   background: var(--accent-tint);
 }

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { formatMoney } from "@/lib/format";
+import DatePicker from "@/components/DatePicker";
+import SingleSelect from "@/components/SingleSelect";
+import { addDaysISO, formatMoney, formatTime, todayISO } from "@/lib/format";
 
 type Room = { id: string; name: string; location: string };
 
@@ -40,7 +42,12 @@ export default function BookingActions({
   // Party size
   const [guests, setGuests] = useState(String(currentQuantity));
 
-  // Move
+  // Move. The times offered come from the room's own schedule for the chosen
+  // date, with what's already taken marked — a room runs different hours on a
+  // Friday than a Sunday, and typing a time that doesn't exist only fails at
+  // the point of saving.
+  type Slot = { time: string; blocked: boolean; taken: number; remaining: number };
+  const [slots, setSlots] = useState<Slot[] | null>(null);
   const [roomId, setRoomId] = useState(currentRoomId);
   const [date, setDate] = useState(currentDate);
   const [time, setTime] = useState(currentTime);
@@ -104,6 +111,23 @@ export default function BookingActions({
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (panel !== "move") return;
+    let live = true;
+    setSlots(null);
+    fetch(`/api/manager/slots?date=${encodeURIComponent(date)}&ignore=${encodeURIComponent(bookingId)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!live) return;
+        const room = (d.rooms ?? []).find((r: { id: string }) => r.id === roomId);
+        setSlots(room?.times ?? []);
+      })
+      .catch(() => live && setSlots([]));
+    return () => {
+      live = false;
+    };
+  }, [panel, roomId, date, bookingId]);
 
   async function changeParty() {
     setBusy(true);
@@ -198,22 +222,47 @@ export default function BookingActions({
         <>
           <div className="vch-row">
             <div className="field">
-              <label htmlFor="ba-room">Experience</label>
-              <select id="ba-room" value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} · {r.location}
-                  </option>
-                ))}
-              </select>
+              <label>Experience</label>
+              <SingleSelect
+                ariaLabel="Experience"
+                value={roomId}
+                onChange={setRoomId}
+                options={rooms.map((r) => ({ value: r.id, label: `${r.name} — ${r.location}` }))}
+              />
             </div>
             <div className="field">
-              <label htmlFor="ba-date">Date</label>
-              <input id="ba-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <label>Date</label>
+              <DatePicker
+                value={date}
+                min={todayISO()}
+                max={addDaysISO(todayISO(), 365)}
+                onChange={setDate}
+              />
             </div>
             <div className="field">
-              <label htmlFor="ba-time">Start time</label>
-              <input id="ba-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              <label>Start time</label>
+              {slots === null ? (
+                <p className="sub">Loading times…</p>
+              ) : slots.length === 0 ? (
+                <p className="sub">That room doesn&apos;t run on this date.</p>
+              ) : (
+                <SingleSelect
+                  ariaLabel="Start time"
+                  value={time}
+                  onChange={setTime}
+                  options={slots.map((sl) => ({
+                    value: sl.time,
+                    label: sl.blocked
+                      ? `${formatTime(sl.time)} — blocked off`
+                      : sl.remaining <= 0
+                        ? `${formatTime(sl.time)} — full`
+                        : sl.taken > 0
+                          ? `${formatTime(sl.time)} — ${sl.remaining} left`
+                          : formatTime(sl.time),
+                    disabled: sl.blocked || sl.remaining <= 0,
+                  }))}
+                />
+              )}
             </div>
           </div>
           <label className="intg-toggle">

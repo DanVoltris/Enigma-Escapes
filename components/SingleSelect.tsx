@@ -2,7 +2,7 @@
 
 import { usePopover } from "./usePopover";
 
-export type Opt = { value: string; label: string };
+export type Opt = { value: string; label: string; disabled?: boolean };
 
 // Custom single-select so the control matches the site design instead of the
 // browser's native (OS-styled) <select> popup.
@@ -39,11 +39,13 @@ export default function SingleSelect({
       {open && (
         <ul className="selectmenu-list" role="listbox" aria-label={ariaLabel}>
           {options.map((o) => (
-            <li key={o.value} role="option" aria-selected={o.value === value}>
+            <li key={o.value} role="option" aria-selected={o.value === value} aria-disabled={o.disabled}>
               <button
                 type="button"
-                className="selectmenu-option"
+                className={`selectmenu-option${o.disabled ? " is-disabled" : ""}`}
+                disabled={o.disabled}
                 onClick={() => {
+                  if (o.disabled) return;
                   onChange(o.value);
                   setOpen(false);
                 }}

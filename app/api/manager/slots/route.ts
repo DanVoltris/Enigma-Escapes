@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { allowedLocations, apiGuard } from "@/lib/auth";
+import { allowedLocations, apiGuard, hasPermission } from "@/lib/auth";
 import { blockedKeysForDate } from "@/lib/blocks";
+import { remainingSpots } from "@/lib/capacity";
 import { bookedCountsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { isValidISODate } from "@/lib/format";
@@ -10,12 +11,24 @@ import { startTimesFor } from "@/lib/schedule";
 export const dynamic = "force-dynamic";
 
 // Every session on a date, per room, with blocked/booked flags — powers the
-// block-off screen. Unlike the public availability API this ignores the
-// booking window and past times, so staff can block any date.
+// block-off screen and the move-a-booking picker. Unlike the public
+// availability API this ignores the booking window and past times, so staff can
+// block, or move a booking to, any date.
+//
+// Either permission opens it: the block-off screen needs it, and so does the
+// move-a-booking picker — moving a booking is not blocking one. It says no more
+// than the Calendar already shows either role.
+//
+// `ignore` is a booking being moved — its own seats are discounted so its
+// current slot doesn't show as occupied by itself.
 export async function GET(req: NextRequest) {
-  const guard = await apiGuard("blocks");
+  const guard = await apiGuard();
   if (guard.response) return guard.response;
+  if (!hasPermission(guard.staff, "bookings.view") && !hasPermission(guard.staff, "blocks")) {
+    return NextResponse.json({ error: "Your account doesn't have access to that." }, { status: 403 });
+  }
   const date = req.nextUrl.searchParams.get("date") ?? "";
+  const ignoreId = req.nextUrl.searchParams.get("ignore") ?? "";
   if (!isValidISODate(date)) return NextResponse.json({ error: "Invalid date." }, { status: 400 });
 
   const [experiences, hoursMap, blocked, booked] = await Promise.all([
@@ -25,17 +38,34 @@ export async function GET(req: NextRequest) {
     bookedCountsForDate(date),
   ]);
 
+  // Seats held by the booking being moved, keyed "roomId|time".
+  const ownSeats = new Map<string, number>();
+  if (ignoreId) {
+    const { getBooking } = await import("@/lib/db");
+    const b = await getBooking(ignoreId);
+    for (const i of b?.items ?? []) {
+      if (i.date === date) ownSeats.set(`${i.roomId}|${i.time}`, i.quantity);
+    }
+  }
+
   const scope = allowedLocations(guard.staff);
   const visible = scope ? experiences.filter((e) => scope.includes(e.location)) : experiences;
   const rooms = visible.map((exp) => ({
     id: exp.id,
     name: exp.name,
     location: exp.location,
-    times: startTimesFor(exp, date, hoursMap.get(exp.location) ?? null).map((time) => ({
-      time,
-      blocked: blocked.has(`${exp.id}|${time}`),
-      booked: (booked.get(`${exp.id}|${time}`) ?? 0) > 0,
-    })),
+    capacity: exp.capacity,
+    times: startTimesFor(exp, date, hoursMap.get(exp.location) ?? null).map((time) => {
+      const key = `${exp.id}|${time}`;
+      const taken = Math.max(0, (booked.get(key) ?? 0) - (ownSeats.get(key) ?? 0));
+      return {
+        time,
+        blocked: blocked.has(key),
+        booked: taken > 0,
+        taken,
+        remaining: remainingSpots(exp, taken),
+      };
+    }),
   }));
   return NextResponse.json({ date, rooms });
 }
