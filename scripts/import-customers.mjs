@@ -278,7 +278,10 @@ if (dryRun) {
 }
 
 const rowsToWrite = customers.map((c) => ({
-  email: c.email,
+  // Lowercased because the primary key is case-sensitive but every reader
+  // (lib/customers.ts) looks up by the lowercased address. Exports disagree on
+  // casing for the same person, so raw casing means unreachable rows.
+  email: c.email.toLowerCase(),
   first_name: c.firstName,
   last_name: c.lastName,
   phone: c.phone,
@@ -306,19 +309,52 @@ if (LOCAL) {
 }
 
 const CHUNK = 200;
+
+// A dropped socket shouldn't cost a whole run. Retrying is always safe here:
+// every write is an idempotent upsert on email. Only transport failures and
+// 5xx are retried — a 4xx means the request itself is wrong, so retrying it
+// would just fail three times more slowly.
+const ATTEMPTS = 3;
+async function postChunk(chunk) {
+  for (let attempt = 1; ; attempt++) {
+    let why;
+    try {
+      const res = await fetch(`${BASE}/rest/v1/customers?on_conflict=email`, {
+        method: "POST",
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        },
+        body: JSON.stringify(chunk),
+      });
+      if (res.ok || res.status < 500 || attempt >= ATTEMPTS) return res;
+      why = `HTTP ${res.status}`;
+    } catch (err) {
+      if (attempt >= ATTEMPTS) throw err;
+      why = err.cause?.code || err.code || err.message;
+    }
+    process.stdout.write(`\n${why} — retrying (attempt ${attempt + 1} of ${ATTEMPTS})…\n`);
+    await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+  }
+}
+
 let written = 0;
 for (let i = 0; i < rowsToWrite.length; i += CHUNK) {
   const chunk = rowsToWrite.slice(i, i + CHUNK);
-  const res = await fetch(`${BASE}/rest/v1/customers?on_conflict=email`, {
-    method: "POST",
-    headers: {
-      apikey: KEY,
-      Authorization: `Bearer ${KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates,return=minimal",
-    },
-    body: JSON.stringify(chunk),
-  });
+  let res;
+  try {
+    res = await postChunk(chunk);
+  } catch (err) {
+    console.error(
+      `\nNetwork failure on rows ${i + 1}–${i + chunk.length} after ${ATTEMPTS} attempts: ` +
+        `${err.cause?.code || err.code || err.message}`
+    );
+    console.error(`${written} customers were written before this failed.`);
+    console.error("Re-run the same command — every write is an upsert, so nothing is duplicated.");
+    process.exit(1);
+  }
   if (!res.ok) {
     const body = await res.text();
     console.error(`\nFailed on rows ${i + 1}–${i + chunk.length} (HTTP ${res.status}): ${body}`);
