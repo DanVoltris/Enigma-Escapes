@@ -53,16 +53,45 @@ type Row = {
 
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
-export async function listManualCustomers(): Promise<ManualCustomer[]> {
+// The imported-history blob is by far the heaviest column — carrying it makes a
+// page of the roster four times slower to fetch — and the Customers list only
+// needs two numbers out of it to show a total. `history: false` fetches just
+// those, for callers that will pull the full record for the handful of rows
+// they actually display (see importedHistoryFor). Everything that genuinely
+// needs the whole blob for everyone, like the CSV export, leaves it alone.
+const FULL_SELECT = "*";
+const LIGHT_SELECT =
+  "email,first_name,last_name,phone,subscribe,created_at," +
+  "legacy_bookings:imported->>bookings,legacy_paid:imported->>paidCents";
+
+export async function listManualCustomers(opts?: { history?: boolean }): Promise<ManualCustomer[]> {
+  const light = opts?.history === false;
   // email breaks ties: created_at alone is not unique (the old system
   // bulk-loaded hundreds of people on the same minute) and Postgres gives no
   // stable order within a tie, so rows shuffle between pages and some are
   // returned twice while others are never returned at all.
-  const rows = await restAllPages<Row>(
-    "customers?select=*&order=created_at.desc,email.desc",
+  const rows = await restAllPages<Row & { legacy_bookings?: string; legacy_paid?: string }>(
+    `customers?select=${light ? LIGHT_SELECT : FULL_SELECT}&order=created_at.desc,email.desc`,
     "Loading customers"
   );
   if (rows === null) return []; // table not created yet
+  if (light) {
+    return rows.map((r) => {
+      const bookings = Number(r.legacy_bookings ?? 0) || 0;
+      const paidCents = Number(r.legacy_paid ?? 0) || 0;
+      return {
+        email: r.email,
+        firstName: r.first_name,
+        lastName: r.last_name,
+        phone: r.phone ?? "",
+        subscribe: r.subscribe === true,
+        createdAt: r.created_at,
+        // Partial on purpose: only the fields the totals are built from. The
+        // rows that get rendered have the real thing filled in afterwards.
+        imported: bookings || paidCents ? { bookings, paidCents } : null,
+      };
+    });
+  }
   return rows.map((r) => ({
     email: r.email,
     firstName: r.first_name,
@@ -192,6 +221,32 @@ export async function aggregateCustomers(
     byEmail.set(key, row);
   }
   return Array.from(byEmail.values()).sort((a, b) => b.lastBooked.localeCompare(a.lastBooked));
+}
+
+// The full imported history for a specific handful of people, keyed by
+// lowercased email. Pairs with listManualCustomers({ history: false }): fetch
+// the roster light, then fill in the real record for the rows being shown.
+export async function importedHistoryFor(
+  emails: string[]
+): Promise<Map<string, ImportedHistory>> {
+  const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const out = new Map<string, ImportedHistory>();
+  if (!wanted.length) return out;
+  // Chunked so a long list can't outgrow what fits in a URL.
+  for (let i = 0; i < wanted.length; i += 200) {
+    const list = wanted.slice(i, i + 200).map((e) => `"${e.replace(/"/g, '\\"')}"`).join(",");
+    const res = await rest(
+      `customers?select=email,imported&email=in.(${encodeURIComponent(list)})`
+    );
+    if (res.status === 404) return out; // table not created yet
+    if (!res.ok) throw await restError(res, "Loading customer history");
+    for (const row of (await res.json()) as { email: string; imported: ImportedHistory | null }[]) {
+      if (row.imported && typeof row.imported === "object") {
+        out.set(row.email.toLowerCase(), row.imported);
+      }
+    }
+  }
+  return out;
 }
 
 // Used by the merge tool: the merged-away email's manual entry (if any) goes.

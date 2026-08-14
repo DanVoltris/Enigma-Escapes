@@ -40,27 +40,42 @@ export async function restError(res: Response, doing: string): Promise<Error> {
 }
 
 // PostgREST caps a plain select at 1000 rows, so any table that can outgrow
-// that has to be paged. Kept sequential deliberately: fetching the pages
-// concurrently was measured against the live database and came out slower
-// (28-31s at 4 and 8 at a time, against 26s one after another) — the cost is
-// shifting the rows, not waiting on round trips, so concurrency only adds
-// contention.
+// that has to be paged. Pages go out in parallel batches: each one costs about
+// a fifth of a second at the database, but the customer roster is 45 of them
+// and waiting on each in turn added up to the 21 seconds that stopped the
+// Customers tab loading at all.
+//
+// (Measured from a server next to the database. Timed over a home connection
+// the same change looks like a slowdown, because there the bottleneck is
+// bandwidth rather than the number of round trips — don't re-measure it from a
+// laptop and conclude the loop should go back to being sequential.)
 //
 // `path` must carry its own select and order and no limit/offset. The order
 // must be unique (see listBookings / listManualCustomers) or rows shift between
 // pages. Returns null if the table doesn't exist yet.
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 200;
+const BATCH = 8;
 
 export async function restAllPages<T>(path: string, doing: string): Promise<T[] | null> {
   const rows: T[] = [];
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const res = await rest(`${path}&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`);
-    if (res.status === 404) return page === 0 ? null : rows; // table not created yet
-    if (!res.ok) throw await restError(res, doing);
-    const batch = (await res.json()) as T[];
-    rows.push(...batch);
-    if (batch.length < PAGE_SIZE) break;
+  for (let first = 0; first < MAX_PAGES; first += BATCH) {
+    const pages = await Promise.all(
+      Array.from({ length: BATCH }, (_, i) => first + i).map(async (page) => {
+        const res = await rest(`${path}&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`);
+        if (res.status === 404) return null; // table not created yet
+        if (!res.ok) throw await restError(res, doing);
+        return (await res.json()) as T[];
+      })
+    );
+    if (pages[0] === null) return first === 0 ? null : rows;
+    for (const page of pages) {
+      if (page === null) return rows;
+      rows.push(...page);
+      // A short page is the end of the table — anything after it in this batch
+      // was requested speculatively and came back empty.
+      if (page.length < PAGE_SIZE) return rows;
+    }
   }
   return rows;
 }

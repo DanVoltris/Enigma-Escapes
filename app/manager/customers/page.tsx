@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import CustomerRow from "@/components/manager/CustomerRow";
-import { aggregateCustomers, listManualCustomers } from "@/lib/customers";
+import { aggregateCustomers, importedHistoryFor, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,13 @@ export default async function ManagerCustomers({
   const q = (rawQ ?? "").trim().toLowerCase();
   const subscribersOnly = sub === "1";
 
-  const [allBookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
+  // The roster is fetched without the imported-history blob — it is only needed
+  // for the rows actually rendered, and carrying it for all 44k people is what
+  // made this page take 21 seconds to build.
+  const [allBookings, manual] = await Promise.all([
+    listBookings(),
+    listManualCustomers({ history: false }),
+  ]);
   const bookings = scope ? allBookings.filter((b) => b.items.some((i) => scope.includes(i.location))) : allBookings;
   let customers = await aggregateCustomers(bookings, manual);
   if (subscribersOnly) customers = customers.filter((c) => c.subscribed);
@@ -33,7 +39,12 @@ export default async function ManagerCustomers({
   const PER_PAGE = 100;
   const pageCount = Math.max(1, Math.ceil(customers.length / PER_PAGE));
   const current = Math.min(Math.max(1, Math.floor(Number(rawPage)) || 1), pageCount);
-  const shown = customers.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+  const page = customers.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+  // Now that we know which hundred are on screen, fetch their real history.
+  const history = await importedHistoryFor(page.filter((c) => c.imported).map((c) => c.email));
+  const shown = page.map((c) =>
+    c.imported ? { ...c, imported: history.get(c.email.toLowerCase()) ?? c.imported } : c
+  );
   const pageHref = (n: number) => {
     const params = new URLSearchParams();
     if (rawQ) params.set("q", rawQ);
