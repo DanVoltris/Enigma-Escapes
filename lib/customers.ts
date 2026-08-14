@@ -311,6 +311,25 @@ export async function importedHistoryFor(
   return out;
 }
 
+// First and last name as stored, for a handful of emails — the roster returns
+// one joined display name, and a form needs the two fields apart. Keyed by
+// lowercased email; anyone with no stored record simply isn't in the map.
+export async function storedNamesFor(
+  emails: string[]
+): Promise<Map<string, { firstName: string; lastName: string }>> {
+  const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const out = new Map<string, { firstName: string; lastName: string }>();
+  if (!wanted.length) return out;
+  const list = wanted.map((e) => `"${e.replace(/"/g, '\\"')}"`).join(",");
+  const res = await rest(`customers?select=email,first_name,last_name&email=in.(${encodeURIComponent(list)})`);
+  if (res.status === 404) return out; // table not created yet
+  if (!res.ok) throw await restError(res, "Loading customer names");
+  for (const row of (await res.json()) as { email: string; first_name: string; last_name: string }[]) {
+    out.set(row.email.toLowerCase(), { firstName: row.first_name ?? "", lastName: row.last_name ?? "" });
+  }
+  return out;
+}
+
 // One person's stored record, with their full imported history — for the
 // profile page, which has no business loading all 44k people to find them.
 export async function getManualCustomer(email: string): Promise<ManualCustomer | null> {
