@@ -282,13 +282,22 @@ export async function getBookingByReference(reference: string): Promise<Booking 
 // Paged, because PostgREST caps a plain select at 1000 rows: the history
 // imported from the old system runs to thousands, and quietly stopping at 1000
 // would drop bookings off the list, the customer roll-up and every report.
-export async function listBookings(opts?: { includeCancelled?: boolean }): Promise<Booking[]> {
+// `since` is a coarse prefilter on purchase date, so a screen showing the last
+// 30 days doesn't drag six years of imported history across the wire. Callers
+// still apply their own exact date test afterwards — pass a cutoff a little
+// earlier than you need and let that do the precise work, because created_at is
+// UTC while the screens reason in venue-local business dates.
+export async function listBookings(opts?: {
+  includeCancelled?: boolean;
+  since?: string;
+}): Promise<Booking[]> {
   // id breaks ties: created_at is not unique (imported sessions inherit the
   // legacy booked-on time, and several share one) and Postgres gives no stable
   // order within a tie, so paging would drop and duplicate rows.
+  const since = opts?.since ? `&created_at=gte.${encodeURIComponent(opts.since)}` : "";
   const rows =
     (await restAllPages<BookingRow>(
-      "bookings?select=*&order=created_at.desc,id.desc",
+      `bookings?select=*${since}&order=created_at.desc,id.desc`,
       "Loading bookings"
     )) ?? [];
   const all = rows.map(toBooking);
