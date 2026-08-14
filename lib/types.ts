@@ -169,6 +169,7 @@ export type BookingNote = {
   text: string;
   at: string; // ISO timestamp
   author: string; // staff name, or "System"
+  editedAt?: string; // set when a staff note was rewritten after the fact
 };
 
 export type BookingSource = "online" | "in_person";

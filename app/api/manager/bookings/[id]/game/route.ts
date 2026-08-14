@@ -35,7 +35,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (hintsUsed === undefined) {
     return NextResponse.json({ error: "Hints used must be a whole number between 0 and 99." }, { status: 400 });
   }
-  const notes = typeof o.notes === "string" ? o.notes.trim().slice(0, 500) : "";
+  // Notes moved to the booking's own Notes card, so this form no longer sends
+  // them. Anything recorded before that stays put rather than being blanked by
+  // the next save.
+  const notes = typeof o.notes === "string" ? o.notes.trim().slice(0, 500) : undefined;
 
   const booking = await getBooking(id);
   if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
@@ -44,7 +47,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     escaped: o.escaped,
     timeRemainingMinutes,
     hintsUsed,
-    notes,
+    notes: notes ?? booking.gameResult?.notes ?? "",
     recordedAt: new Date().toISOString(),
   };
 

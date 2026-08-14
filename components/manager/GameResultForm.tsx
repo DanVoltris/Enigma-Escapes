@@ -12,7 +12,6 @@ export default function GameResultForm({ bookingId, initial }: { bookingId: stri
   const [escaped, setEscaped] = useState(initial?.escaped ?? true);
   const [timeRemaining, setTimeRemaining] = useState(initial?.timeRemainingMinutes?.toString() ?? "");
   const [hints, setHints] = useState(initial?.hintsUsed?.toString() ?? "");
-  const [notes, setNotes] = useState(initial?.notes ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +26,6 @@ export default function GameResultForm({ bookingId, initial }: { bookingId: stri
           escaped,
           timeRemainingMinutes: timeRemaining.trim() === "" ? null : Number(timeRemaining),
           hintsUsed: hints.trim() === "" ? null : Number(hints),
-          notes,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -95,10 +93,6 @@ export default function GameResultForm({ bookingId, initial }: { bookingId: stri
             onChange={(e) => setHints(e.target.value)}
             placeholder="e.g. 2"
           />
-        </div>
-        <div className="field">
-          <label htmlFor="gr-notes">Notes (optional)</label>
-          <textarea id="gr-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button type="button" className="btn" onClick={save} disabled={busy}>

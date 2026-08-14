@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
+import BookingNotes from "@/components/manager/BookingNotes";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
 import GameResultForm from "@/components/manager/GameResultForm";
 import NoShowToggle from "@/components/manager/NoShowToggle";
@@ -20,7 +21,7 @@ function initials(first: string, last: string): string {
 }
 
 export default async function ManagerBookingDetail({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("bookings.view", "/manager/bookings/[id]");
+  const staff = await requirePermission("bookings.view", "/manager/bookings/[id]");
   const { id } = await params;
   const [booking, experiences, promos, taxes] = await Promise.all([
     getBooking(id),
@@ -293,28 +294,11 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
 
             <div className="mgr-card">
               <h2>Notes</h2>
-              {booking.notes.length === 0 ? (
-                <p className="cust-empty">No notes have been created yet.</p>
-              ) : (
-                <ul className="cust-activity">
-                  {[...booking.notes]
-                    .sort((a, b) => b.at.localeCompare(a.at))
-                    .map((n) => (
-                      <li key={n.id}>
-                        <span className="dot" aria-hidden="true">
-                          {n.author === "System" ? "!" : initials(n.author, "")}
-                        </span>
-                        <div className="body">
-                          <div>{n.text}</div>
-                          <div className="when">
-                            {n.author} ·{" "}
-                            {new Date(n.at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                </ul>
-              )}
+              <BookingNotes
+                bookingId={booking.id}
+                notes={booking.notes}
+                canEdit={hasPermission(staff, "bookings.modify")}
+              />
             </div>
           </div>
         </div>

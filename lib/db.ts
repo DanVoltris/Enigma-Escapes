@@ -45,6 +45,42 @@ function toBooking(row: BookingRow): Booking {
   };
 }
 
+// Rewrites one staff note in place. System notes — the import trail and the
+// like — are refused: they are a record of what happened, and a record that can
+// be edited afterwards is worth less than one that can't. `editedAt` is stamped
+// so a changed note is visibly a changed note.
+export async function updateBookingNote(
+  bookingId: string,
+  noteId: string,
+  text: string
+): Promise<"ok" | "not-found" | "protected" | "failed"> {
+  if (!UUID_RE.test(bookingId)) return "not-found";
+  try {
+    const booking = await getBooking(bookingId);
+    if (!booking) return "not-found";
+    const notes = booking.notes ?? [];
+    const target = notes.find((n) => n.id === noteId);
+    if (!target) return "not-found";
+    if (target.author === "System") return "protected";
+    const next = notes.map((n) =>
+      n.id === noteId ? { ...n, text: text.slice(0, 1000), editedAt: new Date().toISOString() } : n
+    );
+    const res = await rest(`bookings?id=eq.${bookingId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ notes: next }),
+    });
+    if (!res.ok) {
+      console.error("updating booking note failed:", await res.text().catch(() => ""));
+      return "failed";
+    }
+    return "ok";
+  } catch (err) {
+    console.error("updating booking note failed:", err);
+    return "failed";
+  }
+}
+
 // Appends a note to a booking. Its own function for the same reason as
 // saveGameResult below: the notes column only exists after the migration, so a
 // pre-migration schema fails here alone rather than breaking the write that
