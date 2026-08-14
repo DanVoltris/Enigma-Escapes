@@ -54,7 +54,13 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   const customer: Customer = { firstName, lastName, email, phone, subscribe: raw.customer?.subscribe === true };
 
   const paymentOption = raw.paymentOption;
-  if (paymentOption !== "full" && paymentOption !== "deposit") {
+  // "none" records a booking with nothing paid. Only the desk may do that —
+  // offering it to the public would be a free-booking button.
+  const optionAllowed =
+    paymentOption === "full" ||
+    paymentOption === "deposit" ||
+    (paymentOption === "none" && source === "in_person");
+  if (!optionAllowed) {
     return err("Choose whether to pay the full balance or the deposit.");
   }
 

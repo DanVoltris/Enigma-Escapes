@@ -59,8 +59,10 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
     totalCents += b.pricing.totalCents;
     collectedCents += b.pricing.paidCents;
     outstandingCents += b.pricing.balanceCents;
+    // A walk-in with nothing taken is neither: it counts in outstanding money
+    // above, and inflating either bucket here would misreport how people pay.
     if (b.paymentOption === "deposit") depositBookings += 1;
-    else fullBookings += 1;
+    else if (b.paymentOption === "full") fullBookings += 1;
     if (b.source === "in_person") inPersonBookings += 1;
     else onlineBookings += 1;
     if (b.noShow) {

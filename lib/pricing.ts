@@ -89,6 +89,7 @@ export function preTaxUnitCents(priceCents: number, taxPercent: number): number 
 }
 
 export function amountDueCents(totals: Totals, option: PaymentOption): number {
+  if (option === "none") return 0; // nothing taken at the desk; it's all still owed
   return option === "deposit" ? totals.depositCents : totals.totalCents;
 }
 

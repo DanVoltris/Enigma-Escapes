@@ -103,7 +103,8 @@ export default async function ManagerCustomerDetail({
   const payments: Payment[] = bookings.map((b) => ({
     bookingId: b.id,
     reference: b.reference,
-    method: b.paymentOption === "deposit" ? "Deposit" : "Paid in full",
+    method:
+      b.paymentOption === "deposit" ? "Deposit" : b.paymentOption === "none" ? "Nothing taken" : "Paid in full",
     totalCents: b.pricing.totalCents,
     paidCents: b.pricing.paidCents,
     balanceCents: b.pricing.balanceCents,

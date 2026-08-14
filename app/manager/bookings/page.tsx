@@ -156,7 +156,7 @@ export default async function ManagerBookings({
           <p style={{ color: "var(--text-secondary)" }}>Every booking, online and in-person. Click one for full details.</p>
         </div>
         <Link href="/manager/bookings/new" className="btn">
-          + New walk-in booking
+          + Book now
         </Link>
       </div>
 

@@ -102,7 +102,10 @@ export type Participant = {
   addedAt: string; // ISO timestamp
 };
 
-export type PaymentOption = "full" | "deposit";
+// "none" is staff-only: a walk-in the desk hasn't taken money for yet, so the
+// whole total sits as a balance due. The public checkout refuses it — see
+// buildBooking — because it would let anyone book without paying.
+export type PaymentOption = "full" | "deposit" | "none";
 
 export type Promo = {
   code: string;

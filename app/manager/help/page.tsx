@@ -34,7 +34,7 @@ export default function ManagerHelp() {
         </li>
         <li>
           <strong>Walk-ins:</strong> take a booking in person or over the phone with{" "}
-          <strong>New walk-in booking</strong> on the Bookings page. It&apos;s tagged in-person and counts
+          <strong>Book now</strong> on the Bookings page. It&apos;s tagged in-person and counts
           toward the online-vs-in-person split on the dashboard.
         </li>
         <li>

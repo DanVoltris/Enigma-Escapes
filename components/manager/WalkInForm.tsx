@@ -28,7 +28,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full");
+  const [paymentOption, setPaymentOption] = useState<"full" | "deposit" | "none">("full");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -247,6 +247,10 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         <label className={`pay-option ${paymentOption === "deposit" ? "selected" : ""}`}>
           <input type="radio" checked={paymentOption === "deposit"} onChange={() => setPaymentOption("deposit")} />
           <span>Deposit only (25%) — balance due later</span>
+        </label>
+        <label className={`pay-option ${paymentOption === "none" ? "selected" : ""}`}>
+          <input type="radio" checked={paymentOption === "none"} onChange={() => setPaymentOption("none")} />
+          <span>Nothing yet — the whole amount is owed</span>
         </label>
       </div>
 

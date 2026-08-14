@@ -569,7 +569,7 @@ function PerformanceView({
                 <span>{cur.inPersonBookings} in-person</span>
               </div>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
-                Record a walk-in from <Link href="/manager/bookings/new">New walk-in booking</Link> to grow the
+                Record a walk-in from <Link href="/manager/bookings/new">Book now</Link> to grow the
                 in-person share.
               </p>
             </>

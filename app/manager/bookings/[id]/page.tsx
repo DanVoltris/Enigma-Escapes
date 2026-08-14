@@ -76,7 +76,11 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     ...participants.map((p) => ({ text: `Participant ${p.firstName} ${p.lastName} added`, at: p.addedAt })),
     {
       text: `${booking.source === "in_person" ? "Walk-in" : "Online"} booking created${
-        booking.paymentOption === "deposit" ? " (deposit paid)" : ""
+        booking.paymentOption === "deposit"
+          ? " (deposit paid)"
+          : booking.paymentOption === "none"
+            ? " (nothing taken yet)"
+            : ""
       }${booking.promoCode ? ` · promo ${booking.promoCode}` : ""}`,
       at: booking.createdAt,
     },
@@ -132,7 +136,11 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                 {booking.source === "in_person" ? "In-person / walk-in" : "Booked online"}
                 <br />
                 <span className="sub">
-                  {booking.paymentOption === "deposit" ? "Deposit option" : "Full payment option"}
+                  {booking.paymentOption === "deposit"
+                    ? "Deposit option"
+                    : booking.paymentOption === "none"
+                      ? "Nothing taken at the desk"
+                      : "Full payment option"}
                 </span>
                 {earned && (
                   <>
