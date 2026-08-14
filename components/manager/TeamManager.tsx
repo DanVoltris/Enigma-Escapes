@@ -262,7 +262,7 @@ export default function TeamManager({
                     value={draft.password}
                     onChange={(e) => setDraft({ ...draft, password: e.target.value })}
                   />
-                  <p className="field-hint">At least 10 characters — give it to them, they can be changed later.</p>
+                  <p className="field-hint">At least 5 characters — give it to them, they can be changed later.</p>
                 </div>
                 <div className="field">
                   <label>Role</label>
@@ -338,7 +338,7 @@ export default function TeamManager({
           type="text"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="At least 10 characters"
+          placeholder="At least 5 characters"
           style={{ width: "100%", marginTop: 10, padding: "10px 12px", border: "1px solid var(--border)" }}
         />
       </ConfirmDialog>

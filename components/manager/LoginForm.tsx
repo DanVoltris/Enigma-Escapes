@@ -61,7 +61,7 @@ export default function LoginForm({ firstRun, next }: { firstRun: boolean; next:
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={firstRun ? "new-password" : "current-password"}
         />
-        {firstRun && <p className="field-hint">At least 10 characters. Use something only you know.</p>}
+        {firstRun && <p className="field-hint">At least 5 characters. Use something only you know.</p>}
       </div>
       <button type="submit" className="btn" disabled={busy}>
         {busy ? "Please wait…" : firstRun ? "Create admin account" : "Sign in"}

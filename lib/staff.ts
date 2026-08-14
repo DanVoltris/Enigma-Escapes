@@ -64,7 +64,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 // Deliberately permissive on composition, strict on length — length is what
 // actually matters, and staff will pick worse passwords if we nag them.
 export function passwordProblem(password: string): string | null {
-  if (password.length < 10) return "Use at least 10 characters.";
+  if (password.length < 5) return "Use at least 5 characters.";
   if (password.length > 200) return "That password is too long.";
   return null;
 }
