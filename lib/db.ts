@@ -299,6 +299,26 @@ export async function listBookings(opts?: { includeCancelled?: boolean }): Promi
   return all.filter(isLiveBooking);
 }
 
+// One customer's live bookings, newest first — for the profile page, which
+// used to load every booking in the table and filter in memory. The ilike is a
+// case-insensitive equality (its wildcards are escaped out of the address, and
+// emails in bookings arrive in whatever casing the customer or the old system
+// used); the exact re-check below keeps an escaped _ from ever over-matching.
+export async function listBookingsForEmail(email: string): Promise<Booking[]> {
+  const wanted = email.trim().toLowerCase();
+  if (!wanted) return [];
+  const pattern = wanted.replace(/([\\%_])/g, "\\$1");
+  const rows =
+    (await restAllPages<BookingRow>(
+      `bookings?select=*&customer->>email=ilike.${encodeURIComponent(pattern)}&order=created_at.desc,id.desc`,
+      "Loading the customer's bookings"
+    )) ?? [];
+  return rows
+    .map(toBooking)
+    .filter((b) => b.customer.email.toLowerCase() === wanted)
+    .filter(isLiveBooking);
+}
+
 // Cancels a booking: frees the slot, records what's owed back and whether
 // Stripe already returned it. Refund figures live in the pricing JSONB.
 export async function cancelBooking(

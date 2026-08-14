@@ -2,8 +2,8 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from "@/components/manager/CustomerTabs";
-import { isImportedBooking, itemisedLegacy, listManualCustomers } from "@/lib/customers";
-import { listBookings } from "@/lib/db";
+import { getManualCustomer, isImportedBooking, itemisedLegacy } from "@/lib/customers";
+import { listBookingsForEmail } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
@@ -22,17 +22,13 @@ export default async function ManagerCustomerDetail({
   const { email: rawEmail } = await params;
   const email = decodeURIComponent(rawEmail).toLowerCase();
 
-  const [all, experiences, manual] = await Promise.all([
-    listBookings(),
+  // This person's bookings and stored record only — the page used to load
+  // every booking and all 44k customer records to show one profile.
+  const [bookings, experiences, record] = await Promise.all([
+    listBookingsForEmail(email),
     listExperiences(),
-    listManualCustomers(),
+    getManualCustomer(email),
   ]);
-  const bookings = all
-    .filter((b) => b.customer.email.toLowerCase() === email)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  // Imported and hand-added people have no bookings here yet, so the stored
-  // record is all there is to go on.
-  const record = manual.find((m) => m.email.toLowerCase() === email) ?? null;
 
   if (bookings.length === 0 && !record) notFound();
 

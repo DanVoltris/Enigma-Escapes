@@ -311,6 +311,25 @@ export async function importedHistoryFor(
   return out;
 }
 
+// One person's stored record, with their full imported history — for the
+// profile page, which has no business loading all 44k people to find them.
+export async function getManualCustomer(email: string): Promise<ManualCustomer | null> {
+  const res = await rest(`customers?email=eq.${encodeURIComponent(email.toLowerCase())}&limit=1`);
+  if (res.status === 404) return null; // table not created yet
+  if (!res.ok) throw await restError(res, "Loading the customer");
+  const [r] = (await res.json()) as Row[];
+  if (!r) return null;
+  return {
+    email: r.email,
+    firstName: r.first_name,
+    lastName: r.last_name,
+    phone: r.phone ?? "",
+    subscribe: r.subscribe === true,
+    createdAt: r.created_at,
+    imported: r.imported && typeof r.imported === "object" ? r.imported : null,
+  };
+}
+
 // Used by the merge tool: the merged-away email's manual entry (if any) goes.
 export async function deleteManualCustomer(email: string): Promise<void> {
   const res = await rest(`customers?email=eq.${encodeURIComponent(email.toLowerCase())}`, {
