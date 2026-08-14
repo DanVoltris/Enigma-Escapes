@@ -14,7 +14,7 @@
 // The old system files one row per session; several rows sharing a transaction
 // id were one purchase, so they become one booking with several items.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
 const BASE = process.env.SUPABASE_URL;
@@ -251,6 +251,23 @@ const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const files = args.filter((a) => !a.startsWith("--"));
 
+// When exports disagree, the newest one is right — a booking unpaid in the
+// morning's export and paid in the afternoon's has been paid. Exports carry a
+// 14-digit stamp in their filename; a renamed file falls back to its mtime.
+// Sorted oldest first so the newest row simply overwrites what came before.
+function exportedAt(file) {
+  const named = basename(file).match(/(\d{14})/);
+  if (named) return named[1];
+  try {
+    const d = statSync(file).mtime;
+    const p = (n, w = 2) => String(n).padStart(w, "0");
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  } catch {
+    return "";
+  }
+}
+files.sort((a, b) => exportedAt(a).localeCompare(exportedAt(b)));
+
 if (!files.length) {
   console.error("Usage: npm run import:bookings -- <file.csv> [more.csv ...] [--dry-run]");
   process.exit(1);
@@ -366,30 +383,27 @@ for (const file of files) {
           email: text(get("Customer Email Address")),
           phone: text(get("Customer Cell Phone")) || text(get("Customer Telephone")),
         },
-        items: [],
-        money: { subtotalCents: 0, discountCents: 0, gstCents: 0, totalCents: 0 },
+        // Keyed by legacy booking id: exports overlap at their edges, so the
+        // same session arrives more than once and must count once. Files are
+        // processed oldest first, so a later export's version simply replaces
+        // the earlier one — that's how a payment made after the first export
+        // reaches us.
+        rows: new Map(),
         noShow: false,
         promoCode: null,
-        legacyBookingIds: [],
         sourceFile: basename(file),
       };
       transactions.set(txId, tx);
     }
-    // Exports overlap at their edges — a session near a file's boundary tends
-    // to appear in the next file too — so the same legacy booking can arrive
-    // more than once in a single run. Counting it twice puts the session on
-    // Today twice and doubles the booking's money, so the legacy booking id
-    // decides: the first row for it wins, later ones are the same session.
-    if (tx.legacyBookingIds.includes(parsed.legacyBookingId)) {
-      skipped.duplicate++;
-      continue;
-    }
-
-    tx.items.push(parsed.item);
-    for (const k of Object.keys(tx.money)) tx.money[k] += parsed.money[k];
-    tx.noShow = tx.noShow || parsed.noShow;
-    tx.promoCode = tx.promoCode ?? parsed.promoCode;
-    tx.legacyBookingIds.push(parsed.legacyBookingId);
+    if (tx.rows.has(parsed.legacyBookingId)) skipped.duplicate++;
+    tx.rows.set(parsed.legacyBookingId, parsed);
+    // Transaction-level facts come from whichever export is newest, for the
+    // same reason: payment status in particular changes after the fact.
+    tx.paid = text(get("Transaction Payment Status")).toLowerCase() === "paid";
+    tx.source = text(get("Source")).toLowerCase() === "dashboard" ? "in_person" : "online";
+    tx.sourceFile = basename(file);
+    tx.noShow = parsed.noShow || [...tx.rows.values()].some((r) => r.noShow);
+    tx.promoCode = parsed.promoCode ?? tx.promoCode;
   }
   console.log(`${basename(file)}: ${fileRows} rows`);
 }
@@ -399,6 +413,13 @@ let walkIns = 0;
 for (const tx of transactions.values()) {
   const person = identify(tx.customer);
   if (!person.email) walkIns++;
+  // Totals are summed from the surviving rows rather than accumulated as rows
+  // arrive, so a replaced row takes its money with it.
+  const rows = [...tx.rows.values()];
+  tx.items = rows.map((r) => r.item);
+  tx.money = { subtotalCents: 0, discountCents: 0, gstCents: 0, totalCents: 0 };
+  for (const r of rows) for (const k of Object.keys(tx.money)) tx.money[k] += r.money[k];
+  tx.legacyBookingIds = [...tx.rows.keys()];
   bookings.push({
     id: legacyId(tx.id),
     reference: `VB-L${tx.id}`,
