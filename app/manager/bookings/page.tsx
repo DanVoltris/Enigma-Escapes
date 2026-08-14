@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
-import { listBookings } from "@/lib/db";
-import { addDaysISO, businessDateOf, formatDateLong, formatMoney, formatTime, isValidISODate, todayISO } from "@/lib/format";
+import { bookingsRosterPage, listBookings } from "@/lib/db";
+import { addDaysISO, businessDateOf, formatDateLong, formatMoney, formatTime, isValidISODate, localeConfig, todayISO } from "@/lib/format";
 import type { Booking } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -50,49 +50,90 @@ export default async function ManagerBookings({
   const pay = params.pay === "paid" || params.pay === "unpaid" ? params.pay : "all";
   const today = todayISO();
 
-  // Ask the database only for the purchase-date window on screen — six years of
-  // imported history is a lot to drag across the wire to show the last 30 days.
-  // A day of slack, because created_at is UTC while the filters below reason in
-  // venue-local business dates; those still decide what is actually shown.
-  const prefetchSince =
-    range === "24h"
-      ? new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
-      : range === "7d" || range === "30d"
-        ? `${addDaysISO(today, (range === "7d" ? -7 : -30) - 1)}T00:00:00Z`
-        : range === "custom" && from
-          ? `${addDaysISO(from, -1)}T00:00:00Z`
-          : undefined; // "all", or a custom range with no start date
-  let bookings = await listBookings({ includeCancelled: true, since: prefetchSince });
-  // Location-scoped staff only see bookings that include one of their stores.
-  if (scope) bookings = bookings.filter((b) => b.items.some((i) => scope.includes(i.location)));
-  if (q) bookings = bookings.filter((b) => matchesQuery(b, q));
-  if (date) bookings = bookings.filter((b) => b.items.some((i) => i.date === date));
-
-  // Purchase-date range (venue-local dates; "24h" is a true rolling day).
-  if (range === "24h") {
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    bookings = bookings.filter((b) => new Date(b.createdAt).getTime() >= cutoff);
-  } else if (range === "7d" || range === "30d") {
-    const first = addDaysISO(today, range === "7d" ? -7 : -30);
-    bookings = bookings.filter((b) => businessDateOf(b.createdAt) >= first);
-  } else if (range === "custom") {
-    bookings = bookings.filter((b) => {
-      const d = businessDateOf(b.createdAt);
-      return (!from || d >= from) && (!to || d <= to);
-    });
-  }
-
-  if (status !== "all") bookings = bookings.filter((b) => (status === "noshow" ? b.noShow : !b.noShow));
-  if (pay !== "all") bookings = bookings.filter((b) => (pay === "paid" ? b.pricing.balanceCents <= 0 : b.pricing.balanceCents > 0));
-
-  // Only a screenful is rendered. "All time" over the imported history is tens
-  // of thousands of bookings, and putting every one in the HTML would make this
-  // page too large to load.
+  // Only a screenful is rendered and, when the bookings_roster function is
+  // installed, only a screenful is even fetched — filtered, sorted and counted
+  // in Postgres. "All time" over the imported history is tens of thousands of
+  // bookings; putting them in the HTML (or dragging them across the wire) is
+  // what used to make this page unusable.
   const PER_PAGE = 200;
-  const total = bookings.length;
+  const requested = Math.max(1, Math.floor(Number(params.page)) || 1);
+  const roster = await bookingsRosterPage({
+    q,
+    status,
+    pay,
+    date,
+    timezone: localeConfig().timezone,
+    // Purchase-date range (venue-local business days; "24h" is a true rolling day).
+    fromDay:
+      range === "7d" || range === "30d"
+        ? addDaysISO(today, range === "7d" ? -7 : -30)
+        : range === "custom"
+          ? from
+          : null,
+    toDay: range === "custom" ? to : null,
+    since: range === "24h" ? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() : null,
+    locations: scope,
+    limit: PER_PAGE,
+    offset: (requested - 1) * PER_PAGE,
+  });
+
+  // Past the end (stale bookmark): show the first page instead.
+  const fixed =
+    roster && roster.rows.length === 0 && requested > 1
+      ? await bookingsRosterPage({
+          q, status, pay, date,
+          timezone: localeConfig().timezone,
+          fromDay:
+            range === "7d" || range === "30d"
+              ? addDaysISO(today, range === "7d" ? -7 : -30)
+              : range === "custom" ? from : null,
+          toDay: range === "custom" ? to : null,
+          since: range === "24h" ? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() : null,
+          locations: scope,
+          limit: PER_PAGE,
+          offset: 0,
+        })
+      : roster;
+
+  let total: number;
+  let shown: Booking[];
+  if (fixed) {
+    total = fixed.total;
+    shown = fixed.rows;
+  } else {
+    // Fallback while the SQL function isn't installed (and for local-data
+    // mode): fetch a purchase-date window and filter in memory, like before.
+    const prefetchSince =
+      range === "24h"
+        ? new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+        : range === "7d" || range === "30d"
+          ? `${addDaysISO(today, (range === "7d" ? -7 : -30) - 1)}T00:00:00Z`
+          : range === "custom" && from
+            ? `${addDaysISO(from, -1)}T00:00:00Z`
+            : undefined; // "all", or a custom range with no start date
+    let bookings = await listBookings({ includeCancelled: true, since: prefetchSince });
+    if (scope) bookings = bookings.filter((b) => b.items.some((i) => scope.includes(i.location)));
+    if (q) bookings = bookings.filter((b) => matchesQuery(b, q));
+    if (date) bookings = bookings.filter((b) => b.items.some((i) => i.date === date));
+    if (range === "24h") {
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      bookings = bookings.filter((b) => new Date(b.createdAt).getTime() >= cutoff);
+    } else if (range === "7d" || range === "30d") {
+      const first = addDaysISO(today, range === "7d" ? -7 : -30);
+      bookings = bookings.filter((b) => businessDateOf(b.createdAt) >= first);
+    } else if (range === "custom") {
+      bookings = bookings.filter((b) => {
+        const d = businessDateOf(b.createdAt);
+        return (!from || d >= from) && (!to || d <= to);
+      });
+    }
+    if (status !== "all") bookings = bookings.filter((b) => (status === "noshow" ? b.noShow : !b.noShow));
+    if (pay !== "all") bookings = bookings.filter((b) => (pay === "paid" ? b.pricing.balanceCents <= 0 : b.pricing.balanceCents > 0));
+    total = bookings.length;
+    shown = bookings.slice((requested - 1) * PER_PAGE, requested * PER_PAGE);
+  }
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
-  const current = Math.min(Math.max(1, Math.floor(Number(params.page)) || 1), pageCount);
-  const shown = bookings.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+  const current = Math.min(requested, pageCount);
   const pageHref = (n: number) => {
     const qs = new URLSearchParams();
     if (params.q) qs.set("q", params.q);
@@ -127,7 +168,7 @@ export default async function ManagerBookings({
         </p>
       )}
       <p className="mgr-page-sub" style={{ marginTop: date ? 0 : 14 }}>
-        {bookings.length} booking{bookings.length === 1 ? "" : "s"}
+        {total.toLocaleString()} booking{total === 1 ? "" : "s"}
         {range === "30d" && " in the last 30 days"}
         {range === "7d" && " in the last 7 days"}
         {range === "24h" && " in the last 24 hours"}
@@ -138,7 +179,7 @@ export default async function ManagerBookings({
         {pay === "unpaid" && " · with a balance due"}
       </p>
 
-      {bookings.length === 0 ? (
+      {total === 0 ? (
         <p className="mgr-empty">
           No bookings found{q ? ` for “${q}”` : ""}. Widen the purchase-date range or clear the filters.
         </p>

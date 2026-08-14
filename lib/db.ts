@@ -336,6 +336,55 @@ export async function listBookingsInWindow(
   return all.filter(isLiveBooking);
 }
 
+// One page of the Bookings tab, filtered, sorted and counted by the
+// bookings_roster function (scripts/rapid-portal.sql) — so "All time" over six
+// imported years returns 200 rows, not 29,000. Business-date bounds are
+// venue-local days, converted inside Postgres with the same timezone the
+// screens use. Returns null when the function isn't installed (or local-data
+// mode); the page falls back to fetching and filtering in memory.
+export async function bookingsRosterPage(opts: {
+  q?: string;
+  status: "all" | "active" | "noshow";
+  pay: "all" | "paid" | "unpaid";
+  date?: string | null;
+  timezone: string;
+  fromDay?: string | null;
+  toDay?: string | null;
+  since?: string | null;
+  locations?: string[] | null;
+  limit: number;
+  offset: number;
+}): Promise<{ total: number; rows: Booking[] } | null> {
+  let res: Response;
+  try {
+    res = await rest("rpc/bookings_roster", {
+      method: "POST",
+      body: JSON.stringify({
+        p_q: opts.q || null,
+        p_status: opts.status,
+        p_pay: opts.pay,
+        p_date: opts.date || null,
+        p_tz: opts.timezone,
+        p_from_day: opts.fromDay || null,
+        p_to_day: opts.toDay || null,
+        p_since: opts.since || null,
+        p_locations: opts.locations?.length ? opts.locations : null,
+        p_limit: opts.limit,
+        p_offset: opts.offset,
+      }),
+    });
+  } catch {
+    return null; // local-data mode has no rpc endpoint
+  }
+  if (res.status === 404) return null; // function not installed yet
+  if (!res.ok) throw await restError(res, "Loading the bookings list");
+  const rows = (await res.json()) as { total_rows: number; booking: BookingRow }[];
+  return {
+    total: rows[0] ? Number(rows[0].total_rows) : 0,
+    rows: rows.map((r) => toBooking(r.booking)),
+  };
+}
+
 // One customer's live bookings, newest first — for the profile page, which
 // used to load every booking in the table and filter in memory. The ilike is a
 // case-insensitive equality (its wildcards are escaped out of the address, and
