@@ -89,6 +89,43 @@ export async function listManualCustomers(): Promise<ManualCustomer[]> {
 // Bookings/guests/spent are lifetime figures: anything imported from the old
 // system plus everything booked here. `imported` is kept alongside so the
 // Customers tab can show where the numbers came from.
+// Bookings carried over from the old system (scripts/import-bookings.mjs) are
+// referenced "VB-L<transaction>"; a booking made here is always "VB-" plus hex,
+// so the L is unambiguous.
+export function isImportedBooking(reference: string): boolean {
+  return /^VB-L\d+$/i.test(reference);
+}
+
+// The old system's per-customer totals cover every session it ever sold them —
+// including the ones now itemised as imported bookings. Counting both would
+// show a customer's history twice, so the legacy figures are reduced by
+// whatever has been itemised. Its export counted one "booking" per session,
+// which is what an imported booking's items are.
+function legacyRemainder(
+  imported: ImportedHistory | null | undefined,
+  itemised: { sessions: number; paidCents: number }
+): { bookings: number; paidCents: number } {
+  return {
+    bookings: Math.max(0, num(imported?.bookings) - itemised.sessions),
+    paidCents: Math.max(0, num(imported?.paidCents) - itemised.paidCents),
+  };
+}
+
+// What a customer's imported bookings already account for.
+export function itemisedLegacy(
+  bookings: { reference: string; items: { quantity: number }[]; pricing: { paidCents: number } }[]
+): { sessions: number; paidCents: number } {
+  return bookings.reduce(
+    (acc, b) => {
+      if (!isImportedBooking(b.reference)) return acc;
+      acc.sessions += b.items.length;
+      acc.paidCents += b.pricing.paidCents;
+      return acc;
+    },
+    { sessions: 0, paidCents: 0 }
+  );
+}
+
 export type CustomerRowData = {
   name: string;
   email: string;
@@ -102,26 +139,44 @@ export type CustomerRowData = {
 };
 
 export async function aggregateCustomers(
-  bookings: { customer: { firstName: string; lastName: string; email: string; phone: string; subscribe: boolean }; createdAt: string; items: { quantity: number }[]; pricing: { paidCents: number } }[],
+  bookings: { reference: string; customer: { firstName: string; lastName: string; email: string; phone: string; subscribe: boolean }; createdAt: string; items: { quantity: number }[]; pricing: { paidCents: number } }[],
   manual: ManualCustomer[]
 ): Promise<CustomerRowData[]> {
+  // Walk-ins imported from the old system were filed under stand-in accounts
+  // and arrive with no email. They aren't people to group by, and this list is
+  // grouped by email, so they're left out of it.
+  const named = bookings.filter((b) => b.customer.email.trim() !== "");
+
+  const itemised = new Map<string, { sessions: number; paidCents: number }>();
+  for (const b of named) {
+    if (!isImportedBooking(b.reference)) continue;
+    const key = b.customer.email.toLowerCase();
+    const entry = itemised.get(key) ?? { sessions: 0, paidCents: 0 };
+    entry.sessions += b.items.length;
+    entry.paidCents += b.pricing.paidCents;
+    itemised.set(key, entry);
+  }
+
   const byEmail = new Map<string, CustomerRowData>();
   for (const m of manual) {
-    // Imported people start on their old-system totals; bookings made here are
-    // added on top by the loop below.
-    byEmail.set(m.email.toLowerCase(), {
+    const key = m.email.toLowerCase();
+    // Imported people start on whatever of their old-system totals isn't
+    // itemised as a booking already; bookings are added on top by the loop
+    // below.
+    const legacy = legacyRemainder(m.imported, itemised.get(key) ?? { sessions: 0, paidCents: 0 });
+    byEmail.set(key, {
       name: `${m.firstName} ${m.lastName}`,
       email: m.email,
       phone: m.phone,
       subscribed: m.subscribe,
-      bookings: num(m.imported?.bookings),
+      bookings: legacy.bookings,
       guests: 0, // the old export never recorded party sizes
-      spentCents: num(m.imported?.paidCents),
+      spentCents: legacy.paidCents,
       lastBooked: m.createdAt,
       imported: m.imported,
     });
   }
-  for (const b of bookings) {
+  for (const b of named) {
     const key = b.customer.email.toLowerCase();
     const row = byEmail.get(key) ?? {
       name: `${b.customer.firstName} ${b.customer.lastName}`,
@@ -163,7 +218,8 @@ export async function upsertManualCustomer(c: ManualCustomer): Promise<void> {
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify([
       {
-        email: c.email,
+        // Lowercased to match how every reader here looks the row up.
+        email: c.email.toLowerCase(),
         first_name: c.firstName,
         last_name: c.lastName,
         phone: c.phone,

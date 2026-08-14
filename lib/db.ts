@@ -274,15 +274,30 @@ export async function getBookingByReference(reference: string): Promise<Booking 
   return rows[0] ? toBooking(rows[0]) : undefined;
 }
 
-// Every live booking, newest first (expired unpaid checkouts drop out). Fine
-// at this scale; add pagination when the venue has thousands of bookings.
+// Every live booking, newest first (expired unpaid checkouts drop out).
 // Live bookings only by default, so revenue, capacity and customer stats never
 // count cancellations. The Bookings list passes includeCancelled so staff can
 // still see them (and settle any refund).
+//
+// Paged, because PostgREST caps a plain select at 1000 rows: the history
+// imported from the old system runs to thousands, and quietly stopping at 1000
+// would drop bookings off the list, the customer roll-up and every report. A
+// hard page ceiling keeps a miscounting backend from looping forever.
+const BOOKING_PAGE = 1000;
+const BOOKING_MAX_PAGES = 100;
+
 export async function listBookings(opts?: { includeCancelled?: boolean }): Promise<Booking[]> {
-  const res = await rest("bookings?select=*&order=created_at.desc");
-  if (!res.ok) throw await restError(res, "Loading bookings");
-  const all = ((await res.json()) as BookingRow[]).map(toBooking);
+  const rows: BookingRow[] = [];
+  for (let page = 0; page < BOOKING_MAX_PAGES; page++) {
+    const res = await rest(
+      `bookings?select=*&order=created_at.desc&limit=${BOOKING_PAGE}&offset=${page * BOOKING_PAGE}`
+    );
+    if (!res.ok) throw await restError(res, "Loading bookings");
+    const batch = (await res.json()) as BookingRow[];
+    rows.push(...batch);
+    if (batch.length < BOOKING_PAGE) break;
+  }
+  const all = rows.map(toBooking);
   if (opts?.includeCancelled) {
     // still drop lapsed pending checkouts — those were never real bookings
     return all.filter((b) => b.status === "cancelled" || isLiveBooking(b));

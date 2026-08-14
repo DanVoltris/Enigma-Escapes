@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "import:customers": "node --env-file=.env.local scripts/import-customers.mjs"
+    "import:customers": "node --env-file=.env.local scripts/import-customers.mjs",
+    "import:bookings": "node --env-file=.env.local scripts/import-bookings.mjs"
   },
   "dependencies": {
     "next": "^16.2.10",

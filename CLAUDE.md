@@ -111,6 +111,23 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   jsonb column and show on the Customers tab alongside anything booked here. Walk-in placeholder
   accounts are left out and listed at the end of the run. With `USE_LOCAL_DATA=true` it writes
   to `.local-data.json` instead — the way to preview an import without touching production.
+- Importing bookings from the old booking system: `npm run import:bookings -- <file.csv>`
+  (`--dry-run`, `--show=<transaction id>`). Sessions sold over there then hold their slot here —
+  every room is private, so one live booking makes the slot read "Sold out" — and hang off the
+  customer's account by email. The export files one row per session; rows sharing a transaction
+  id were one purchase, so they become one booking with several items. Ids and references are
+  derived from the transaction id (`VB-L<transaction>`; the app only mints hex after `VB-`, so
+  the L can't collide), which makes a re-run an update rather than a duplicate and is what marks
+  a booking as imported. Rooms are matched by name — the old names carry the venue, e.g.
+  "Shady Grove Sanatorium -Grant Park Shopping Centre" — and anything with no experience here
+  (Hollywood Pizza, the party room) is skipped and listed at the end. Desk bookings filed under
+  the old system's placeholder accounts keep the name typed at the desk but no email, so they
+  never become customer accounts. Money comes from the export's own figures; a session that
+  doesn't sit on the room's published start times still imports, and the grid slots it overlaps
+  are blocked off (see below) so the room can't be sold twice.
+- Legacy history is not counted twice: the customers export's per-customer totals already
+  include any session since itemised as an imported booking, so the Customers tab and profile
+  show those totals net of what's listed (`itemisedLegacy` in lib/customers.ts).
 - Blocked hours: managers take sessions out of service on `/manager/blocks` (linked from
   Calendar) — per-slot rows in `slot_blocks`. Blocked slots are hidden from availability (site
   + partner feed) and refused by create-booking (walk-ins included) and the requests API.

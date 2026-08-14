@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from "@/components/manager/CustomerTabs";
-import { listManualCustomers } from "@/lib/customers";
+import { isImportedBooking, itemisedLegacy, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -62,10 +62,23 @@ export default async function ManagerCustomerDetail({
   // lands in the three bottom-line figures and the rest stays live-only.
   const sum = (f: (p: (typeof bookings)[number]["pricing"]) => number) =>
     bookings.reduce((s, b) => s + f(b.pricing), 0);
+  // Sessions imported from the old system are itemised above *and* inside the
+  // totals that system exported per customer, so the legacy figures are shown
+  // net of what's already listed — otherwise this customer's history counts
+  // twice.
+  const itemised = itemisedLegacy(bookings);
+  const itemisedValue = bookings
+    .filter((b) => isImportedBooking(b.reference))
+    .reduce((s, b) => s + b.pricing.totalCents, 0);
+  const itemisedDue = bookings
+    .filter((b) => isImportedBooking(b.reference))
+    .reduce((s, b) => s + b.pricing.balanceCents, 0);
+  const net = (legacyTotal: number, listed: number) => Math.max(0, legacyTotal - listed);
   const legacy = {
-    total: num(imported?.bookingValueCents),
-    paid: num(imported?.paidCents),
-    due: num(imported?.unpaidCents),
+    total: net(num(imported?.bookingValueCents), itemisedValue),
+    paid: net(num(imported?.paidCents), itemised.paidCents),
+    due: net(num(imported?.unpaidCents), itemisedDue),
+    bookings: net(num(imported?.bookings), itemised.sessions),
   };
   const hasLegacyMoney = legacy.total > 0 || legacy.paid > 0 || legacy.due > 0;
   const totals = {
@@ -134,7 +147,7 @@ export default async function ManagerCustomerDetail({
           <dl className="cust-facts">
             <div>
               <dt>Bookings</dt>
-              <dd>{bookings.length + num(imported?.bookings)}</dd>
+              <dd>{bookings.length + legacy.bookings}</dd>
             </div>
             <div>
               <dt>Guests brought</dt>
@@ -174,13 +187,14 @@ export default async function ManagerCustomerDetail({
               <p>
                 <span className="cust-info-row">
                   <span className="sub">
-                    {num(imported.bookings)} booking{num(imported.bookings) === 1 ? "" : "s"} ·{" "}
-                    {formatMoney(num(imported.paidCents))} paid
+                    {legacy.bookings === 0 && legacy.paid === 0
+                      ? "Everything it recorded for them is listed above."
+                      : `${legacy.bookings} further booking${legacy.bookings === 1 ? "" : "s"} · ${formatMoney(legacy.paid)} paid`}
                   </span>
                 </span>
-                {num(imported.unpaidCents) > 0 && (
+                {legacy.due > 0 && (
                   <span className="cust-info-row">
-                    <span className="sub">{formatMoney(num(imported.unpaidCents))} left unpaid</span>
+                    <span className="sub">{formatMoney(legacy.due)} left unpaid</span>
                   </span>
                 )}
                 {num(imported.creditRemainingCents) > 0 && (
