@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import RoomBadge from "@/components/RoomBadge";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -38,6 +38,7 @@ type Props = {
   experiences: Experience[];
   allTimes: string[];
   sessionsByKey: Record<string, SessionBooking[]>; // key = `${roomId}|${time}`
+  blockedKeys: string[]; // same key shape — slots taken out of service
 };
 
 function minutesOf(time: string): number {
@@ -53,11 +54,13 @@ export default function CalendarView({
   experiences,
   allTimes,
   sessionsByKey,
+  blockedKeys,
 }: Props) {
   // The session whose bookings are shown in the panel; null when closed.
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const countOf = (key: string) => (sessionsByKey[key] ?? []).reduce((s, b) => s + b.quantity, 0);
+  const blocked = useMemo(() => new Set(blockedKeys), [blockedKeys]);
 
   // Close the panel on Escape while it's open.
   useEffect(() => {
@@ -102,8 +105,24 @@ export default function CalendarView({
                       }
                       const key = `${e.id}|${time}`;
                       const count = countOf(key);
-                      const cls = count === 0 ? "" : count >= e.capacity ? " full" : " some";
-                      const label = `${count}/${e.capacity}`;
+                      const isBlocked = blocked.has(key);
+                      // Blocked shows red whatever else is true. A blocked slot
+                      // that still holds guests is worth seeing loudly — it
+                      // means someone was booked in before it was taken out of
+                      // service, and they still need dealing with.
+                      const cls = isBlocked
+                        ? " blocked"
+                        : count === 0
+                          ? ""
+                          : count >= e.capacity
+                            ? " full"
+                            : " some";
+                      const label = isBlocked && count === 0 ? "Blocked" : `${count}/${e.capacity}`;
+                      const title = isBlocked
+                        ? `${e.name} at ${formatTime(time)}: blocked off — can't be booked${
+                            count > 0 ? `, but ${count} already booked in` : ""
+                          }`
+                        : `${e.name} at ${formatTime(time)}: ${count} of ${e.capacity} spots booked — view bookings`;
                       return (
                         <td key={e.id}>
                           {count > 0 ? (
@@ -111,12 +130,14 @@ export default function CalendarView({
                               type="button"
                               className={`cell${cls}`}
                               onClick={() => setSelectedKey(key)}
-                              title={`${e.name} at ${formatTime(time)}: ${count} of ${e.capacity} spots booked — view bookings`}
+                              title={title}
                             >
                               {label}
                             </button>
                           ) : (
-                            <span className={`cell${cls}`}>{label}</span>
+                            <span className={`cell${cls}`} title={title}>
+                              {label}
+                            </span>
                           )}
                         </td>
                       );
@@ -138,6 +159,9 @@ export default function CalendarView({
               <span className="chip" style={{ background: "var(--slot-full)" }} /> full
             </span>
             <span>
+              <span className="chip" style={{ background: "var(--slot-blocked)" }} /> blocked off
+            </span>
+            <span>
               <span className="chip chip-na" /> not offered at this time
             </span>
           </div>
@@ -150,6 +174,7 @@ export default function CalendarView({
           experiences={experiences}
           countOf={countOf}
           onSelect={setSelectedKey}
+          blocked={blocked}
         />
       )}
 
@@ -174,6 +199,7 @@ function ListView({
   experiences,
   countOf,
   onSelect,
+  blocked,
 }: {
   date: string;
   isToday: boolean;
@@ -181,6 +207,7 @@ function ListView({
   experiences: Experience[];
   countOf: (key: string) => number;
   onSelect: (key: string) => void;
+  blocked: Set<string>;
 }) {
   const rows = experiences
     .flatMap((e) =>
@@ -218,8 +245,12 @@ function ListView({
               {rows.map((r) => {
                 const passed = isToday && minutesOf(r.time) <= nowMinutes;
                 const full = r.count >= r.capacity;
+                const isBlocked = blocked.has(r.key);
                 let status: { label: string; cls: string };
-                if (passed) status = { label: "Passed", cls: "muted" };
+                // Blocked is the headline: it's the reason the slot can't be
+                // sold, which matters more than how full it happens to be.
+                if (isBlocked) status = { label: "Blocked off", cls: "blocked" };
+                else if (passed) status = { label: "Passed", cls: "muted" };
                 else if (full) status = { label: "Full", cls: "on" };
                 else if (r.count > 0) status = { label: "Filling up", cls: "" };
                 else status = { label: "Available", cls: "" };
@@ -246,7 +277,13 @@ function ListView({
                       {r.count}/{r.capacity}
                     </td>
                     <td>
-                      <span className={`mgr-pill${status.cls === "on" ? " on" : ""}`}>{status.label}</span>
+                      <span
+                        className={`mgr-pill${status.cls === "on" ? " on" : ""}${
+                          status.cls === "blocked" ? " blocked" : ""
+                        }`}
+                      >
+                        {status.label}
+                      </span>
                     </td>
                     <td>
                       {hasGuests && (

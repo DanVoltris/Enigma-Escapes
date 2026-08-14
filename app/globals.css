@@ -19,6 +19,7 @@
      stronger, and step up in weight from empty to full. */
   --slot-some: #b3ddf7; /* partly booked */
   --slot-full: #4aabe8; /* full */
+  --slot-blocked: #f6cccc; /* taken out of service — can't be sold */
   --slot-na: #d5dbe1; /* not offered at this time */
 }
 
@@ -2181,6 +2182,11 @@ a:hover {
   border: 1px solid var(--border);
   color: var(--text-secondary);
 }
+.mgr-pill.blocked {
+  background: var(--danger-tint);
+  border-color: var(--danger);
+  color: var(--danger);
+}
 .mgr-pill.on {
   background: var(--accent);
   border-color: var(--accent);
@@ -2295,6 +2301,18 @@ a.mgr-pill.on:hover {
   );
   color: #525c64; /* 4.9:1 on the grey — readable, still clearly secondary */
   font-weight: 400;
+}
+/* Blocked off: red, and hatched like .na so it still reads as "not sellable"
+   without relying on colour alone — the two unsellable states then look
+   related, which is the truth. */
+.mgr-cal .cell.blocked {
+  background-color: var(--slot-blocked);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(150, 32, 32, 0.16) 0 4px,
+    transparent 4px 9px
+  );
+  color: #7d1d1d; /* 6.4:1 on the tint */
 }
 .mgr-cal .cell.some {
   background: var(--slot-some);

@@ -3,6 +3,7 @@ import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import DateJump from "@/components/manager/DateJump";
 import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
 import CalendarView, { type SessionBooking } from "@/components/manager/CalendarView";
+import { blockedKeysForDate } from "@/lib/blocks";
 import { bookingsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { locationHoursMap } from "@/lib/hours";
@@ -30,10 +31,14 @@ export default async function ManagerCalendar({
   const view = params.view === "list" ? "list" : "calendar";
   const filters = (params.f ?? "").split(",").filter(Boolean);
 
-  const [everyExperience, dayBookings, hoursMap] = await Promise.all([
+  const [everyExperience, dayBookings, hoursMap, blockedKeys] = await Promise.all([
     listExperiences({ activeOnly: true }),
     bookingsForDate(date),
     locationHoursMap(),
+    // Slots taken out of service on /manager/blocks. Availability and
+    // create-booking already refuse these; the grid has to say so too, or an
+    // empty cell reads as free and staff try to sell it.
+    blockedKeysForDate(date),
   ]);
   // Staff assigned to particular stores only ever see those stores' rooms.
   const allExperiences = scope ? everyExperience.filter((e) => scope.includes(e.location)) : everyExperience;
@@ -145,6 +150,7 @@ export default async function ManagerCalendar({
         experiences={gridExperiences}
         allTimes={allTimes}
         sessionsByKey={sessionsByKey}
+        blockedKeys={[...blockedKeys]}
       />
     </>
   );
