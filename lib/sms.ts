@@ -123,7 +123,14 @@ export async function notifyBookingCancelled(booking: Booking): Promise<void> {
 
 // Best-effort booking texts — a messaging failure must never break the booking
 // (same contract as logActivity). Customer confirmation + staff heads-up.
-export async function notifyBookingConfirmed(booking: Booking, origin: string): Promise<void> {
+// `notifyStaff: false` skips the heads-up to the business cell — a booking
+// taken at the desk is already known to the person who took it, and texting
+// them about it would buzz the owner's phone all day.
+export async function notifyBookingConfirmed(
+  booking: Booking,
+  origin: string,
+  opts?: { notifyStaff?: boolean }
+): Promise<void> {
   if (!smsConfigured()) return;
   const first = booking.items[0];
   const more = booking.items.length > 1 ? ` (+${booking.items.length - 1} more)` : "";
@@ -136,6 +143,7 @@ export async function notifyBookingConfirmed(booking: Booking, origin: string): 
   } catch (err) {
     console.error("customer SMS failed:", err);
   }
+  if (opts?.notifyStaff === false) return;
   try {
     const business = (await getBusinessDetails()).value;
     const staffPhone = business?.cell || business?.phone;

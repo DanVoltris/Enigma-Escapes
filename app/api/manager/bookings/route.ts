@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { buildBooking } from "@/lib/create-booking";
 import { logActivity, saveBooking } from "@/lib/db";
+import { notifyBookingConfirmed } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not save the booking right now. Please try again." }, { status: 500 });
   }
   const b = result.booking;
+  // Same confirmation the online customer gets — reference, session details and
+  // the link to change or cancel. Best-effort: it never throws, so a texting
+  // problem can't lose a booking the desk has already taken. No staff copy;
+  // whoever took it is standing right there.
+  await notifyBookingConfirmed(b, req.nextUrl.origin, { notifyStaff: false });
   const guests = b.items.reduce((s, i) => s + i.quantity, 0);
   await logActivity(
     "Walk-in booking",
