@@ -223,6 +223,68 @@ export async function aggregateCustomers(
   return Array.from(byEmail.values()).sort((a, b) => b.lastBooked.localeCompare(a.lastBooked));
 }
 
+// One page of the Customers tab, computed by the customer_roster function in
+// Postgres (scripts/customer-roster.sql) — search, merge, legacy netting, sort
+// and slice all happen where the data lives, so the page asks for 100 people
+// instead of building all 44k in memory. Returns null when the function isn't
+// installed (or in local-data mode), and the caller falls back to
+// aggregateCustomers over the full roster.
+export type RosterPage = { total: number; rows: CustomerRowData[] };
+
+export async function customerRosterPage(opts: {
+  q?: string;
+  subscribersOnly?: boolean;
+  locations?: string[] | null;
+  limit: number;
+  offset: number;
+}): Promise<RosterPage | null> {
+  let res: Response;
+  try {
+    res = await rest("rpc/customer_roster", {
+      method: "POST",
+      body: JSON.stringify({
+        p_q: opts.q || null,
+        p_subscribers_only: opts.subscribersOnly === true,
+        p_locations: opts.locations?.length ? opts.locations : null,
+        p_limit: opts.limit,
+        p_offset: opts.offset,
+      }),
+    });
+  } catch {
+    return null; // local-data mode has no rpc endpoint
+  }
+  if (res.status === 404) return null; // function not installed yet
+  if (!res.ok) throw await restError(res, "Loading the customer roster");
+  const rows = (await res.json()) as {
+    total_rows: number;
+    name: string;
+    email: string;
+    phone: string;
+    subscribed: boolean;
+    bookings: number;
+    guests: number;
+    spent_cents: number;
+    last_booked: string;
+    has_imported: boolean;
+  }[];
+  return {
+    total: rows[0] ? Number(rows[0].total_rows) : 0,
+    rows: rows.map((r) => ({
+      name: r.name.trim(),
+      email: r.email,
+      phone: r.phone,
+      subscribed: r.subscribed,
+      bookings: r.bookings,
+      guests: r.guests,
+      spentCents: Number(r.spent_cents),
+      lastBooked: r.last_booked,
+      // A stand-in so "has legacy history" renders; the page swaps in the real
+      // record via importedHistoryFor for the rows it shows.
+      imported: r.has_imported ? {} : null,
+    })),
+  };
+}
+
 // The full imported history for a specific handful of people, keyed by
 // lowercased email. Pairs with listManualCustomers({ history: false }): fetch
 // the roster light, then fill in the real record for the rows being shown.

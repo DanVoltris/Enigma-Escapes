@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import CustomerRow from "@/components/manager/CustomerRow";
-import { aggregateCustomers, importedHistoryFor, listManualCustomers } from "@/lib/customers";
+import { aggregateCustomers, customerRosterPage, importedHistoryFor, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -17,29 +17,60 @@ export default async function ManagerCustomers({
   const q = (rawQ ?? "").trim().toLowerCase();
   const subscribersOnly = sub === "1";
 
-  // The roster is fetched without the imported-history blob — it is only needed
-  // for the rows actually rendered, and carrying it for all 44k people is what
-  // made this page take 21 seconds to build.
-  const [allBookings, manual] = await Promise.all([
-    listBookings(),
-    listManualCustomers({ history: false }),
-  ]);
-  const bookings = scope ? allBookings.filter((b) => b.items.some((i) => scope.includes(i.location))) : allBookings;
-  let customers = await aggregateCustomers(bookings, manual);
-  if (subscribersOnly) customers = customers.filter((c) => c.subscribed);
-  if (q) {
-    customers = customers.filter((c) =>
-      `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(q)
-    );
+  // Only one screenful is rendered — the roster is tens of thousands of people
+  // since the old system's customers were imported, and putting every one in
+  // the HTML made this page too large to load at all.
+  const PER_PAGE = 100;
+  const requested = Math.max(1, Math.floor(Number(rawPage)) || 1);
+
+  // The normal path: the customer_roster function in Postgres does the merge,
+  // search, sort and slice, and this page only ever handles 100 people.
+  let roster = await customerRosterPage({
+    q,
+    subscribersOnly,
+    locations: scope,
+    limit: PER_PAGE,
+    offset: (requested - 1) * PER_PAGE,
+  });
+  // Past the end (say a stale bookmark): show the first page instead.
+  if (roster && roster.rows.length === 0 && requested > 1) {
+    roster = await customerRosterPage({
+      q,
+      subscribersOnly,
+      locations: scope,
+      limit: PER_PAGE,
+      offset: 0,
+    });
   }
 
-  // Only one screenful is rendered. Since the old system's customers were
-  // imported the roster is tens of thousands of people, and putting every one
-  // of them in the HTML made this page too large to load at all.
-  const PER_PAGE = 100;
-  const pageCount = Math.max(1, Math.ceil(customers.length / PER_PAGE));
-  const current = Math.min(Math.max(1, Math.floor(Number(rawPage)) || 1), pageCount);
-  const page = customers.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+  let total: number;
+  let current: number;
+  let page: Awaited<ReturnType<typeof aggregateCustomers>>;
+  if (roster) {
+    total = roster.total;
+    current = roster.rows.length === 0 ? 1 : Math.min(requested, Math.max(1, Math.ceil(total / PER_PAGE)));
+    page = roster.rows;
+  } else {
+    // Fallback while the SQL function isn't installed (and for local-data
+    // mode): the old in-memory aggregation over the full roster.
+    const [allBookings, manual] = await Promise.all([
+      listBookings(),
+      listManualCustomers({ history: false }),
+    ]);
+    const bookings = scope ? allBookings.filter((b) => b.items.some((i) => scope.includes(i.location))) : allBookings;
+    let customers = await aggregateCustomers(bookings, manual);
+    if (subscribersOnly) customers = customers.filter((c) => c.subscribed);
+    if (q) {
+      customers = customers.filter((c) =>
+        `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(q)
+      );
+    }
+    total = customers.length;
+    current = Math.min(requested, Math.max(1, Math.ceil(total / PER_PAGE)));
+    page = customers.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+  }
+  const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
+
   // Now that we know which hundred are on screen, fetch their real history.
   const history = await importedHistoryFor(page.filter((c) => c.imported).map((c) => c.email));
   const shown = page.map((c) =>
@@ -85,12 +116,12 @@ export default async function ManagerCustomers({
 
       <div className="mgr-list-tools">
         <span>
-          {customers.length.toLocaleString()} customer{customers.length === 1 ? "" : "s"}
+          {total.toLocaleString()} customer{total === 1 ? "" : "s"}
           {subscribersOnly ? " subscribed to marketing" : ""}
           {pageCount > 1
             ? ` · showing ${((current - 1) * PER_PAGE + 1).toLocaleString()}–${Math.min(
                 current * PER_PAGE,
-                customers.length
+                total
               ).toLocaleString()}`
             : ""}
         </span>
@@ -105,7 +136,7 @@ export default async function ManagerCustomers({
         </span>
       </div>
 
-      {customers.length === 0 ? (
+      {total === 0 ? (
         <p className="mgr-empty">No customers found{q ? ` for “${rawQ}”` : " yet — they’ll appear here after their first booking"}.</p>
       ) : (
         <div className="mgr-table-wrap">
