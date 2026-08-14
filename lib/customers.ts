@@ -4,7 +4,7 @@
 // Supabase table (see CLAUDE.md): customers(email text primary key,
 // first_name text, last_name text, phone text, subscribe boolean,
 // created_at timestamptz).
-import { rest, restError } from "./supabase";
+import { rest, restAllPages, restError } from "./supabase";
 
 // History carried over from the old booking system (scripts/import-customers.mjs).
 // Every field is optional: it's jsonb written from a CSV whose columns have
@@ -53,29 +53,16 @@ type Row = {
 
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
-// PostgREST caps a plain select at 1000 rows, so this pages through with
-// limit/offset — the imported roster runs to several thousand people and
-// silently stopping at 1000 would hide most of them. A hard page ceiling keeps
-// a miscounting backend from looping forever.
-const PAGE = 1000;
-const MAX_PAGES = 100;
-
 export async function listManualCustomers(): Promise<ManualCustomer[]> {
-  const rows: Row[] = [];
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const res = await rest(
-      // email breaks ties: created_at alone is not unique (the old system
-      // bulk-loaded hundreds of people on the same minute) and Postgres gives
-      // no stable order within a tie, so rows shuffle between pages and some
-      // are returned twice while others are never returned at all.
-      `customers?select=*&order=created_at.desc,email.desc&limit=${PAGE}&offset=${page * PAGE}`
-    );
-    if (res.status === 404) return []; // table not created yet
-    if (!res.ok) throw await restError(res, "Loading customers");
-    const batch = (await res.json()) as Row[];
-    rows.push(...batch);
-    if (batch.length < PAGE) break;
-  }
+  // email breaks ties: created_at alone is not unique (the old system
+  // bulk-loaded hundreds of people on the same minute) and Postgres gives no
+  // stable order within a tie, so rows shuffle between pages and some are
+  // returned twice while others are never returned at all.
+  const rows = await restAllPages<Row>(
+    "customers?select=*&order=created_at.desc,email.desc",
+    "Loading customers"
+  );
+  if (rows === null) return []; // table not created yet
   return rows.map((r) => ({
     email: r.email,
     firstName: r.first_name,

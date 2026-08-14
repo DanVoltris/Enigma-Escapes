@@ -38,3 +38,29 @@ export async function restError(res: Response, doing: string): Promise<Error> {
   const body = await res.text().catch(() => "");
   return new Error(`${doing} failed (Supabase ${res.status}): ${body.slice(0, 300)}`);
 }
+
+// PostgREST caps a plain select at 1000 rows, so any table that can outgrow
+// that has to be paged. Kept sequential deliberately: fetching the pages
+// concurrently was measured against the live database and came out slower
+// (28-31s at 4 and 8 at a time, against 26s one after another) — the cost is
+// shifting the rows, not waiting on round trips, so concurrency only adds
+// contention.
+//
+// `path` must carry its own select and order and no limit/offset. The order
+// must be unique (see listBookings / listManualCustomers) or rows shift between
+// pages. Returns null if the table doesn't exist yet.
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 200;
+
+export async function restAllPages<T>(path: string, doing: string): Promise<T[] | null> {
+  const rows: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = await rest(`${path}&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`);
+    if (res.status === 404) return page === 0 ? null : rows; // table not created yet
+    if (!res.ok) throw await restError(res, doing);
+    const batch = (await res.json()) as T[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
+  return rows;
+}

@@ -9,11 +9,11 @@ export const dynamic = "force-dynamic";
 export default async function ManagerCustomers({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; sub?: string }>;
+  searchParams: Promise<{ q?: string; sub?: string; page?: string }>;
 }) {
   const staff = await requirePermission("customers.view", "/manager/customers");
   const scope = allowedLocations(staff);
-  const { q: rawQ, sub } = await searchParams;
+  const { q: rawQ, sub, page: rawPage } = await searchParams;
   const q = (rawQ ?? "").trim().toLowerCase();
   const subscribersOnly = sub === "1";
 
@@ -26,6 +26,22 @@ export default async function ManagerCustomers({
       `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(q)
     );
   }
+
+  // Only one screenful is rendered. Since the old system's customers were
+  // imported the roster is tens of thousands of people, and putting every one
+  // of them in the HTML made this page too large to load at all.
+  const PER_PAGE = 100;
+  const pageCount = Math.max(1, Math.ceil(customers.length / PER_PAGE));
+  const current = Math.min(Math.max(1, Math.floor(Number(rawPage)) || 1), pageCount);
+  const shown = customers.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+  const pageHref = (n: number) => {
+    const params = new URLSearchParams();
+    if (rawQ) params.set("q", rawQ);
+    if (subscribersOnly) params.set("sub", "1");
+    if (n > 1) params.set("page", String(n));
+    const qs = params.toString();
+    return `/manager/customers${qs ? `?${qs}` : ""}`;
+  };
 
   return (
     <>
@@ -58,8 +74,14 @@ export default async function ManagerCustomers({
 
       <div className="mgr-list-tools">
         <span>
-          {customers.length} customer{customers.length === 1 ? "" : "s"}
+          {customers.length.toLocaleString()} customer{customers.length === 1 ? "" : "s"}
           {subscribersOnly ? " subscribed to marketing" : ""}
+          {pageCount > 1
+            ? ` · showing ${((current - 1) * PER_PAGE + 1).toLocaleString()}–${Math.min(
+                current * PER_PAGE,
+                customers.length
+              ).toLocaleString()}`
+            : ""}
         </span>
         <span>
           <Link href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}>
@@ -88,7 +110,7 @@ export default async function ManagerCustomers({
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => (
+              {shown.map((c) => (
                 <CustomerRow
                   key={c.email}
                   name={c.name}
@@ -103,6 +125,27 @@ export default async function ManagerCustomers({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {pageCount > 1 && (
+        <div className="mgr-list-tools">
+          <span>
+            Page {current.toLocaleString()} of {pageCount.toLocaleString()}
+          </span>
+          <span>
+            {current > 1 ? (
+              <Link href={pageHref(current - 1)}>← Previous</Link>
+            ) : (
+              <span className="sub">← Previous</span>
+            )}
+            {" · "}
+            {current < pageCount ? (
+              <Link href={pageHref(current + 1)}>Next →</Link>
+            ) : (
+              <span className="sub">Next →</span>
+            )}
+          </span>
         </div>
       )}
     </>

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { todayISO } from "./format";
-import { rest, restError } from "./supabase";
+import { rest, restAllPages, restError } from "./supabase";
 import { spendVoucher } from "./vouchers";
 import type { ActivityEntry, Booking, BookingNote, BookingSource, Promo, StaffNote } from "./types";
 
@@ -281,25 +281,16 @@ export async function getBookingByReference(reference: string): Promise<Booking 
 //
 // Paged, because PostgREST caps a plain select at 1000 rows: the history
 // imported from the old system runs to thousands, and quietly stopping at 1000
-// would drop bookings off the list, the customer roll-up and every report. A
-// hard page ceiling keeps a miscounting backend from looping forever.
-const BOOKING_PAGE = 1000;
-const BOOKING_MAX_PAGES = 100;
-
+// would drop bookings off the list, the customer roll-up and every report.
 export async function listBookings(opts?: { includeCancelled?: boolean }): Promise<Booking[]> {
-  const rows: BookingRow[] = [];
-  for (let page = 0; page < BOOKING_MAX_PAGES; page++) {
-    const res = await rest(
-      // id breaks ties: created_at is not unique (imported sessions inherit the
-      // legacy booked-on time, and several share one) and Postgres gives no
-      // stable order within a tie, so paging would drop and duplicate rows.
-      `bookings?select=*&order=created_at.desc,id.desc&limit=${BOOKING_PAGE}&offset=${page * BOOKING_PAGE}`
-    );
-    if (!res.ok) throw await restError(res, "Loading bookings");
-    const batch = (await res.json()) as BookingRow[];
-    rows.push(...batch);
-    if (batch.length < BOOKING_PAGE) break;
-  }
+  // id breaks ties: created_at is not unique (imported sessions inherit the
+  // legacy booked-on time, and several share one) and Postgres gives no stable
+  // order within a tie, so paging would drop and duplicate rows.
+  const rows =
+    (await restAllPages<BookingRow>(
+      "bookings?select=*&order=created_at.desc,id.desc",
+      "Loading bookings"
+    )) ?? [];
   const all = rows.map(toBooking);
   if (opts?.includeCancelled) {
     // still drop lapsed pending checkouts — those were never real bookings
