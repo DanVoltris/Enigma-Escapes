@@ -6,7 +6,7 @@ import LocationFilter from "@/components/manager/LocationFilter";
 import PerfFilter from "@/components/manager/PerfFilter";
 import StaffNotes from "@/components/manager/StaffNotes";
 import RoomBadge from "@/components/RoomBadge";
-import { listActivity, listBookings, listStaffNotes } from "@/lib/db";
+import { listActivity, listBookings, listBookingsInWindow, listStaffNotes } from "@/lib/db";
 import { allowedLocations, hasPermission, requireStaff } from "@/lib/auth";
 import { listAllLocations } from "@/lib/hours";
 import {
@@ -44,7 +44,37 @@ export default async function ManagerDashboard({
   const canSeePerformance = hasPermission(staff, "reports");
   const view = params.view === "performance" && canSeePerformance ? "performance" : "operations";
   const scope = allowedLocations(staff);
-  const [everyBooking, allLocations] = await Promise.all([listBookings(), listAllLocations()]);
+  // Fetch only the window each view can reach — one day for operations, the
+  // range plus the same span back (delta arrows) for performance — instead of
+  // six years of imported history. A day of slack each side covers the UTC /
+  // venue-local difference; falls back to everything if the SQL helper isn't
+  // installed yet.
+  const viewDateParam = params.date && isValidISODate(params.date) ? params.date : todayISO();
+  let winFrom: string;
+  let winTo: string;
+  if (view === "performance") {
+    const isCustom =
+      params.range === "custom" &&
+      !!params.from &&
+      !!params.to &&
+      isValidISODate(params.from) &&
+      isValidISODate(params.to) &&
+      params.from <= params.to;
+    const preset = RANGES.find((r) => r.key === params.range) ?? RANGES[1];
+    const perfTo = isCustom ? (params.to as string) : todayISO();
+    const perfFrom = isCustom ? (params.from as string) : addDaysISO(perfTo, -(preset.days - 1));
+    const spanDays =
+      Math.round((parseISODate(perfTo).getTime() - parseISODate(perfFrom).getTime()) / 86_400_000) + 1;
+    winFrom = addDaysISO(perfFrom, -(spanDays + 1));
+    winTo = addDaysISO(perfTo, 1);
+  } else {
+    winFrom = addDaysISO(viewDateParam, -1);
+    winTo = addDaysISO(viewDateParam, 1);
+  }
+  const [everyBooking, allLocations] = await Promise.all([
+    listBookingsInWindow(winFrom, winTo).then((w) => w ?? listBookings()),
+    listAllLocations(),
+  ]);
   const locations = scope ? allLocations.filter((l) => scope.includes(l)) : allLocations;
   // Scoped staff see only their stores sessions across both dashboard views.
   const bookings = scope

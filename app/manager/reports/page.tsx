@@ -4,7 +4,7 @@ import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
 import { listBlocks } from "@/lib/blocks";
-import { listBookings } from "@/lib/db";
+import { listBookings, listBookingsInWindow } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { locationHoursMap } from "@/lib/hours";
 import { startTimesFor } from "@/lib/schedule";
@@ -119,7 +119,13 @@ export default async function ManagerReports({
   const status = params.status === "active" || params.status === "noshow" ? params.status : "all";
   const view = params.view === "table" ? ("table" as const) : ("chart" as const);
 
-  const everyBooking = await listBookings();
+  // Fetch only the window the tabs can reach: the range itself, the same span
+  // again back for the delta arrows, and a day of slack each side for the UTC /
+  // venue-local difference. Falls back to everything if the SQL helper isn't
+  // installed yet.
+  const everyBooking =
+    (await listBookingsInWindow(addDaysISO(from, -rangeDays - 1), addDaysISO(to, 1))) ??
+    (await listBookings());
   // Scoped staff see only their stores sessions, and only those sessions money.
   const bookings = scope
     ? everyBooking

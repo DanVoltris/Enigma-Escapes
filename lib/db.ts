@@ -308,6 +308,34 @@ export async function listBookings(opts?: {
   return all.filter(isLiveBooking);
 }
 
+// Bookings touching a date window — any session inside it, or the booking made
+// inside it. Runs on the bookings_in_window function
+// (scripts/bookings-in-window.sql) so a dashboard showing one day doesn't drag
+// six years of imported history across the wire. Pass a day of slack each side
+// and keep exact venue-local filtering in code. Returns null when the function
+// isn't installed (or local-data mode) — callers fall back to listBookings().
+export async function listBookingsInWindow(
+  fromISO: string,
+  toISO: string,
+  opts?: { includeCancelled?: boolean }
+): Promise<Booking[] | null> {
+  let rows: BookingRow[] | null;
+  try {
+    rows = await restAllPages<BookingRow>(
+      `rpc/bookings_in_window?p_from=${fromISO}&p_to=${toISO}&order=created_at.desc,id.desc`,
+      "Loading bookings for the window"
+    );
+  } catch {
+    return null; // local-data mode has no rpc endpoint
+  }
+  if (rows === null) return null; // function not installed yet
+  const all = rows.map(toBooking);
+  if (opts?.includeCancelled) {
+    return all.filter((b) => b.status === "cancelled" || isLiveBooking(b));
+  }
+  return all.filter(isLiveBooking);
+}
+
 // One customer's live bookings, newest first — for the profile page, which
 // used to load every booking in the table and filter in memory. The ilike is a
 // case-insensitive equality (its wildcards are escaped out of the address, and
