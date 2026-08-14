@@ -120,7 +120,7 @@ export default function TeamManager({
           <thead>
             <tr>
               <th>Name</th>
-              <th>Email</th>
+              <th>Login</th>
               <th>Role</th>
               <th>Locations</th>
               <th>Status</th>
@@ -242,12 +242,14 @@ export default function TeamManager({
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="st-email">Email (their login)</label>
+                  <label htmlFor="st-email">Email or username (their login)</label>
                   <input
                     id="st-email"
-                    type="email"
+                    type="text"
                     value={draft.email}
                     onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                    autoCapitalize="none"
+                    spellCheck={false}
                   />
                 </div>
               </div>
@@ -292,7 +294,7 @@ export default function TeamManager({
                   disabled={busy}
                   onClick={async () => {
                     if (await call("/api/manager/staff", "POST", draft)) {
-                      setNotice(`${draft.name} can now sign in with that email and password.`);
+                      setNotice(`${draft.name} can now sign in with that login and password.`);
                       setDraft(EMPTY_DRAFT);
                       setAdding(false);
                     }

@@ -4,6 +4,7 @@ import { logActivity } from "@/lib/db";
 import {
   createStaff,
   defaultPermissionsFor,
+  loginProblem,
   passwordProblem,
   PERMISSIONS,
   type Permission,
@@ -11,8 +12,6 @@ import {
 } from "@/lib/staff";
 
 export const dynamic = "force-dynamic";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function cleanRole(v: unknown): StaffRole {
   return v === "admin" || v === "manager" ? v : "clerk";
@@ -32,7 +31,8 @@ export async function POST(req: NextRequest) {
   const email = typeof o.email === "string" ? o.email.trim().toLowerCase() : "";
   const password = typeof o.password === "string" ? o.password : "";
   if (!name) return NextResponse.json({ error: "Enter the person's name." }, { status: 400 });
-  if (!EMAIL_RE.test(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+  const loginIssue = loginProblem(email);
+  if (loginIssue) return NextResponse.json({ error: loginIssue }, { status: 400 });
   const problem = passwordProblem(password);
   if (problem) return NextResponse.json({ error: problem }, { status: 400 });
 

@@ -9,14 +9,14 @@ export async function POST(req: NextRequest) {
   const email = typeof o.email === "string" ? o.email : "";
   const password = typeof o.password === "string" ? o.password : "";
   if (!email || !password) {
-    return NextResponse.json({ error: "Enter your email and password." }, { status: 400 });
+    return NextResponse.json({ error: "Enter your login and password." }, { status: 400 });
   }
 
   try {
     const result = await signIn(email, password);
-    // One message for every failure — never reveal whether the email exists.
+    // One message for every failure — never reveal whether the account exists.
     if (!result) {
-      return NextResponse.json({ error: "That email and password don't match an active account." }, { status: 401 });
+      return NextResponse.json({ error: "That login and password don't match an active account." }, { status: 401 });
     }
     await logActivity("Staff signed in", result.staff.name);
     const res = NextResponse.json({ ok: true, name: result.staff.name });

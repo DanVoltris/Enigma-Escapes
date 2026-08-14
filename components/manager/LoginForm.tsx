@@ -41,13 +41,15 @@ export default function LoginForm({ firstRun, next }: { firstRun: boolean; next:
         </div>
       )}
       <div className="field">
-        <label htmlFor="lg-email">Email</label>
+        <label htmlFor="lg-email">Email or username</label>
         <input
           id="lg-email"
-          type="email"
+          type="text"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
         />
       </div>
       <div className="field">

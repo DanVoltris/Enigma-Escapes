@@ -69,6 +69,23 @@ export function passwordProblem(password: string): string | null {
   return null;
 }
 
+// What someone types to sign in. An email address is fine, but so is a plain
+// username: a front desk signs in as the desk ("kside25") rather than as a
+// person, and a shared terminal has no mailbox to own an address. Stored
+// lowercased, so signing in is not case-sensitive. Spaces are refused because
+// they are invisible when mistyped, and the punctuation allowed is what an
+// email address needs anyway.
+const LOGIN_RE = /^[a-z0-9._+@-]+$/;
+
+export function loginProblem(login: string): string | null {
+  const value = login.trim().toLowerCase();
+  if (!value) return "Enter an email address or username for them to sign in with.";
+  if (value.length < 3) return "Use at least 3 characters.";
+  if (value.length > 120) return "That is too long — use 120 characters or fewer.";
+  if (!LOGIN_RE.test(value)) return "Use letters, numbers and . _ - + @ only — no spaces.";
+  return null;
+}
+
 // ---------- accounts ----------
 
 export async function listStaff(): Promise<StaffAccount[]> {
