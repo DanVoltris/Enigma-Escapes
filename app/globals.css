@@ -2186,6 +2186,17 @@ a:hover {
   border-color: var(--accent);
   color: var(--accent-dark);
 }
+/* Pills used as filter links (Today's location switcher). */
+a.mgr-pill {
+  text-decoration: none;
+}
+a.mgr-pill:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+a.mgr-pill.on:hover {
+  color: var(--accent-dark);
+}
 
 /* bar chart (single series, hover reveals exact value) */
 .mgr-chart {

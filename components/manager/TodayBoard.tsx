@@ -49,6 +49,8 @@ export default function TodayBoard({
   isToday,
   dateLabel,
   nowMinutes,
+  locations,
+  loc,
 }: {
   terminalReady: boolean; // a card reader is paired for this venue
   canSetUpTerminal: boolean; // may configure it — only they see the setup hint
@@ -57,6 +59,8 @@ export default function TodayBoard({
   isToday: boolean;
   dateLabel: string;
   nowMinutes: number;
+  locations: string[]; // the venues this staff member may see
+  loc: string | null; // the one being shown, or null for all of them
 }) {
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -71,11 +75,11 @@ export default function TodayBoard({
           {isToday ? "Today" : dateLabel}
         </h1>
         <div className="day-nav spaced">
-          <Link href={`/manager/today?date=${addDaysISO(date, -1)}`} className="btn btn-outline">
+          <Link href={`/manager/today?date=${addDaysISO(date, -1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
             ‹ Day
           </Link>
           <DateJump date={date} basePath="/manager/today" />
-          <Link href={`/manager/today?date=${addDaysISO(date, 1)}`} className="btn btn-outline">
+          <Link href={`/manager/today?date=${addDaysISO(date, 1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
             Day ›
           </Link>
         </div>
@@ -85,10 +89,38 @@ export default function TodayBoard({
           ? "Nobody booked in."
           : `${rows.length} session${rows.length === 1 ? "" : "s"} · ${guests} guest${guests === 1 ? "" : "s"}`}
         {owed > 0 && <> · {formatMoney(owed)} still to collect</>}
+        {loc && ` · ${loc}`}
       </p>
 
+      {/* Only worth showing when there's more than one venue to choose between.
+          The day carries across, so switching venue keeps you on the same date. */}
+      {locations.length > 1 && (
+        <div className="mgr-list-tools" style={{ marginBottom: 14 }}>
+          <span>
+            <Link
+              href={`/manager/today?date=${date}`}
+              className={loc === null ? "mgr-pill on" : "mgr-pill"}
+              aria-current={loc === null ? "true" : undefined}
+            >
+              All locations
+            </Link>
+            {locations.map((l) => (
+              <Link
+                key={l}
+                href={`/manager/today?date=${date}&loc=${encodeURIComponent(l)}`}
+                className={loc === l ? "mgr-pill on" : "mgr-pill"}
+                aria-current={loc === l ? "true" : undefined}
+                style={{ marginLeft: 8 }}
+              >
+                {l}
+              </Link>
+            ))}
+          </span>
+        </div>
+      )}
+
       {rows.length === 0 ? (
-        <p className="mgr-empty">No bookings for this day.</p>
+        <p className="mgr-empty">No bookings for this day{loc ? ` at ${loc}` : ""}.</p>
       ) : (
         <div className="today-list">
           {rows.map((r) => {

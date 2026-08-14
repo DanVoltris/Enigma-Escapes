@@ -308,7 +308,7 @@ const resolve = roomResolver(experiences);
 
 const transactions = new Map();
 const unknownRooms = new Map();
-const skipped = { cancelled: 0, when: 0, quantity: 0, room: 0 };
+const skipped = { cancelled: 0, when: 0, quantity: 0, room: 0, duplicate: 0 };
 let dataRows = 0;
 
 for (const file of files) {
@@ -375,6 +375,16 @@ for (const file of files) {
       };
       transactions.set(txId, tx);
     }
+    // Exports overlap at their edges — a session near a file's boundary tends
+    // to appear in the next file too — so the same legacy booking can arrive
+    // more than once in a single run. Counting it twice puts the session on
+    // Today twice and doubles the booking's money, so the legacy booking id
+    // decides: the first row for it wins, later ones are the same session.
+    if (tx.legacyBookingIds.includes(parsed.legacyBookingId)) {
+      skipped.duplicate++;
+      continue;
+    }
+
     tx.items.push(parsed.item);
     for (const k of Object.keys(tx.money)) tx.money[k] += parsed.money[k];
     tx.noShow = tx.noShow || parsed.noShow;
@@ -462,6 +472,7 @@ console.log(
     `\n${upcoming} of them are today or later (those are the slots that stop being sellable)` +
     `\n${withEmail.size} customer accounts linked by email · ${walkIns} walk-ins filed under a placeholder account`
 );
+if (skipped.duplicate) console.log(`  ${skipped.duplicate} rows skipped — the same legacy booking in more than one export`);
 if (skipped.cancelled) console.log(`  ${skipped.cancelled} rows skipped — transaction not active`);
 if (skipped.when) console.log(`  ${skipped.when} rows skipped — unreadable date or time`);
 if (skipped.quantity) console.log(`  ${skipped.quantity} rows skipped — no party size`);
@@ -532,14 +543,47 @@ if (LOCAL) {
 }
 
 const CHUNK = 100;
+
+// A dropped socket shouldn't cost a whole run — this one is ~270 requests.
+// Retrying is safe: every write is an idempotent upsert on the booking id.
+// Only transport failures and 5xx are retried; a 4xx means the request itself
+// is wrong, so retrying would just fail three times more slowly.
+const ATTEMPTS = 3;
+async function postChunk(path, chunk, prefer) {
+  for (let attempt = 1; ; attempt++) {
+    let why;
+    try {
+      const res = await rest(path, {
+        method: "POST",
+        headers: { Prefer: prefer },
+        body: JSON.stringify(chunk),
+      });
+      if (res.ok || res.status < 500 || attempt >= ATTEMPTS) return res;
+      why = `HTTP ${res.status}`;
+    } catch (err) {
+      if (attempt >= ATTEMPTS) throw err;
+      why = err.cause?.code || err.code || err.message;
+    }
+    process.stdout.write(`\n${why} — retrying (attempt ${attempt + 1} of ${ATTEMPTS})…\n`);
+    await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+  }
+}
+
 let written = 0;
 for (let i = 0; i < bookings.length; i += CHUNK) {
   const chunk = bookings.slice(i, i + CHUNK);
-  const res = await rest("bookings?on_conflict=id", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify(chunk),
-  });
+  let res;
+  try {
+    res = await postChunk("bookings?on_conflict=id", chunk, "resolution=merge-duplicates,return=minimal");
+  } catch (err) {
+    console.error(
+      `\nNetwork failure on bookings ${i + 1}–${i + chunk.length} after ${ATTEMPTS} attempts: ` +
+        `${err.cause?.code || err.code || err.message}`
+    );
+    console.error(`${written} bookings were written before this failed.`);
+    console.error("Re-run the same command — every write is an upsert, so nothing is duplicated.");
+    process.exit(1);
+  }
   if (!res.ok) {
     const body = await res.text();
     console.error(`\nFailed on bookings ${i + 1}–${i + chunk.length} (HTTP ${res.status}): ${body}`);

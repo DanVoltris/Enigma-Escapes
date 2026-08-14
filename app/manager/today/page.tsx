@@ -2,6 +2,7 @@ import TodayBoard, { type TodayRow } from "@/components/manager/TodayBoard";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import { bookingsForDate } from "@/lib/db";
 import { formatDateLong, isValidISODate, nowMinutesInBusinessTZ, todayISO } from "@/lib/format";
+import { listAllLocations } from "@/lib/hours";
 import { terminalConfigured } from "@/lib/stripe-terminal";
 import { getReaderMap } from "@/lib/terminal-settings";
 
@@ -9,10 +10,14 @@ export const dynamic = "force-dynamic";
 
 // The front desk's home screen: everyone arriving today, in time order, with
 // what they still owe — tap a row to see the booking and take payment.
-export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string; loc?: string }>;
+}) {
   const staff = await requirePermission("bookings.view", "/manager/today");
   const scope = allowedLocations(staff);
-  const { date: raw } = await searchParams;
+  const { date: raw, loc: rawLoc } = await searchParams;
   const today = todayISO();
   const date = raw && isValidISODate(raw) ? raw : today;
 
@@ -21,6 +26,12 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const readerMap = await getReaderMap();
   const terminalReady = terminalConfigured() && Object.keys(readerMap).length > 0;
 
+  // Venues the signed-in staff member may see — scoped accounts only get
+  // theirs, so the filter can never widen what they're allowed to look at.
+  const allLocations = await listAllLocations();
+  const locations = scope ? allLocations.filter((l) => scope.includes(l)) : allLocations;
+  const loc = rawLoc && locations.includes(rawLoc) ? rawLoc : null;
+
   const bookings = await bookingsForDate(date);
   const rows: TodayRow[] = [];
   for (const b of bookings) {
@@ -28,6 +39,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     for (const item of b.items) {
       if (item.date !== date) continue;
       if (scope && !scope.includes(item.location)) continue;
+      if (loc && item.location !== loc) continue;
       rows.push({
         bookingId: b.id,
         reference: b.reference,
@@ -63,6 +75,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       canSetUpTerminal={hasPermission(staff, "settings")}
       rows={rows}
       date={date}
+      locations={locations}
+      loc={loc}
       isToday={date === today}
       dateLabel={formatDateLong(date)}
       nowMinutes={nowMinutesInBusinessTZ()}
