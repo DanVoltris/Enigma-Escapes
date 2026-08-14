@@ -100,28 +100,39 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
       </ul>
     ) : null;
 
+  // Reloaded whenever the date changes: a room's start times depend on the
+  // weekday (Fridays and Saturdays run later than a Sunday), so a list fetched
+  // for one date is wrong for another. Stale responses are ignored, so quickly
+  // stepping through dates can't leave the previous day's times on screen.
   useEffect(() => {
-    fetch("/api/manager/experiences/list")
+    let current = true;
+    fetch(`/api/manager/experiences/list?date=${encodeURIComponent(date)}`)
       .then((r) => r.json())
       .then((d) => {
+        if (!current) return;
         const list: Exp[] = d.experiences ?? [];
         setExperiences(list);
-        if (list[0]) {
+        if (list[0] && !roomId) {
           setRoomId(list[0].id);
-          setTime(list[0].times[0] ?? "");
           // The form defaults to the first experience, so tell the page too —
           // otherwise the panel above shows nothing highlighted while the
           // dropdown clearly has a room selected.
           onRoomChange?.(list[0].id);
         }
       })
-      .catch(() => setError("Could not load experiences. Reload the page."));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
-  }, []);
+      .catch(() => {
+        if (current) setError("Could not load experiences. Reload the page.");
+      });
+    return () => {
+      current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- roomId is seeded here, not a trigger
+  }, [date]);
 
   const selected = useMemo(() => experiences.find((e) => e.id === roomId), [experiences, roomId]);
 
-  // Keep the selected time valid whenever the experience changes.
+  // Keep the selected time valid whenever the experience or the date changes —
+  // 21:30 exists on a Friday but not on a Sunday.
   useEffect(() => {
     if (selected && !selected.times.includes(time)) setTime(selected.times[0] ?? "");
   }, [selected, time]);
