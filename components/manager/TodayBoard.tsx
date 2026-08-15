@@ -67,7 +67,6 @@ export default function TodayBoard({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const guests = rows.reduce((s, r) => s + r.quantity, 0);
-  const owed = rows.reduce((s, r) => s + r.balanceCents, 0);
 
   return (
     <>
@@ -89,7 +88,6 @@ export default function TodayBoard({
         {rows.length === 0
           ? "Nobody booked in."
           : `${rows.length} session${rows.length === 1 ? "" : "s"} · ${guests} guest${guests === 1 ? "" : "s"}`}
-        {owed > 0 && <> · {formatMoney(owed)} still to collect</>}
         {loc && ` · ${loc}`}
       </p>
 

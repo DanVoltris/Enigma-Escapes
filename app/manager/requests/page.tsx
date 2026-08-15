@@ -22,9 +22,10 @@ export default async function RequestsPage() {
     <>
       <h1 className="mgr-page-title">Booking requests</h1>
       <p className="mgr-page-sub">
-        Sessions starting within 4 hours can&apos;t be booked directly — customers request them here. Accept to text
-        them a payment link{smsConfigured() ? "" : " (texts aren't configured yet — copy the link and send it yourself)"};
-        decline to text an apology. Requests die automatically when their start time passes.
+        Sessions starting within 4 hours can&apos;t be booked directly — customers request them here, and the slot is
+        held from the moment they ask. Accepting books it{smsConfigured() ? " and texts them to reply Y" : " (texts aren't configured yet — call them to confirm)"};
+        they pay when they arrive. If they don&apos;t reply within 30 minutes the hold is released. Requests die
+        automatically when their start time passes.
       </p>
       <RequestsBoard initialRequests={requests} remaining={remaining} />
     </>

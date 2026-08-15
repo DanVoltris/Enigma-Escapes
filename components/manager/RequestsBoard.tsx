@@ -7,11 +7,17 @@ import { formatDateLong, formatTime, minutesUntilSlot } from "@/lib/format";
 import type { BookingRequest } from "@/lib/requests";
 
 const STATUS_LABEL: Record<string, string> = {
-  accepted: "Accepted — awaiting payment",
+  accepted: "Held — awaiting their reply",
+  confirmed: "Confirmed — pays at venue",
   declined: "Declined",
+  cancelled: "Released",
+  // Only requests from the old pay-online flow can be "completed".
   completed: "Booked & paid",
   expired: "Expired",
 };
+
+// Green is for the ones that ended well: the customer is coming.
+const GOOD_STATUSES = new Set(["confirmed", "completed"]);
 
 function countdown(date: string, time: string): { label: string; urgent: boolean } {
   const mins = minutesUntilSlot(date, time);
@@ -32,8 +38,6 @@ export default function RequestsBoard({
   const [requests, setRequests] = useState(initialRequests);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [declining, setDeclining] = useState<BookingRequest | null>(null);
-  const [links, setLinks] = useState<Record<string, string>>({});
-  const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function decide(r: BookingRequest, action: "accept" | "decline") {
@@ -50,24 +54,12 @@ export default function RequestsBoard({
       setRequests((rs) =>
         rs.map((x) => (x.id === r.id ? { ...x, status: action === "accept" ? "accepted" : "declined" } : x))
       );
-      const url = (data as { completionUrl?: string | null }).completionUrl;
-      if (url) setLinks((l) => ({ ...l, [r.id]: url }));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the request.");
     } finally {
       setBusyId(null);
       setDeclining(null);
-    }
-  }
-
-  async function copy(id: string, url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(id);
-      setTimeout(() => setCopied(null), 2000);
-    } catch {
-      window.prompt("Copy the link:", url); // clipboard unavailable — show it
     }
   }
 
@@ -143,34 +135,6 @@ export default function RequestsBoard({
         </div>
       )}
 
-      {Object.keys(links).length > 0 && (
-        <div className="mgr-card">
-          <h2>Send the customer their payment link</h2>
-          <p className="card-sub">
-            Accepted just now — if texting is configured this was already sent automatically; otherwise copy it and
-            text/say it to the customer.
-          </p>
-          <ul className="mgr-notes">
-            {Object.entries(links).map(([id, url]) => {
-              const r = requests.find((x) => x.id === id);
-              return (
-                <li key={id}>
-                  <div>
-                    <div>
-                      <strong>{r ? `${r.firstName} ${r.lastName}` : "Customer"}</strong> —{" "}
-                      <code className="key-code">{url}</code>
-                    </div>
-                  </div>
-                  <button type="button" className="link-button" onClick={() => copy(id, url)}>
-                    {copied === id ? "Copied ✓" : "Copy link"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
       {decided.length > 0 && (
         <div className="mgr-card">
           <h2>Recent decisions</h2>
@@ -185,7 +149,7 @@ export default function RequestsBoard({
                     · {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"}
                   </div>
                 </div>
-                <span className={`mgr-pill${r.status === "completed" ? " on" : ""}`} style={{ flexShrink: 0 }}>
+                <span className={`mgr-pill${GOOD_STATUSES.has(r.status) ? " on" : ""}`} style={{ flexShrink: 0 }}>
                   {STATUS_LABEL[r.status] ?? r.status}
                 </span>
               </li>
