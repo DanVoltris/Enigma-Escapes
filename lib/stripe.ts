@@ -184,8 +184,17 @@ export async function cardForPayment(paymentIntentId: string): Promise<string | 
   if (!/^pi_[a-zA-Z0-9_]+$/.test(paymentIntentId)) return null;
   try {
     const pi = await stripeRequest("GET", `/v1/payment_intents/${paymentIntentId}?expand[]=latest_charge`);
-    const charge = pi.latest_charge as Record<string, unknown> | undefined;
-    const details = (charge?.payment_method_details ?? {}) as Record<string, unknown>;
+    let charge = pi.latest_charge as Record<string, unknown> | string | undefined;
+    // Older API behaviour returns the charge id rather than the object, and
+    // some intents carry the charge under `charges.data` instead.
+    if (typeof charge === "string") {
+      charge = (await stripeRequest("GET", `/v1/charges/${charge}`)) as Record<string, unknown>;
+    }
+    if (!charge) {
+      const charges = pi.charges as { data?: Record<string, unknown>[] } | undefined;
+      charge = charges?.data?.[0];
+    }
+    const details = ((charge as Record<string, unknown>)?.payment_method_details ?? {}) as Record<string, unknown>;
     const card = (details.card_present ?? details.card ?? {}) as Record<string, unknown>;
     const brand = typeof card.brand === "string" ? card.brand : null;
     const last4 = typeof card.last4 === "string" ? card.last4 : null;
