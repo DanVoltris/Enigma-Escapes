@@ -302,6 +302,10 @@ export default function BrowsePage() {
         {visibleSlots.map((slot) => {
           const key = itemKey(slot);
           const soldOut = slot.remaining === 0;
+          // Nothing left, but only because someone else is mid-request for it.
+          // Worth saying so: it may come back in half an hour if they don't
+          // confirm, which "Sold out" would wrongly rule out.
+          const onHold = soldOut && slot.heldSeats > 0;
           // Fewer spots left than this experience's minimum party — can't be booked.
           const belowMin = !soldOut && slot.remaining < slot.minParty;
           const bookable = !soldOut && !belowMin;
@@ -330,7 +334,16 @@ export default function BrowsePage() {
                   <span className="label">{pricingMode.taxInclusive ? `each + ${taxLabel}` : "each"}</span>
                 </div>
                 <div className="slot-action">
-                  {soldOut ? (
+                  {onHold ? (
+                    <button
+                      type="button"
+                      className="btn btn-block btn-sold-out"
+                      disabled
+                      title="Someone is confirming this time right now. If they don't take it, it comes back within half an hour."
+                    >
+                      On hold
+                    </button>
+                  ) : soldOut ? (
                     <button type="button" className="btn btn-block btn-sold-out" disabled>
                       {site.soldOutLabel}
                     </button>

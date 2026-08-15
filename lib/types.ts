@@ -67,6 +67,7 @@ export type Slot = {
   badgeFg: string;
   imageUrl: string | null;
   requestOnly: boolean; // starts within the request window — needs manager approval
+  heldSeats: number; // seats a live request is holding; > 0 means someone got there first
 };
 
 export type CartItem = {

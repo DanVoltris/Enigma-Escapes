@@ -4,14 +4,19 @@ import { remainingSpots } from "@/lib/capacity";
 import { bookedCount, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { formatTime } from "@/lib/format";
+import { buildBooking } from "@/lib/create-booking";
+import { saveBooking } from "@/lib/db";
 import { getRequestById, setRequestStatus } from "@/lib/requests";
 import { notifyRequestDecision } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
-// Manager decides a request: accept (capacity re-checked, customer texted the
-// completion link) or decline (customer texted). Returns the completion URL so
-// staff can copy/send it manually while SMS isn't configured.
+// Manager decides a request: accept or decline.
+//
+// Accepting BOOKS it — unpaid, payable in store — rather than sending the
+// customer off to pay online. The slot was already held by the request; the
+// booking is what keeps holding it, and it is what gets cancelled if they
+// don't reply Y within the window.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await apiGuard("requests");
   if (guard.response) return guard.response;
@@ -44,16 +49,40 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         );
       }
     }
-    await setRequestStatus(id, action === "accept" ? "accepted" : "declined");
+    let bookingId: string | undefined;
+    if (action === "accept") {
+      // Built through the same path as any other booking, so pricing, capacity
+      // and blocked slots are all re-checked. Nothing is collected: the whole
+      // total sits as a balance for the desk.
+      const built = await buildBooking(
+        {
+          paymentOption: "none",
+          customer: {
+            firstName: request.firstName,
+            lastName: request.lastName,
+            email: request.email || `${request.phone.replace(/\D/g, "")}@no-email.invalid`,
+            phone: request.phone,
+            subscribe: false,
+          },
+          items: [
+            { roomId: request.roomId, date: request.date, time: request.time, quantity: request.quantity },
+          ],
+        },
+        "in_person" // staff acting at the desk: exempt from the online-only rules
+      );
+      if ("error" in built) return NextResponse.json({ error: built.error }, { status: 400 });
+      await saveBooking(built.booking);
+      bookingId = built.booking.id;
+    }
+
+    await setRequestStatus(id, action === "accept" ? "accepted" : "declined", bookingId);
     await notifyRequestDecision(request, action === "accept", req.nextUrl.origin);
     await logActivity(
       `Booking request ${action === "accept" ? "accepted" : "declined"}`,
-      `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName}`
+      `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName}` +
+        (action === "accept" ? " — held, awaiting their Y" : "")
     );
-    return NextResponse.json({
-      ok: true,
-      completionUrl: action === "accept" ? `${req.nextUrl.origin}/request/${request.token}` : null,
-    });
+    return NextResponse.json({ ok: true, bookingId: bookingId ?? null });
   } catch (err) {
     console.error("deciding request failed:", err);
     return NextResponse.json({ error: "Could not update the request right now. Please try again." }, { status: 500 });

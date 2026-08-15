@@ -3,6 +3,7 @@
 // TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER (+1..., the
 // Twilio number texts come from). Without them every send is a silent no-op,
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { getBusinessDetails } from "./settings";
 import { formatDateLong, formatTime } from "./format";
 import type { Booking } from "./types";
@@ -43,6 +44,22 @@ async function sendSms(to: string, body: string): Promise<void> {
   }
 }
 
+// Twilio signs every webhook it sends with your auth token: the URL plus the
+// sorted form fields, HMAC-SHA1, base64. Checking it is what stops a stranger
+// POSTing "Y" for someone else's booking — the endpoint is public and the only
+// thing a forged request lacks is this signature.
+export function verifyTwilioSignature(header: string | null, url: string, rawBody: string): boolean {
+  if (!TOKEN) return false;
+  if (!header) return false;
+  const form = new URLSearchParams(rawBody);
+  const keys = [...new Set([...form.keys()])].sort();
+  const payload = url + keys.map((k) => k + form.getAll(k).join("")).join("");
+  const expected = createHmac("sha1", TOKEN).update(Buffer.from(payload, "utf8")).digest("base64");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(header);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 // Request decision texts (best-effort, same contract as below). The accepted
 // text carries the completion link — staff also see the link in the portal in
 // case SMS isn't configured yet.
@@ -56,7 +73,7 @@ export async function notifyRequestDecision(
     await sendSms(
       r.phone,
       accepted
-        ? `Good news ${r.firstName} — your Enigma Escapes request for ${r.roomName} at ${formatTime(r.time)} is ACCEPTED! Finish your booking (payment) here: ${origin}/request/${r.token}`
+        ? `Good news ${r.firstName} — we can fit you in for ${r.roomName} at ${formatTime(r.time)}. Reply Y to confirm your spot or N to release it. We'll hold it 30 minutes. Pay when you arrive.`
         : `Hi ${r.firstName} — sorry, we can't fit ${r.roomName} at ${formatTime(r.time)} today. See other times: ${origin}`
     );
   } catch (err) {
@@ -233,4 +250,74 @@ export async function notifyNewRequest(
     if (r.status === "rejected") console.error(`request alert to ${numbers[i]} failed:`, r.reason);
   });
   return results.filter((r) => r.status === "fulfilled").length;
+}
+
+// Nudge at the halfway mark. Deliberately says what happens if they ignore it,
+// because a reminder that doesn't is just noise.
+export async function notifyReplyReminder(r: {
+  firstName: string;
+  phone: string;
+  roomName: string;
+  time: string;
+}): Promise<void> {
+  if (!smsConfigured()) return;
+  try {
+    await sendSms(
+      r.phone,
+      `${r.firstName}, still want ${r.roomName} at ${formatTime(r.time)}? Reply Y to confirm — we'll release the spot in 15 minutes if we don't hear back.`
+    );
+  } catch (err) {
+    console.error("reply reminder SMS failed:", err);
+  }
+}
+
+// Their spot went. Says why, and points them at booking again rather than
+// leaving them wondering.
+export async function notifyRequestLapsed(
+  r: { firstName: string; phone: string; roomName: string; time: string },
+  origin: string
+): Promise<void> {
+  if (!smsConfigured()) return;
+  try {
+    await sendSms(
+      r.phone,
+      `${r.firstName} — we didn't hear back, so ${r.roomName} at ${formatTime(r.time)} has been released. Book any time: ${origin}`
+    );
+  } catch (err) {
+    console.error("lapsed request SMS failed:", err);
+  }
+}
+
+// They said Y. Confirms in the terms that now matter: turn up, pay there.
+export async function notifyRequestConfirmed(
+  r: { firstName: string; phone: string; roomName: string; time: string; quantity: number },
+  reference: string
+): Promise<void> {
+  if (!smsConfigured()) return;
+  try {
+    await sendSms(
+      r.phone,
+      `You're booked, ${r.firstName}! ${r.roomName} at ${formatTime(r.time)}, party of ${r.quantity}. Ref ${reference}. Payment is due when you arrive — please come 10 minutes early.`
+    );
+  } catch (err) {
+    console.error("confirmation SMS failed:", err);
+  }
+}
+
+// They said N.
+export async function notifyRequestReleased(r: {
+  firstName: string;
+  phone: string;
+  roomName: string;
+  time: string;
+}): Promise<void> {
+  if (!smsConfigured()) return;
+  try {
+    await sendSms(
+      r.phone,
+      `No problem ${r.firstName} — ${r.roomName} at ${formatTime(r.time)} has been released. Hope to see you another time!`
+    );
+  } catch (err) {
+    console.error("release SMS failed:", err);
+  }
 }
