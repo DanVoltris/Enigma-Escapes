@@ -256,7 +256,11 @@ export default async function ManagerBookings({
                   <td className="num">{formatMoney(b.pricing.totalCents)}</td>
                   <td className="num">{formatMoney(b.pricing.paidCents)}</td>
                   <td className="num">
-                    {b.pricing.balanceCents > 0 ? (
+                    {/* Cancelled is neither owing nor paid in full — saying either
+                        would send someone chasing money or filing it as settled. */}
+                    {b.status === "cancelled" ? (
+                      <span className="sub">—</span>
+                    ) : b.pricing.balanceCents > 0 ? (
                       <strong style={{ color: "var(--danger)" }}>{formatMoney(b.pricing.balanceCents)}</strong>
                     ) : (
                       "Paid in full"

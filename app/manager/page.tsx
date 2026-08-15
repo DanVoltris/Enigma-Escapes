@@ -359,7 +359,9 @@ async function OperationsView({
                     <td className="num">{formatMoney(b.pricing.totalCents)}</td>
                     <td className="num">{formatMoney(b.pricing.paidCents)}</td>
                     <td className="num">
-                      {b.pricing.balanceCents > 0 ? (
+                      {b.status === "cancelled" ? (
+                        <span className="sub">Cancelled</span>
+                      ) : b.pricing.balanceCents > 0 ? (
                         <strong style={{ color: "var(--danger)" }}>{formatMoney(b.pricing.balanceCents)}</strong>
                       ) : (
                         "Paid in full"

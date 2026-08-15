@@ -27,6 +27,7 @@ type BookingRow = {
 };
 
 function toBooking(row: BookingRow): Booking {
+  const status = row.status === "pending" || row.status === "cancelled" ? row.status : "paid";
   return {
     id: row.id,
     reference: row.reference,
@@ -35,10 +36,15 @@ function toBooking(row: BookingRow): Booking {
     items: row.items,
     promoCode: row.promo_code,
     paymentOption: row.payment_option,
-    pricing: row.pricing,
+    // A cancelled booking owes nothing — whatever was outstanding died with it,
+    // and a balance sitting there reads as money to chase. Normalised on the way
+    // out as well as written on cancellation, so bookings cancelled before that
+    // was true read correctly too. Money already taken is a refund question and
+    // lives in refundOwedCents/refundedCents.
+    pricing: status === "cancelled" ? { ...row.pricing, balanceCents: 0 } : row.pricing,
     source: row.source ?? "online",
     noShow: row.no_show ?? false,
-    status: row.status === "pending" || row.status === "cancelled" ? row.status : "paid",
+    status,
     pendingExpiresAt: row.pending_expires_at ?? null,
     gameResult: row.game_result ?? null,
     notes: row.notes ?? [],
@@ -452,6 +458,10 @@ export async function cancelBooking(
   if (!booking) return undefined;
   const pricing = {
     ...booking.pricing,
+    // Nobody owes anything on a cancelled booking. Cleared here as well as on
+    // read so the database itself is right — the bookings list's paid/unpaid
+    // filter runs in SQL against this figure.
+    balanceCents: 0,
     refundOwedCents: refund.owedCents,
     refundedCents: refund.refundedCents,
     refundedAt: refund.refundedCents > 0 ? new Date().toISOString() : null,

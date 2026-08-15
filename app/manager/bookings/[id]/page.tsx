@@ -237,6 +237,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               voucherCode={pricing.voucherCode ?? null}
               voucherPaidCents={voucherPaidCents}
               balanceCents={pricing.balanceCents}
+              cancelled={booking.status === "cancelled"}
             />
 
             <div className="cust-totals">
@@ -264,10 +265,17 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               </div>
               <div>
                 <div className="label">Total due</div>
-                {/* Always total − paid, so the three figures reconcile. Red only while the
-                    booking is live: nothing is chased on a cancelled one. */}
-                <div className={`value${pricing.balanceCents > 0 && booking.status !== "cancelled" ? " due" : ""}`}>
+                {/* Total − paid while the booking is live. A cancelled one is
+                    zero and says so, or the three figures look like they don't
+                    add up — money already taken is a refund, shown below. */}
+                <div className={`value${pricing.balanceCents > 0 ? " due" : ""}`}>
                   {formatMoney(pricing.balanceCents)}
+                  {booking.status === "cancelled" && (
+                    <>
+                      <br />
+                      <span className="sub" style={{ fontWeight: 400 }}>cancelled</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

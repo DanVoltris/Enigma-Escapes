@@ -39,6 +39,7 @@ type Props = {
   balanceCents: number;
   voucherCode: string | null;
   voucherPaidCents: number;
+  cancelled: boolean;
 };
 
 type TabKey = "purchases" | "promos" | "customers" | "taxes" | "payments" | "questions";
@@ -106,6 +107,7 @@ export default function BookingTabs(props: Props) {
             balanceCents={props.balanceCents}
             voucherCode={props.voucherCode}
             voucherPaidCents={props.voucherPaidCents}
+            cancelled={props.cancelled}
           />
         )}
         {tab === "questions" && (
@@ -417,6 +419,7 @@ function PaymentsTab({
   balanceCents,
   voucherCode,
   voucherPaidCents,
+  cancelled,
 }: {
   bookingId: string;
   payments: BookingPayment[];
@@ -424,6 +427,7 @@ function PaymentsTab({
   balanceCents: number;
   voucherCode: string | null;
   voucherPaidCents: number;
+  cancelled: boolean;
 }) {
   const router = useRouter();
   const [method, setMethod] = useState<BookingPayment["method"]>("cash");
@@ -550,6 +554,11 @@ function PaymentsTab({
           </div>
           {error && <p className="field-error" style={{ marginTop: 10 }}>{error}</p>}
         </div>
+      ) : cancelled ? (
+        <p className="cust-empty" style={{ marginTop: 10 }}>
+          This booking is cancelled — there is nothing to collect. Money already taken goes back
+          through Refund below.
+        </p>
       ) : (
         <p className="cust-empty" style={{ marginTop: 10 }}>
           Paid in full — nothing left to collect.

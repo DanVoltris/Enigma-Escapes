@@ -2271,12 +2271,44 @@ a.mgr-pill.on:hover {
 
 /* calendar occupancy grid */
 .mgr-cal-wrap {
-  overflow-x: auto;
+  /* Scrolls in both directions itself rather than riding the page, so the room
+     names can stay pinned to the top: a sticky header only sticks inside the box
+     that scrolls, and setting overflow-x alone had already made this that box.
+     The cap keeps the grid inside the window under the tabs and the day
+     controls; a day with few start times still shrinks to fit its rows. */
+  overflow: auto;
+  max-height: calc(100vh - 260px);
 }
 .mgr-cal {
   border-collapse: collapse;
   width: 100%;
   font-size: 13px;
+}
+/* The room names follow you down the grid — by the 9pm row there's no other way
+   to tell which column is which. Collapsed borders belong to whichever cell
+   scrolls under the header, so the header draws its own edges as a shadow. */
+.mgr-cal thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow:
+    inset 0 1px 0 var(--border),
+    inset 0 -1px 0 var(--border);
+}
+/* And the times stay put across, for the same reason: the grid is wider than
+   the window, so the far-right rooms would otherwise be a column of numbers
+   with no hour attached. */
+.mgr-cal tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  box-shadow:
+    inset 1px 0 0 var(--border),
+    inset -1px 0 0 var(--border);
+}
+.mgr-cal thead th:first-child {
+  left: 0;
+  z-index: 3; /* the corner sits over both */
 }
 .mgr-cal th {
   font-size: 11px;
