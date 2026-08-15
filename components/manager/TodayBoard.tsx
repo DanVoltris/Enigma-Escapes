@@ -26,6 +26,7 @@ export type TodayRow = {
   totalCents: number;
   paidCents: number;
   balanceCents: number;
+  refundOwedCents: number; // money taken beyond the total, still to give back
   payments: { id: string; method: PaymentMethod; amountCents: number; payer: string | null }[];
   noShow: boolean;
   source: string;
@@ -151,6 +152,12 @@ export default function TodayBoard({
                     {r.balanceCents > 0 ? (
                       <span className="mgr-pill" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
                         {formatMoney(r.balanceCents)} due
+                      </span>
+                    ) : r.refundOwedCents > 0 ? (
+                      // Overpaid. "Paid" would be true but useless here — the
+                      // desk needs to know money has to go back.
+                      <span className="mgr-pill" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+                        Refund {formatMoney(r.refundOwedCents)}
                       </span>
                     ) : (
                       <span className="mgr-pill on">Paid</span>

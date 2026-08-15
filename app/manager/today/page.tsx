@@ -56,6 +56,7 @@ export default async function TodayPage({
         totalCents: b.pricing.totalCents,
         paidCents: b.pricing.paidCents,
         balanceCents: b.pricing.balanceCents,
+        refundOwedCents: Math.max(0, (b.pricing.refundOwedCents ?? 0) - (b.pricing.refundedCents ?? 0)),
         payments: (b.pricing.payments ?? []).map((p) => ({
           id: p.id,
           method: p.method,
