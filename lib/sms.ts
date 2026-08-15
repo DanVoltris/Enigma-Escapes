@@ -223,28 +223,16 @@ export async function notifyNewRequest(
 ): Promise<number> {
   if (!smsConfigured()) return 0;
 
+  // The list managers keep on the Staff page — every manager and admin with a
+  // number, plus whichever staff have their switch on — and nothing else. There
+  // is deliberately no fallback: an empty list means nobody is texted, which is
+  // what the switches say on the tin. A hidden default would mean turning
+  // everyone off and still sending, which nobody would ever debug.
   let numbers: string[] = [];
   try {
-    // The list managers keep on the Staff page: every manager and admin with a
-    // number, plus whichever staff have their switch on.
     numbers = (await alertRecipients()).map((r) => r.phone);
   } catch (err) {
     console.error("could not read the request alert list:", err);
-  }
-  try {
-    // Fallbacks, in order, so a request is never silently missed: the numbers
-    // kept in business settings before the Staff page took this over, then the
-    // business line itself.
-    if (numbers.length === 0) {
-      const business = (await getBusinessDetails()).value;
-      numbers = business?.requestAlertNumbers ?? [];
-      if (numbers.length === 0) {
-        const fallback = business?.cell || business?.phone;
-        if (fallback) numbers = [fallback];
-      }
-    }
-  } catch (err) {
-    console.error("could not read request alert numbers:", err);
     return 0;
   }
   if (numbers.length === 0) return 0;

@@ -4108,18 +4108,31 @@ textarea:focus {
   gap: 20px;
 }
 
-/* Training grid: one narrow ticked column per room, so 13 rooms still fit. */
+/* Training grid: one narrow ticked column per room, so 13 rooms still fit.
+   The names are turned on their side to do it. They used to be left to wrap
+   inside a 34px column, which broke "What Happened in Raven Woods?" into a
+   column of single letters — thirteen of those side by side was unreadable. */
 .train-grid td.tick,
 .train-grid th.rot {
   text-align: center;
   width: 34px;
 }
+.train-grid th.rot {
+  height: 200px;
+  vertical-align: bottom;
+  padding: 0 0 10px;
+}
 .train-grid th.rot span {
-  display: block;
-  font-size: 10px;
-  line-height: 1.15;
-  white-space: normal;
-  word-break: break-word;
+  display: inline-block;
+  /* vertical-rl reads top-to-bottom; the flip turns it bottom-to-top, which is
+     the way a column header is normally read. */
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-align: left;
 }
 .train-grid tr.dim td {
   opacity: 0.5;

@@ -24,7 +24,6 @@ export type BusinessDetails = {
   // Everyone who should be texted the moment a booking request lands. A
   // request is only for a session starting within the next few hours, so
   // nobody sees it unless they happen to have the Requests tab open.
-  requestAlertNumbers?: string[];
 };
 
 type SettingResult<T> = { tableMissing: boolean; value: T | null };

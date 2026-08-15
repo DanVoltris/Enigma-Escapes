@@ -96,11 +96,9 @@ function Row({
 export default function RequestAlerts({
   rows,
   beingTexted,
-  fallback,
 }: {
   rows: AlertRow[];
   beingTexted: number; // counted server-side by the function that sends them
-  fallback: string | null; // where alerts go while nobody is listed
 }) {
   const router = useRouter();
   const [phones, setPhones] = useState<Record<string, string>>(
@@ -179,13 +177,12 @@ export default function RequestAlerts({
         </strong>
       </p>
 
-      {/* With nobody listed the texts still go somewhere. Said out loud, because
-          a fallback nobody can see is how a venue ends up believing the alerts
-          are off when they aren't — or on when they aren't. */}
-      {beingTexted === 0 && fallback && (
+      {/* There is no fallback behind this any more, so an empty list means the
+          texts simply don't go out. Worth saying plainly rather than leaving a
+          quiet zero for someone to notice after a missed booking. */}
+      {beingTexted === 0 && (
         <p className="card-sub" style={{ color: "var(--danger)" }}>
-          Nobody is listed below, so booking requests are going to {fallback} instead. Add a number to
-          anyone here and that stops.
+          Nobody is being texted when a booking request comes in. Add a number to someone below.
         </p>
       )}
 
