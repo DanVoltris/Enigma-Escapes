@@ -4253,3 +4253,53 @@ textarea:focus {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* Tighter than an activity feed: this is twenty-odd rows of the same shape, and
+   the feed's spacing turns it into a long scroll for no benefit. */
+.alert-list li {
+  padding-bottom: 8px;
+}
+/* Booking request alerts (Staff tab). A grid rather than a flex row so the
+   numbers and switches line up down the page — the names run from "Tali" to
+   "Hammy Karimi-Mohamed", and left to itself every column wanders with them. */
+.alert-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 230px) 92px 180px auto;
+  gap: 12px;
+  align-items: center;
+}
+/* The app's own field styling, which these inputs sit outside of — without it
+   they come out in the browser's native chrome and look like nothing else. */
+.alert-row input[type="tel"] {
+  width: 100%;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.alert-row input[type="tel"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.alert-row .alert-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.alert-note {
+  grid-column: 1 / -1;
+}
+@media (max-width: 720px) {
+  /* Stacked, because four columns of this width don't fit a phone. */
+  .alert-row {
+    grid-template-columns: 1fr auto;
+  }
+  .alert-row > strong {
+    grid-column: 1 / -1;
+  }
+}

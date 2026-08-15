@@ -81,9 +81,11 @@ export default function RequestAlerts({
     return (
       <li>
         <div className="body" style={{ width: "100%" }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <strong style={{ minWidth: 170 }}>{r.name}</strong>
-            {r.role && <span className="mgr-pill">{r.role}</span>}
+          <div className="alert-row">
+            <strong>{r.name}</strong>
+            {/* Always rendered, empty for roster rows, so the numbers below the
+                managers line up with the numbers above them. */}
+            <span>{r.role && <span className="mgr-pill">{r.role}</span>}</span>
             <input
               type="tel"
               value={phone}
@@ -91,30 +93,34 @@ export default function RequestAlerts({
               onBlur={() => dirty && save(r, { phone })}
               placeholder="204 555 0134"
               aria-label={`Phone number for ${r.name}`}
-              style={{ maxWidth: 170 }}
             />
-            {r.locked ? (
-              <span className="sub">Always on</span>
-            ) : (
-              <label className="checkbox-row" style={{ margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={r.on}
-                  disabled={busy === r.id}
-                  onChange={(e) => save(r, { requestAlerts: e.target.checked })}
-                />
-                <span>Text me requests</span>
-              </label>
+            <span className="alert-state">
+              {r.locked ? (
+                <span className="sub">Always on</span>
+              ) : (
+                <label className="checkbox-row" style={{ margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={r.on}
+                    disabled={busy === r.id}
+                    onChange={(e) => save(r, { requestAlerts: e.target.checked })}
+                  />
+                  <span>Text me requests</span>
+                </label>
+              )}
+              {busy === r.id && <span className="sub">Saving…</span>}
+              {saved === r.id && busy === null && <span className="sub">Saved</span>}
+            </span>
+
+            {silent && (
+              <div className="when alert-note" style={{ color: "var(--danger)" }}>
+                Switched on but no number — nothing will be sent.
+              </div>
             )}
-            {busy === r.id && <span className="sub">Saving…</span>}
-            {saved === r.id && busy === null && <span className="sub">Saved</span>}
+            {duplicate && (
+              <div className="when alert-note">Same number as {owner} — texted once, not twice.</div>
+            )}
           </div>
-          {silent && (
-            <div className="when" style={{ color: "var(--danger)" }}>
-              Switched on but no number — nothing will be sent.
-            </div>
-          )}
-          {duplicate && <div className="when">Same number as {owner} — texted once, not twice.</div>}
         </div>
       </li>
     );
@@ -142,7 +148,7 @@ export default function RequestAlerts({
       {managers.length === 0 ? (
         <p className="cust-empty">No manager or admin accounts yet.</p>
       ) : (
-        <ul className="cust-activity">
+        <ul className="cust-activity alert-list">
           {managers.map((r) => (
             <Row key={r.id} r={r} />
           ))}
@@ -157,7 +163,7 @@ export default function RequestAlerts({
       {staff.length === 0 ? (
         <p className="cust-empty">Nobody on the staff list yet.</p>
       ) : (
-        <ul className="cust-activity">
+        <ul className="cust-activity alert-list">
           {staff.map((r) => (
             <Row key={r.id} r={r} />
           ))}
