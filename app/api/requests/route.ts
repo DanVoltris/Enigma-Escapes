@@ -30,10 +30,12 @@ export async function POST(req: NextRequest) {
   const phone = typeof o.phone === "string" ? o.phone.trim().slice(0, 30) : "";
   const email = typeof o.email === "string" && o.email.trim() ? o.email.trim().slice(0, 200) : null;
   if (!firstName) return NextResponse.json({ error: "Enter your first name." }, { status: 400 });
+  if (!lastName) return NextResponse.json({ error: "Enter your last name." }, { status: 400 });
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ error: "Enter a valid phone number — we confirm requests by text." }, { status: 400 });
   }
-  if (email && !EMAIL_RE.test(email)) {
+  if (!email) return NextResponse.json({ error: "Enter your email address." }, { status: 400 });
+  if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ error: "That email address doesn't look right." }, { status: 400 });
   }
 

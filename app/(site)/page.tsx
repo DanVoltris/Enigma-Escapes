@@ -438,7 +438,9 @@ export default function BrowsePage() {
                             <input id={`rf-fn-${key}`} type="text" value={rfFirst} onChange={(e) => setRfFirst(e.target.value)} />
                           </div>
                           <div className="field">
-                            <label htmlFor={`rf-ln-${key}`}>Last name</label>
+                            <label htmlFor={`rf-ln-${key}`}>
+                              Last name <span className="req">*</span>
+                            </label>
                             <input id={`rf-ln-${key}`} type="text" value={rfLast} onChange={(e) => setRfLast(e.target.value)} />
                           </div>
                         </div>
@@ -456,7 +458,9 @@ export default function BrowsePage() {
                             />
                           </div>
                           <div className="field">
-                            <label htmlFor={`rf-em-${key}`}>Email (optional)</label>
+                            <label htmlFor={`rf-em-${key}`}>
+                              Email <span className="req">*</span>
+                            </label>
                             <input id={`rf-em-${key}`} type="email" value={rfEmail} onChange={(e) => setRfEmail(e.target.value)} />
                           </div>
                         </div>
@@ -464,7 +468,9 @@ export default function BrowsePage() {
                           type="button"
                           className="btn panel-continue"
                           onClick={() => sendRequest(slot)}
-                          disabled={rfBusy || !rfFirst.trim() || !rfPhone.trim()}
+                          disabled={
+                            rfBusy || !rfFirst.trim() || !rfLast.trim() || !rfPhone.trim() || !rfEmail.trim()
+                          }
                         >
                           {rfBusy ? "Sending…" : "Send booking request"}
                         </button>
