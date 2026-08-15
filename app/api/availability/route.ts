@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { slotsForDate } from "@/lib/availability";
 import { addDaysISO, isValidISODate, todayISO } from "@/lib/format";
+import { sweepIfDue } from "@/lib/request-flow";
 import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Piggy-backs the reminder/release timer on ordinary traffic — see
+    // sweepIfDue. Not awaited: availability must not wait on texting.
+    void sweepIfDue(req.nextUrl.origin);
     return NextResponse.json({ date, slots: await slotsForDate(date) });
   } catch (err) {
     console.error("availability lookup failed:", err);

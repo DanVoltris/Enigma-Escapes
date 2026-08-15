@@ -8,6 +8,7 @@
 // an inbound text, a staff click, and a timer — and if they each did their own
 // bookkeeping they would drift apart.
 import { cancelBooking, getBooking, logActivity } from "./db";
+import { getSetting, saveSetting } from "./settings";
 import { formatTime } from "./format";
 import {
   REPLY_DEADLINE_MINUTES,
@@ -87,4 +88,29 @@ export async function sweepAwaitingReplies(origin: string): Promise<{ reminded: 
     }
   }
   return { reminded, released };
+}
+
+
+// Vercel's Hobby plan only runs cron once a day, which is no use for a
+// 15-minute nudge — so the sweep also rides on ordinary traffic. Anything that
+// touches the booking flow can call this; it does real work at most once every
+// few minutes and returns immediately otherwise.
+//
+// The last-run time lives in settings rather than memory because each
+// serverless invocation is its own process: an in-memory guard would let every
+// cold start sweep again.
+const SWEEP_KEY = "requests_swept_at";
+const SWEEP_EVERY_MINUTES = 3;
+
+export async function sweepIfDue(origin: string): Promise<void> {
+  try {
+    const last = await getSetting<string>(SWEEP_KEY);
+    if (last.value && minutesSince(last.value) < SWEEP_EVERY_MINUTES) return;
+    // Claim the slot before doing the work, so two requests arriving together
+    // don't both sweep and double-send.
+    await saveSetting(SWEEP_KEY, new Date().toISOString());
+    await sweepAwaitingReplies(origin);
+  } catch (err) {
+    console.error("opportunistic request sweep failed:", err); // never break the caller
+  }
 }

@@ -1,6 +1,7 @@
 import RequestsBoard from "@/components/manager/RequestsBoard";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import { slotRemaining } from "@/lib/availability";
+import { sweepIfDue } from "@/lib/request-flow";
 import { listRequests } from "@/lib/requests";
 import { smsConfigured } from "@/lib/sms";
 
