@@ -174,6 +174,30 @@ export async function refundPayment(paymentIntentId: string, amountCents: number
   return typeof r.amount === "number" ? r.amount : amountCents;
 }
 
+// What card actually paid, for a card-reader payment: "Visa •••• 4242". A party
+// often pays on several cards, and a refund has to go back to the right one —
+// an amount and a time is not enough for a staff member to tell them apart.
+// Returns null when Stripe can't say (or isn't configured); the caller then
+// falls back to whatever the payment record itself knows.
+export async function cardForPayment(paymentIntentId: string): Promise<string | null> {
+  if (!stripeConfigured()) return null;
+  if (!/^pi_[a-zA-Z0-9_]+$/.test(paymentIntentId)) return null;
+  try {
+    const pi = await stripeRequest("GET", `/v1/payment_intents/${paymentIntentId}?expand[]=latest_charge`);
+    const charge = pi.latest_charge as Record<string, unknown> | undefined;
+    const details = (charge?.payment_method_details ?? {}) as Record<string, unknown>;
+    const card = (details.card_present ?? details.card ?? {}) as Record<string, unknown>;
+    const brand = typeof card.brand === "string" ? card.brand : null;
+    const last4 = typeof card.last4 === "string" ? card.last4 : null;
+    if (!brand && !last4) return null;
+    const nice = brand ? brand.charAt(0).toUpperCase() + brand.slice(1) : "Card";
+    return last4 ? `${nice} •••• ${last4}` : nice;
+  } catch (err) {
+    console.error("looking up the card behind a payment failed:", err);
+    return null;
+  }
+}
+
 // Verifies a Stripe webhook signature header ("t=...,v1=...") against the raw
 // request body. Tolerates 5 minutes of clock skew, like Stripe's SDKs.
 export function verifyStripeWebhook(payload: string, sigHeader: string | null): boolean {

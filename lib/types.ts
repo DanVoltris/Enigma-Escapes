@@ -129,6 +129,10 @@ export type BookingPayment = {
   // Stripe PaymentIntent behind a card-reader payment. Also the idempotency
   // key: polling the same intent twice must never record it twice.
   intentId?: string | null;
+  // How much of THIS payment has been given back. Held per payment, not just
+  // per booking, because a party often pays on several cards and a refund has
+  // to return to the card that was charged.
+  refundedCents?: number;
 };
 
 export type BookingPricing = {
