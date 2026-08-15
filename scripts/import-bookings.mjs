@@ -634,9 +634,51 @@ async function postChunk(path, chunk, prefer) {
   }
 }
 
+// Money taken HERE must survive a re-import. The upsert replaces the whole
+// pricing blob, so without this a payment a staff member recorded minutes
+// earlier is silently destroyed and the customer is asked to pay again — which
+// is exactly what happened on 15 Aug before this existed.
+//
+// Anything already on the row is kept: its recorded payments, and any amount
+// paid beyond what the legacy figures know about. The imported paid amount only
+// ever raises the total, never lowers it.
+async function keepPaymentsTakenHere(chunk) {
+  const ids = chunk.map((b) => `"${b.id}"`).join(",");
+  const res = await rest(`bookings?select=id,pricing&id=in.(${encodeURIComponent(ids)})`);
+  if (!res.ok) throw await restErrorish(res);
+  const existing = new Map(
+    ((await res.json()) || []).map((row) => [row.id, row.pricing ?? {}])
+  );
+  let kept = 0;
+  for (const booking of chunk) {
+    const was = existing.get(booking.id);
+    if (!was) continue;
+    const payments = Array.isArray(was.payments) ? was.payments : [];
+    const takenHere = payments.reduce((sum, p) => sum + (Number(p.amountCents) || 0), 0);
+    const paid = Math.max(Number(booking.pricing.paidCents) || 0, Number(was.paidCents) || 0, takenHere);
+    if (payments.length) booking.pricing.payments = payments;
+    if (paid !== booking.pricing.paidCents) {
+      booking.pricing.paidCents = Math.min(paid, booking.pricing.totalCents);
+      kept++;
+    }
+    booking.pricing.balanceCents = booking.pricing.totalCents - booking.pricing.paidCents;
+    // Carry the rest of what only this system knows.
+    for (const key of ["stripePaymentIntent", "refundOwedCents", "refundedCents", "refundedAt", "voucherCode", "voucherCents", "voucherRedeemed"]) {
+      if (was[key] !== undefined && booking.pricing[key] === undefined) booking.pricing[key] = was[key];
+    }
+  }
+  return kept;
+}
+
+async function restErrorish(res) {
+  return new Error(`Reading existing bookings failed (HTTP ${res.status}): ${(await res.text().catch(() => "")).slice(0, 200)}`);
+}
+
 let written = 0;
+let preserved = 0;
 for (let i = 0; i < bookings.length; i += CHUNK) {
   const chunk = bookings.slice(i, i + CHUNK);
+  preserved += await keepPaymentsTakenHere(chunk);
   let res;
   try {
     res = await postChunk("bookings?on_conflict=id", chunk, "resolution=merge-duplicates,return=minimal");
@@ -665,6 +707,7 @@ for (let i = 0; i < bookings.length; i += CHUNK) {
   process.stdout.write(`\rwriting… ${written}/${bookings.length}`);
 }
 console.log(`\n${written} bookings in the Bookings tab.`);
+if (preserved) console.log(`${preserved} kept a payment already recorded here rather than being overwritten.`);
 
 if (blocks.size) {
   const rows = [...blocks.values()].map((b) => ({ id: legacyId(`block:${b.room_id}|${b.date}|${b.time}`), created_at: new Date().toISOString(), ...b }));
