@@ -4,6 +4,7 @@ import TrainingGrid from "@/components/manager/TrainingGrid";
 import { hasPermission, requireStaff } from "@/lib/auth";
 import { listExperiences } from "@/lib/experiences";
 import { alertRecipients } from "@/lib/request-alerts";
+import { getBusinessDetails } from "@/lib/settings";
 import { listStaff } from "@/lib/staff";
 import { listStaffMembers, openShifts, recentShifts } from "@/lib/staff-members";
 import { formatDuration, shiftMinutes } from "@/lib/staff-types";
@@ -31,6 +32,19 @@ export default async function ManagerStaff() {
   // Counted by the same function that addresses the texts, so the figure on the
   // screen can't drift from who actually gets one.
   const beingTexted = canEditAlerts ? (await alertRecipients()).length : 0;
+
+  // With nobody listed the texts still go somewhere — the numbers left in
+  // business settings, then the business line. That box has been taken off the
+  // settings page, so this is the only place it can be seen; a fallback nobody
+  // can see is how a venue ends up sure the alerts are off when they aren't.
+  let fallback: string | null = null;
+  if (canEditAlerts && beingTexted === 0) {
+    const business = (await getBusinessDetails()).value;
+    const leftovers = (business?.requestAlertNumbers ?? []).filter((n) => n.trim());
+    const line = business?.cell || business?.phone;
+    if (leftovers.length > 0) fallback = leftovers.join(", ");
+    else if (line) fallback = `the business line (${line})`;
+  }
 
   // The alert list: manager/admin accounts first (always on), then the roster.
   const ROLE_LABEL: Record<string, string> = { admin: "Admin", manager: "Manager" };
@@ -118,7 +132,7 @@ export default async function ManagerStaff() {
         )}
       </div>
 
-      {canEditAlerts && <RequestAlerts rows={alertRows} beingTexted={beingTexted} />}
+      {canEditAlerts && <RequestAlerts rows={alertRows} beingTexted={beingTexted} fallback={fallback} />}
 
       {canManage && <TrainingGrid members={members} rooms={rooms} />}
     </>

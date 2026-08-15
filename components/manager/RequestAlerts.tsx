@@ -13,6 +13,81 @@ export type AlertRow = {
   source: "account" | "roster";
 };
 
+const digits = (p: string) => p.replace(/\D/g, "");
+
+// Defined at module level, NOT inside RequestAlerts. A component declared inside
+// another is a new type on every render, so React unmounts and rebuilds it —
+// which took the focus out of the number box after every single keystroke.
+function Row({
+  r,
+  phone,
+  onPhone,
+  onCommit,
+  onToggle,
+  busy,
+  saved,
+  duplicateOf,
+}: {
+  r: AlertRow;
+  phone: string;
+  onPhone: (value: string) => void;
+  onCommit: () => void;
+  onToggle: (on: boolean) => void;
+  busy: boolean;
+  saved: boolean;
+  duplicateOf: string | null;
+}) {
+  // A switch on with no number is the one state that looks fine and does
+  // nothing, so it says so rather than failing silently at 11pm.
+  const silent = !r.locked && r.on && !phone.trim();
+  return (
+    <li>
+      <div className="body" style={{ width: "100%" }}>
+        <div className="alert-row">
+          <strong>{r.name}</strong>
+          {/* Always rendered, empty for roster rows, so the numbers below the
+              managers line up with the numbers above them. */}
+          <span>{r.role && <span className="mgr-pill">{r.role}</span>}</span>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => onPhone(e.target.value)}
+            onBlur={onCommit}
+            placeholder="204 555 0134"
+            aria-label={`Phone number for ${r.name}`}
+          />
+          <span className="alert-state">
+            {r.locked ? (
+              <span className="sub">Always on</span>
+            ) : (
+              <label className="checkbox-row" style={{ margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={r.on}
+                  disabled={busy}
+                  onChange={(e) => onToggle(e.target.checked)}
+                />
+                <span>Text me requests</span>
+              </label>
+            )}
+            {busy && <span className="sub">Saving…</span>}
+            {saved && !busy && <span className="sub">Saved</span>}
+          </span>
+
+          {silent && (
+            <div className="when alert-note" style={{ color: "var(--danger)" }}>
+              Switched on but no number — nothing will be sent.
+            </div>
+          )}
+          {duplicateOf && (
+            <div className="when alert-note">Same number as {duplicateOf} — texted once, not twice.</div>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
 // Who gets a text the moment a booking request lands.
 //
 // Saved per row as it's changed rather than behind one Save button: this is a
@@ -21,9 +96,11 @@ export type AlertRow = {
 export default function RequestAlerts({
   rows,
   beingTexted,
+  fallback,
 }: {
   rows: AlertRow[];
   beingTexted: number; // counted server-side by the function that sends them
+  fallback: string | null; // where alerts go while nobody is listed
 }) {
   const router = useRouter();
   const [phones, setPhones] = useState<Record<string, string>>(
@@ -63,68 +140,32 @@ export default function RequestAlerts({
   // The same person often appears twice — a manager's login account and their
   // line on the roster. They get one text, not two, so the second row says so
   // rather than leaving the count looking wrong.
-  const digits = (p: string) => p.replace(/\D/g, "");
   const firstWithNumber = new Map<string, string>();
   for (const r of rows) {
     const key = digits(phones[r.id] ?? "");
     if (key && !firstWithNumber.has(key)) firstWithNumber.set(key, r.name);
   }
-
-  const Row = ({ r }: { r: AlertRow }) => {
-    const phone = phones[r.id] ?? "";
-    const dirty = phone.trim() !== r.phone.trim();
-    // A switch on with no number is the one state that looks fine and does
-    // nothing, so it says so rather than failing silently at 11pm.
-    const silent = !r.locked && r.on && !phone.trim();
-    const owner = firstWithNumber.get(digits(phone));
-    const duplicate = Boolean(owner) && owner !== r.name && (r.locked || r.on);
-    return (
-      <li>
-        <div className="body" style={{ width: "100%" }}>
-          <div className="alert-row">
-            <strong>{r.name}</strong>
-            {/* Always rendered, empty for roster rows, so the numbers below the
-                managers line up with the numbers above them. */}
-            <span>{r.role && <span className="mgr-pill">{r.role}</span>}</span>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhones({ ...phones, [r.id]: e.target.value })}
-              onBlur={() => dirty && save(r, { phone })}
-              placeholder="204 555 0134"
-              aria-label={`Phone number for ${r.name}`}
-            />
-            <span className="alert-state">
-              {r.locked ? (
-                <span className="sub">Always on</span>
-              ) : (
-                <label className="checkbox-row" style={{ margin: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={r.on}
-                    disabled={busy === r.id}
-                    onChange={(e) => save(r, { requestAlerts: e.target.checked })}
-                  />
-                  <span>Text me requests</span>
-                </label>
-              )}
-              {busy === r.id && <span className="sub">Saving…</span>}
-              {saved === r.id && busy === null && <span className="sub">Saved</span>}
-            </span>
-
-            {silent && (
-              <div className="when alert-note" style={{ color: "var(--danger)" }}>
-                Switched on but no number — nothing will be sent.
-              </div>
-            )}
-            {duplicate && (
-              <div className="when alert-note">Same number as {owner} — texted once, not twice.</div>
-            )}
-          </div>
-        </div>
-      </li>
-    );
+  const duplicateOf = (r: AlertRow): string | null => {
+    const owner = firstWithNumber.get(digits(phones[r.id] ?? ""));
+    return owner && owner !== r.name && (r.locked || r.on) ? owner : null;
   };
+
+  const renderRow = (r: AlertRow) => (
+    <Row
+      key={r.id}
+      r={r}
+      phone={phones[r.id] ?? ""}
+      onPhone={(value) => setPhones({ ...phones, [r.id]: value })}
+      onCommit={() => {
+        const value = phones[r.id] ?? "";
+        if (value.trim() !== r.phone.trim()) save(r, { phone: value });
+      }}
+      onToggle={(on) => save(r, { requestAlerts: on })}
+      busy={busy === r.id}
+      saved={saved === r.id}
+      duplicateOf={duplicateOf(r)}
+    />
+  );
 
   return (
     <div className="mgr-card">
@@ -138,6 +179,16 @@ export default function RequestAlerts({
         </strong>
       </p>
 
+      {/* With nobody listed the texts still go somewhere. Said out loud, because
+          a fallback nobody can see is how a venue ends up believing the alerts
+          are off when they aren't — or on when they aren't. */}
+      {beingTexted === 0 && fallback && (
+        <p className="card-sub" style={{ color: "var(--danger)" }}>
+          Nobody is listed below, so booking requests are going to {fallback} instead. Add a number to
+          anyone here and that stops.
+        </p>
+      )}
+
       {error && <p className="field-error">{error}</p>}
 
       <h3 style={{ marginTop: 16 }}>Managers &amp; admins</h3>
@@ -148,11 +199,7 @@ export default function RequestAlerts({
       {managers.length === 0 ? (
         <p className="cust-empty">No manager or admin accounts yet.</p>
       ) : (
-        <ul className="cust-activity alert-list">
-          {managers.map((r) => (
-            <Row key={r.id} r={r} />
-          ))}
-        </ul>
+        <ul className="cust-activity alert-list">{managers.map(renderRow)}</ul>
       )}
 
       <h3 style={{ marginTop: 20 }}>Staff</h3>
@@ -163,11 +210,7 @@ export default function RequestAlerts({
       {staff.length === 0 ? (
         <p className="cust-empty">Nobody on the staff list yet.</p>
       ) : (
-        <ul className="cust-activity alert-list">
-          {staff.map((r) => (
-            <Row key={r.id} r={r} />
-          ))}
-        </ul>
+        <ul className="cust-activity alert-list">{staff.map(renderRow)}</ul>
       )}
     </div>
   );

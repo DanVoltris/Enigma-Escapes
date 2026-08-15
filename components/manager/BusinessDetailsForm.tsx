@@ -85,33 +85,6 @@ export default function BusinessDetailsForm({ initial }: { initial: BusinessDeta
       </div>
 
       <div className="mgr-card">
-        <h2>Booking request alerts — fallback</h2>
-        <p className="card-sub">
-          Who gets texted about booking requests now lives on the <strong>Staff</strong> tab, by name, with a switch
-          per person. These numbers are only used if that list is empty, so a request is never missed while it&apos;s
-          being set up. One number per line, up to ten.
-        </p>
-        <div className="mgr-form">
-          <div className="field" style={{ maxWidth: 420 }}>
-            <label htmlFor="bd-alerts">Numbers to text</label>
-            <textarea
-              id="bd-alerts"
-              rows={4}
-              value={(d.requestAlertNumbers ?? []).join("\n")}
-              onChange={(e) =>
-                setD((prev) => ({ ...prev, requestAlertNumbers: e.target.value.split("\n") }))
-              }
-              placeholder={"204 555 0134\n204 555 0198"}
-            />
-            <p className="field-hint">
-              Leave this empty and the Staff list takes over entirely. With both empty the alert goes to the business
-              cell (or the business phone), so a request is never missed entirely.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mgr-card">
         <h2>Tax information</h2>
         <p className="card-sub">Shown on receipts when set (e.g. your GST registration). Rates live under Taxes &amp; fees.</p>
         <div className="mgr-form">
