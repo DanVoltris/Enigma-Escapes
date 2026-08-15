@@ -1,7 +1,10 @@
+import RequestAlerts, { type AlertRow } from "@/components/manager/RequestAlerts";
 import StaffBoard from "@/components/manager/StaffBoard";
 import TrainingGrid from "@/components/manager/TrainingGrid";
 import { hasPermission, requireStaff } from "@/lib/auth";
 import { listExperiences } from "@/lib/experiences";
+import { alertRecipients } from "@/lib/request-alerts";
+import { listStaff } from "@/lib/staff";
 import { listStaffMembers, openShifts, recentShifts } from "@/lib/staff-members";
 import { formatDuration, shiftMinutes } from "@/lib/staff-types";
 import { todayISO } from "@/lib/format";
@@ -14,13 +17,47 @@ export const dynamic = "force-dynamic";
 export default async function ManagerStaff() {
   const session = await requireStaff("/manager/staff");
   const canManage = hasPermission(session, "staff");
+  // Who gets texted about booking requests is manager work, not account admin —
+  // its own permission, held by managers and admins alike.
+  const canEditAlerts = hasPermission(session, "alerts");
 
-  const [members, open, recent, experiences] = await Promise.all([
+  const [members, open, recent, experiences, accounts] = await Promise.all([
     listStaffMembers(),
     openShifts(),
     recentShifts(),
     listExperiences(),
+    canEditAlerts ? listStaff() : Promise.resolve([]),
   ]);
+  // Counted by the same function that addresses the texts, so the figure on the
+  // screen can't drift from who actually gets one.
+  const beingTexted = canEditAlerts ? (await alertRecipients()).length : 0;
+
+  // The alert list: manager/admin accounts first (always on), then the roster.
+  const ROLE_LABEL: Record<string, string> = { admin: "Admin", manager: "Manager" };
+  const alertRows: AlertRow[] = [
+    ...accounts
+      .filter((a) => a.active && (a.role === "admin" || a.role === "manager"))
+      .map((a) => ({
+        id: a.id,
+        name: a.name,
+        role: ROLE_LABEL[a.role] ?? null,
+        phone: a.phone ?? "",
+        on: true,
+        locked: true,
+        source: "account" as const,
+      })),
+    ...members
+      .filter((m) => m.active)
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        role: null,
+        phone: m.phone ?? "",
+        on: m.requestAlerts,
+        locked: false,
+        source: "roster" as const,
+      })),
+  ];
 
   const rooms = experiences
     .filter((e) => e.active)
@@ -80,6 +117,8 @@ export default async function ManagerStaff() {
           </ul>
         )}
       </div>
+
+      {canEditAlerts && <RequestAlerts rows={alertRows} beingTexted={beingTexted} />}
 
       {canManage && <TrainingGrid members={members} rooms={rooms} />}
     </>

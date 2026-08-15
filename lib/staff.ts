@@ -27,6 +27,8 @@ type Row = {
   active: boolean;
   created_at: string;
   last_login_at: string | null;
+  // Added later, so rows written before the column existed read as undefined.
+  phone?: string | null;
 };
 
 function toAccount(r: Row): StaffAccount {
@@ -43,6 +45,7 @@ function toAccount(r: Row): StaffAccount {
     active: r.active !== false,
     createdAt: r.created_at,
     lastLoginAt: r.last_login_at,
+    phone: r.phone ?? null,
   };
 }
 
@@ -140,7 +143,14 @@ export async function createStaff(input: {
 
 export async function updateStaff(
   id: string,
-  patch: Partial<{ name: string; role: StaffRole; locations: string[]; permissions: Permission[]; active: boolean }>
+  patch: Partial<{
+    name: string;
+    role: StaffRole;
+    locations: string[];
+    permissions: Permission[];
+    active: boolean;
+    phone: string | null;
+  }>
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (patch.name !== undefined) row.name = patch.name;
@@ -148,6 +158,7 @@ export async function updateStaff(
   if (patch.locations !== undefined) row.locations = patch.locations;
   if (patch.permissions !== undefined) row.permissions = patch.permissions;
   if (patch.active !== undefined) row.active = patch.active;
+  if (patch.phone !== undefined) row.phone = patch.phone;
   const res = await rest(`staff_accounts?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },

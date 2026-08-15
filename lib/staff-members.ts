@@ -18,6 +18,8 @@ type MemberRow = {
   home_location: string | null;
   trained_rooms: string[] | null;
   active: boolean;
+  phone: string | null;
+  request_alerts: boolean | null;
 };
 
 type ShiftRow = {
@@ -35,6 +37,8 @@ const toMember = (r: MemberRow): StaffMember => ({
   homeLocation: r.home_location,
   trainedRooms: r.trained_rooms ?? [],
   active: r.active,
+  phone: r.phone ?? null,
+  requestAlerts: r.request_alerts === true,
 });
 
 const toShift = (r: ShiftRow): Shift => ({
@@ -73,13 +77,22 @@ export async function createStaffMember(name: string, homeLocation: string | nul
 
 export async function updateStaffMember(
   id: string,
-  patch: { name?: string; homeLocation?: string | null; trainedRooms?: string[]; active?: boolean }
+  patch: {
+    name?: string;
+    homeLocation?: string | null;
+    trainedRooms?: string[];
+    active?: boolean;
+    phone?: string | null;
+    requestAlerts?: boolean;
+  }
 ): Promise<boolean> {
   const body: Record<string, unknown> = {};
   if (patch.name !== undefined) body.name = patch.name.trim().slice(0, 80);
   if (patch.homeLocation !== undefined) body.home_location = patch.homeLocation;
   if (patch.trainedRooms !== undefined) body.trained_rooms = patch.trainedRooms;
   if (patch.active !== undefined) body.active = patch.active;
+  if (patch.phone !== undefined) body.phone = patch.phone;
+  if (patch.requestAlerts !== undefined) body.request_alerts = patch.requestAlerts;
   if (Object.keys(body).length === 0) return true;
 
   const res = await rest(`staff_members?id=eq.${encodeURIComponent(id)}`, {

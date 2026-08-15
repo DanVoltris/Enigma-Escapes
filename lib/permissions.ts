@@ -20,6 +20,7 @@ export const PERMISSIONS = [
   "notes",
   "settings",
   "staff",
+  "alerts",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -39,6 +40,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   notes: "Use the shared notes board",
   settings: "Change business & booking-site settings",
   staff: "Manage staff accounts and their access",
+  alerts: "Manage who gets texted when a booking request comes in",
 };
 
 // Front desk is day-to-day only: the calendar, taking and editing bookings,
@@ -78,4 +80,5 @@ export type StaffAccount = {
   active: boolean;
   createdAt: string;
   lastLoginAt: string | null;
+  phone: string | null; // where booking-request alerts go for managers/admins
 };

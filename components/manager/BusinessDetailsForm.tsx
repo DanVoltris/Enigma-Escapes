@@ -85,11 +85,11 @@ export default function BusinessDetailsForm({ initial }: { initial: BusinessDeta
       </div>
 
       <div className="mgr-card">
-        <h2>Booking request alerts</h2>
+        <h2>Booking request alerts — fallback</h2>
         <p className="card-sub">
-          Who gets a text the moment a booking request comes in. These are for sessions starting within the next few
-          hours and they expire when the session starts, so nobody sees one unless they happen to have the Requests
-          tab open. One number per line, up to ten.
+          Who gets texted about booking requests now lives on the <strong>Staff</strong> tab, by name, with a switch
+          per person. These numbers are only used if that list is empty, so a request is never missed while it&apos;s
+          being set up. One number per line, up to ten.
         </p>
         <div className="mgr-form">
           <div className="field" style={{ maxWidth: 420 }}>
@@ -104,8 +104,8 @@ export default function BusinessDetailsForm({ initial }: { initial: BusinessDeta
               placeholder={"204 555 0134\n204 555 0198"}
             />
             <p className="field-hint">
-              Leave empty and the alert goes to the business cell (or the business phone) instead, so a request is
-              never missed entirely.
+              Leave this empty and the Staff list takes over entirely. With both empty the alert goes to the business
+              cell (or the business phone), so a request is never missed entirely.
             </p>
           </div>
         </div>

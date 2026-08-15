@@ -8,6 +8,8 @@ export type StaffMember = {
   homeLocation: string | null; // null = works at both sites
   trainedRooms: string[]; // experience ids
   active: boolean;
+  phone: string | null; // for booking-request alerts; null = never given one
+  requestAlerts: boolean; // texted when a request lands
 };
 
 export type Shift = {

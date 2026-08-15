@@ -4,6 +4,7 @@
 // Twilio number texts come from). Without them every send is a silent no-op,
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { alertRecipients } from "./request-alerts";
 import { getBusinessDetails } from "./settings";
 import { formatDateLong, formatTime } from "./format";
 import type { Booking } from "./types";
@@ -224,13 +225,23 @@ export async function notifyNewRequest(
 
   let numbers: string[] = [];
   try {
-    const business = (await getBusinessDetails()).value;
-    numbers = business?.requestAlertNumbers ?? [];
-    // Nobody configured yet — fall back to the business line, so a request is
-    // never silently missed just because the setting is empty.
+    // The list managers keep on the Staff page: every manager and admin with a
+    // number, plus whichever staff have their switch on.
+    numbers = (await alertRecipients()).map((r) => r.phone);
+  } catch (err) {
+    console.error("could not read the request alert list:", err);
+  }
+  try {
+    // Fallbacks, in order, so a request is never silently missed: the numbers
+    // kept in business settings before the Staff page took this over, then the
+    // business line itself.
     if (numbers.length === 0) {
-      const fallback = business?.cell || business?.phone;
-      if (fallback) numbers = [fallback];
+      const business = (await getBusinessDetails()).value;
+      numbers = business?.requestAlertNumbers ?? [];
+      if (numbers.length === 0) {
+        const fallback = business?.cell || business?.phone;
+        if (fallback) numbers = [fallback];
+      }
     }
   } catch (err) {
     console.error("could not read request alert numbers:", err);
