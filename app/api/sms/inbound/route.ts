@@ -26,13 +26,26 @@ function twiml(message: string | null): NextResponse {
   return new NextResponse(body, { status: 200, headers: { "Content-Type": "text/xml" } });
 }
 
+// Twilio signs the exact URL configured in its console. Behind Vercel's proxy
+// req.nextUrl can carry the internal host or scheme instead, which would fail
+// every signature — so the public URL is rebuilt from the forwarded headers.
+function publicUrl(req: NextRequest): string {
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  return `${proto}://${host}${req.nextUrl.pathname}${req.nextUrl.search}`;
+}
+
 export async function POST(req: NextRequest) {
   const raw = await req.text();
 
   // Anyone can POST to a public URL; only Twilio can sign one. Without this a
   // stranger could confirm or cancel other people's bookings by guessing phone
   // numbers.
-  if (!verifyTwilioSignature(req.headers.get("x-twilio-signature"), req.nextUrl.href, raw)) {
+  const url = publicUrl(req);
+  if (!verifyTwilioSignature(req.headers.get("x-twilio-signature"), url, raw)) {
+    // Logged with the URL we checked against: a signature failure is almost
+    // always a URL mismatch, and this is the one fact needed to see why.
+    console.error(`inbound SMS rejected — signature did not match for ${url}`);
     return new NextResponse("Bad signature", { status: 403 });
   }
 
@@ -42,7 +55,15 @@ export async function POST(req: NextRequest) {
   if (!from) return twiml(null);
 
   const request = await latestRequestForPhone(from);
-  if (!request) return twiml(null); // nothing of ours pending — stay quiet
+  if (!request) {
+    // Answer rather than sit silent: a customer texting us deserves a reply,
+    // and it makes "text Y and see what comes back" a usable test of the wiring.
+    return twiml(
+      YES.has(word) || NO.has(word)
+        ? "There's no booking waiting on a reply from this number. If you're trying to book, give us a call or visit our site."
+        : "Thanks for the message — this line only takes Y/N replies to booking texts. For anything else, please give us a call."
+    );
+  }
 
   if (request.status === "confirmed") {
     return twiml(YES.has(word) ? "You're already confirmed — see you soon!" : null);
