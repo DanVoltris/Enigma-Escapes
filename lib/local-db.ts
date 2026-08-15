@@ -131,6 +131,7 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
 
   if (method === "GET") {
     let result = rows.filter((r) => matchesFilters(r, params));
+    const matched = result.length; // before paging — that's what count=exact means
     result = applyOrder(result, params.get("order"));
     // offset before limit, so paging through a big table (lib/customers.ts)
     // walks it instead of handing back the same first page every time.
@@ -138,7 +139,13 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
     if (offset > 0) result = result.slice(offset);
     const limit = params.get("limit");
     if (limit) result = result.slice(0, Number(limit));
-    return json(result, 200);
+    // Prefer: count=exact asks for the total in a header instead of the rows
+    // (lib/experiences.ts counts a room's bookings that way). Without it local
+    // mode answers "none" — which is the answer that unlocks a delete.
+    const headers = /count=exact/.test(preferHeader(init))
+      ? { "content-range": `${offset}-${offset + Math.max(0, result.length - 1)}/${matched}` }
+      : undefined;
+    return json(result, 200, headers);
   }
 
   // PostgREST returns the affected rows when asked; callers use that to tell a
@@ -272,9 +279,12 @@ function applyOrder(rows: Row[], order: string | null): Row[] {
   });
 }
 
-function json(data: unknown, status: number): Response {
+function json(data: unknown, status: number, extraHeaders?: Record<string, string>): Response {
   if (data === null) return new Response(null, { status });
-  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...extraHeaders },
+  });
 }
 
 function preferHeader(init?: RequestInit): string {

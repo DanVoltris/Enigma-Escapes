@@ -1,3 +1,5 @@
+import { listBookings, listBookingsInWindow } from "./db";
+import { addDaysISO, todayISO } from "./format";
 import { rest, restError } from "./supabase";
 import type { Experience } from "./types";
 
@@ -139,4 +141,41 @@ export async function updateExperience(id: string, patch: Partial<Experience>): 
     body: JSON.stringify(row),
   });
   if (!res.ok) throw await restError(res, "Updating the experience");
+}
+
+// What a room has behind it, which is what decides whether deleting it is a
+// tidy-up or a mistake. Counted rather than guessed: every real room here has
+// thousands of sessions and one confirm dialog is all that stands in front of
+// them.
+//
+// `total` comes back as a count with no rows attached — the number is the whole
+// question, and six years of history is not worth moving to answer it.
+export async function experienceUsage(id: string): Promise<{ total: number; upcoming: number }> {
+  const contains = encodeURIComponent(JSON.stringify([{ roomId: id }]));
+  const res = await rest(`bookings?items=cs.${contains}&select=id&limit=1`, {
+    headers: { Prefer: "count=exact" },
+  });
+  if (!res.ok) throw await restError(res, "Counting the room's bookings");
+  const total = Number((res.headers.get("content-range") ?? "/0").split("/")[1]) || 0;
+
+  // Sessions still to come are the ones that make a delete an operational
+  // problem rather than a housekeeping one, so they're counted separately.
+  // The window function is the cheap path; where it isn't installed (and in
+  // local-data mode) fall back to the full list rather than reporting zero —
+  // "nothing is booked" is the answer that unlocks the delete, so it has to be
+  // a real answer.
+  const today = todayISO();
+  const ahead = (await listBookingsInWindow(today, addDaysISO(today, 730))) ?? (await listBookings());
+  const upcoming = ahead
+    .flatMap((b) => b.items)
+    .filter((i) => i.roomId === id && i.date >= today).length;
+  return { total, upcoming };
+}
+
+export async function deleteExperience(id: string): Promise<void> {
+  const res = await rest(`experiences?id=eq.${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+  if (!res.ok) throw await restError(res, "Deleting the experience");
 }

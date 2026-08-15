@@ -1802,8 +1802,11 @@ a:hover {
    the customer site AND the staff portal so a button looks identical in both.
    The portal used to derive its own ink colour, which on a mid-tone brand
    colour came out dark and read as a washed-out/disabled button. */
-.site-theme .btn:not(.btn-outline):not(.btn-sold-out),
-.mgr .btn:not(.btn-outline):not(.btn-sold-out) {
+/* Destructive buttons keep their red: this rule outranks .btn-danger on
+   specificity, so without the exclusion "Cancel booking" and "Delete this room"
+   came out in the brand colour, looking exactly like the button that saves. */
+.site-theme .btn:not(.btn-outline):not(.btn-sold-out):not(.btn-danger),
+.mgr .btn:not(.btn-outline):not(.btn-sold-out):not(.btn-danger) {
   background: var(--btn-bg, var(--accent));
   color: var(--btn-fg, var(--accent-dark));
 }

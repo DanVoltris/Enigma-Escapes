@@ -9,11 +9,11 @@ export const dynamic = "force-dynamic";
 export default async function ManagerExperiences({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; deleted?: string }>;
 }) {
   const staff = await requirePermission("experiences", "/manager/experiences");
   const scope = allowedLocations(staff);
-  const { saved } = await searchParams;
+  const { saved, deleted } = await searchParams;
   const all = await listExperiences();
   // Store-scoped staff manage only their own rooms.
   const experiences = scope ? all.filter((e) => scope.includes(e.location)) : all;
@@ -26,6 +26,7 @@ export default async function ManagerExperiences({
       </p>
 
       {saved && <div className="mgr-success">Saved — your changes are live on the booking site.</div>}
+      {deleted && <div className="mgr-success">Room deleted — it&apos;s gone from the booking site.</div>}
 
       <div className="mgr-actions-row">
         <span style={{ color: "var(--text-secondary)" }}>
