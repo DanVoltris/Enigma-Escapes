@@ -3,7 +3,6 @@ import { hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
 import BookingNotes from "@/components/manager/BookingNotes";
-import RefundPanel from "@/components/manager/RefundPanel";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
 import GameResultForm from "@/components/manager/GameResultForm";
 import NoShowToggle from "@/components/manager/NoShowToggle";
@@ -200,11 +199,6 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
             </div>
 
             <GameResultForm bookingId={booking.id} initial={booking.gameResult} />
-
-            {/* Refunds are not tied to cancelling, and apply to a booking with
-                several sessions just as much as one — so this sits outside the
-                cancel/move block below. */}
-            {hasPermission(staff, "bookings.modify") && <RefundPanel bookingId={booking.id} />}
 
             {booking.status !== "cancelled" && items.length === 1 && (
               <BookingActions

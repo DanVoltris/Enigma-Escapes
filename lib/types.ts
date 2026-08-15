@@ -156,6 +156,9 @@ export type BookingPricing = {
   // already returned it (false = staff still need to refund by hand).
   refundOwedCents?: number;
   refundedCents?: number;
+  // How much of the checkout payment has gone back. Tracked apart from the
+  // manual records because that payment isn't one of them.
+  onlineRefundedCents?: number;
   refundedAt?: string | null;
   // The 20%-off reward spent on this booking, and — once the booking that
   // earned it was cancelled — the discount being taken back off it. The

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
 import SingleSelect from "@/components/SingleSelect";
+import RefundPanel from "@/components/manager/RefundPanel";
 import { formatMoney } from "@/lib/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS } from "@/lib/payment-methods";
 import type { BookingPayment, Participant } from "@/lib/types";
@@ -554,6 +555,15 @@ function PaymentsTab({
           Paid in full — nothing left to collect.
         </p>
       )}
+
+      {/* Giving money back lives with the money, not in the sidebar. */}
+      <div className="bk-add" style={{ marginTop: 16 }}>
+        <h3>Refund</h3>
+        <p className="card-sub">
+          Send money back to the card it came from, in part or in full. The booking stays as it is.
+        </p>
+        <RefundPanel bookingId={bookingId} />
+      </div>
     </>
   );
 }

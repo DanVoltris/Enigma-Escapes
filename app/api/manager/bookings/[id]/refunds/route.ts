@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking } from "@/lib/db";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { refundableCents, refundBookingPayment } from "@/lib/refunds";
+import { ONLINE_PAYMENT_ID, onlinePayment, refundableCents, refundBookingPayment } from "@/lib/refunds";
 import { cardForPayment, stripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const payments = booking.pricing.payments ?? [];
+  // The checkout payment first — it isn't in `payments`, and it's usually the
+  // one that can actually go back to a card.
+  const online = onlinePayment(booking);
+  const onlineRow = online
+    ? [
+        {
+          id: ONLINE_PAYMENT_ID,
+          method: "card" as const,
+          methodLabel: "Online at booking",
+          amountCents: online.amountCents,
+          refundedCents: online.refundedCents,
+          refundableCents: online.refundableCents,
+          payer: null,
+          at: booking.createdAt,
+          toCard: Boolean(online.intentId) && stripeConfigured(),
+          card: online.intentId ? await cardForPayment(online.intentId) : null,
+        },
+      ]
+    : [];
   const rows = await Promise.all(
     payments.map(async (p) => ({
       id: p.id,
@@ -47,7 +66,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       0,
       (booking.pricing.refundOwedCents ?? 0) - (booking.pricing.refundedCents ?? 0)
     ),
-    payments: rows,
+    payments: [...onlineRow, ...rows],
   });
 }
 

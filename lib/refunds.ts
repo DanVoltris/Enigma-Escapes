@@ -29,6 +29,32 @@ export function refundableCents(payment: BookingPayment): number {
   return Math.max(0, payment.amountCents - (payment.refundedCents ?? 0));
 }
 
+// The money taken at checkout, which is the one payment this app can always
+// send back to the card: Stripe took it and left a payment intent behind. It
+// isn't in `payments` — that list is manual records — so it is worked out the
+// same way the booking page does, and its refunds are tracked on the booking.
+export const ONLINE_PAYMENT_ID = "online";
+
+export function onlinePayment(booking: Booking): {
+  amountCents: number;
+  refundedCents: number;
+  refundableCents: number;
+  intentId: string | null;
+} | null {
+  const p = booking.pricing;
+  const voucher = p.voucherRedeemed ? (p.voucherCents ?? 0) : 0;
+  const manual = (p.payments ?? []).reduce((sum, x) => sum + x.amountCents, 0);
+  const amountCents = p.paidCents - voucher - manual;
+  if (amountCents <= 0) return null;
+  const refundedCents = p.onlineRefundedCents ?? 0;
+  return {
+    amountCents,
+    refundedCents,
+    refundableCents: Math.max(0, amountCents - refundedCents),
+    intentId: p.stripePaymentIntent ?? null,
+  };
+}
+
 export async function refundBookingPayment(
   booking: Booking,
   paymentId: string,
@@ -36,10 +62,11 @@ export async function refundBookingPayment(
   staffName: string
 ): Promise<RefundOutcome> {
   const payments = booking.pricing.payments ?? [];
-  const payment = payments.find((p) => p.id === paymentId);
-  if (!payment) return { error: "That payment is no longer on this booking." };
+  const online = paymentId === ONLINE_PAYMENT_ID ? onlinePayment(booking) : null;
+  const payment = online ? null : payments.find((p) => p.id === paymentId);
+  if (!online && !payment) return { error: "That payment is no longer on this booking." };
 
-  const available = refundableCents(payment);
+  const available = online ? online.refundableCents : refundableCents(payment as BookingPayment);
   if (available <= 0) return { error: "That payment has already been refunded in full." };
   if (!Number.isInteger(amountCents) || amountCents <= 0) {
     return { error: "Enter how much to refund." };
@@ -52,9 +79,10 @@ export async function refundBookingPayment(
   // somewhere this app can't reach (a standalone terminal, the old system) and
   // staff refund it there — recording it here keeps the booking honest.
   let toCard = false;
-  if (payment.intentId && stripeConfigured()) {
+  const intentId = online ? online.intentId : (payment as BookingPayment).intentId;
+  if (intentId && stripeConfigured()) {
     try {
-      const sent = await refundPayment(payment.intentId, amountCents);
+      const sent = await refundPayment(intentId, amountCents);
       if (sent === null) return { error: "Stripe is not configured, so the card can't be refunded from here." };
       toCard = true;
     } catch (err) {
@@ -75,6 +103,7 @@ export async function refundBookingPayment(
   const pricing: Booking["pricing"] = {
     ...booking.pricing,
     payments: nextPayments,
+    ...(online ? { onlineRefundedCents: online.refundedCents + amountCents } : {}),
     refundedCents: refundedTotal,
     // Never let "owed" sit below what has actually gone back, or the two
     // figures tell contradictory stories on the bookings list.
@@ -85,11 +114,11 @@ export async function refundBookingPayment(
   await updateBookingFields(booking.id, { pricing });
   const how = toCard ? "to the card via Stripe" : "to be settled by hand";
   await logActivity("Refund issued", `${formatMoney(amountCents)} on ${booking.reference} — ${how}`);
-  await addBookingNote(
-    booking.id,
-    `Refund of ${formatMoney(amountCents)} against the ${formatMoney(payment.amountCents)} ` +
-      `${PAYMENT_METHOD_LABEL[payment.method]} payment${payment.payer ? ` from ${payment.payer}` : ""} — ${how}.`,
-    staffName
-  );
+  const against = online
+    ? `the ${formatMoney(online.amountCents)} taken at checkout`
+    : `the ${formatMoney((payment as BookingPayment).amountCents)} ` +
+      `${PAYMENT_METHOD_LABEL[(payment as BookingPayment).method]} payment` +
+      ((payment as BookingPayment).payer ? ` from ${(payment as BookingPayment).payer}` : "");
+  await addBookingNote(booking.id, `Refund of ${formatMoney(amountCents)} against ${against} — ${how}.`, staffName);
   return { refundedCents: amountCents, toCard, pricing };
 }
