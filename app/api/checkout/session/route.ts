@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildBooking } from "@/lib/create-booking";
+import { getRequestByToken, setRequestStatus } from "@/lib/requests";
 import { finalizeBookingPayment, logActivity, saveBooking } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { createCheckoutSession, PENDING_MINUTES, stripeConfigured } from "@/lib/stripe";
@@ -9,6 +10,24 @@ export const dynamic = "force-dynamic";
 // Starts a Stripe checkout: validates the cart exactly like a normal booking,
 // saves it as "pending" (holding its spots for PENDING_MINUTES), and returns
 // the Stripe-hosted payment URL to redirect to.
+
+// An accepted request that reached checkout gets linked to its booking and
+// closed. The simulated flow always did this; with Stripe live it never
+// happened, so the Requests screen showed every accepted request as if the
+// customer had vanished — including the ones who had paid minutes earlier.
+// Linked at session creation rather than at payment: the booking already holds
+// the slot, and if the checkout lapses the request has expired anyway.
+async function closeRequest(body: unknown, bookingId: string): Promise<void> {
+  const token = (body as { requestToken?: unknown }).requestToken;
+  if (typeof token !== "string" || !token) return;
+  try {
+    const request = await getRequestByToken(token);
+    if (request && request.status === "accepted") await setRequestStatus(request.id, "completed", bookingId);
+  } catch (err) {
+    console.error("closing request after checkout failed:", err); // the booking still stands
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!stripeConfigured()) {
     return NextResponse.json(
@@ -50,6 +69,7 @@ export async function POST(req: NextRequest) {
       await saveBooking(booking);
       await finalizeBookingPayment(booking.id, 0);
       await logActivity("Booking paid by gift voucher", `${booking.reference} — no card payment needed`);
+      await closeRequest(body, booking.id);
     } catch (err) {
       console.error("finalizing voucher-only booking failed:", err);
       return NextResponse.json(
@@ -74,6 +94,7 @@ export async function POST(req: NextRequest) {
     const { currencyCode } = await getLocale();
     const session = await createCheckoutSession(booking, dueCents, currencyCode, req.nextUrl.origin);
     await logActivity("Checkout started", `${booking.reference} — awaiting payment`);
+    await closeRequest(body, booking.id);
     return NextResponse.json({ url: session.url }, { status: 201 });
   } catch (err) {
     console.error("creating Stripe checkout session failed:", err);
