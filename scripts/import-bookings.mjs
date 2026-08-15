@@ -328,6 +328,16 @@ const unknownRooms = new Map();
 const skipped = { cancelled: 0, when: 0, quantity: 0, room: 0, duplicate: 0 };
 let dataRows = 0;
 
+// What was actually paid, per transaction, from a transactions export.
+//
+// The bookings export only says "Paid" or "Unpaid", and the old system marks a
+// transaction Unpaid until it is settled in full — so a $30 deposit on a $120
+// booking exports as simply Unpaid, and importing that alone tells the desk to
+// collect the whole $120 again. The transactions export carries Total Paid per
+// transaction, which is the only place the deposit actually appears.
+const paidByTx = new Map();
+let paidRows = 0;
+
 for (const file of files) {
   let rows;
   try {
@@ -342,9 +352,24 @@ for (const file of files) {
     process.exit(1);
   }
   const index = new Map(header.map((h, i) => [h.trim(), i]));
+
+  // A transactions export: no per-session rows, but it knows what was paid.
+  if (index.has("Total Paid") && !index.has("Booking Item")) {
+    const txCol = index.get("Transaction ID");
+    const paidCol = index.get("Total Paid");
+    for (const row of body) {
+      const id = text(row[txCol]);
+      if (!id) continue;
+      paidByTx.set(id, money(row[paidCol]));
+      paidRows++;
+    }
+    console.log(`${basename(file)}: ${paidRows} transactions with payment totals`);
+    continue;
+  }
+
   for (const required of ["Transaction ID", "Booking Item", "Booking Start Date", "Booking Start Time"]) {
     if (!index.has(required)) {
-      console.error(`${file} has no "${required}" column — is it a bookings export?`);
+      console.error(`${file} has no "${required}" column — is it a bookings or transactions export?`);
       process.exit(1);
     }
   }
@@ -408,6 +433,19 @@ for (const file of files) {
   console.log(`${basename(file)}: ${fileRows} rows`);
 }
 
+// Cap at the total: an overpayment recorded over there is not a refund we can
+// safely invent here.
+let partPaid = 0;
+function paidFor(tx) {
+  const total = tx.money.totalCents;
+  if (paidByTx.has(tx.id)) {
+    const paid = Math.max(0, Math.min(total, paidByTx.get(tx.id)));
+    if (paid > 0 && paid < total) partPaid++;
+    return paid;
+  }
+  return tx.paid ? total : 0;
+}
+
 const bookings = [];
 let walkIns = 0;
 for (const tx of transactions.values()) {
@@ -433,10 +471,13 @@ for (const tx of transactions.values()) {
       discountCents: tx.money.discountCents,
       gstCents: tx.money.gstCents,
       totalCents: tx.money.totalCents,
-      // Unpaid over there is still unpaid here: the balance shows on the
-      // booking so staff can take it at the door.
-      paidCents: tx.paid ? tx.money.totalCents : 0,
-      balanceCents: tx.paid ? 0 : tx.money.totalCents,
+      // What was actually paid, if a transactions export said so — that's the
+      // only place a part payment shows. Failing that, fall back to the
+      // bookings export's all-or-nothing flag. Capped at the total: where the
+      // old system recorded an overpayment, inventing a refund here would be a
+      // guess, and the balance reading zero is the safe reading.
+      paidCents: paidFor(tx),
+      balanceCents: tx.money.totalCents - paidFor(tx),
     },
     source: tx.source,
     no_show: tx.noShow,
@@ -493,6 +534,9 @@ console.log(
     `\n${upcoming} of them are today or later (those are the slots that stop being sellable)` +
     `\n${withEmail.size} customer accounts linked by email · ${walkIns} walk-ins filed under a placeholder account`
 );
+if (partPaid) {
+  console.log(`  ${partPaid} bookings carry a part payment (a deposit) taken from the transactions export`);
+}
 if (skipped.duplicate) console.log(`  ${skipped.duplicate} rows skipped — the same legacy booking in more than one export`);
 if (skipped.cancelled) console.log(`  ${skipped.cancelled} rows skipped — transaction not active`);
 if (skipped.when) console.log(`  ${skipped.when} rows skipped — unreadable date or time`);
