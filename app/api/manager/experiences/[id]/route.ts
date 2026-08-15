@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { deleteExperience, experienceUsage, getExperience, updateExperience } from "@/lib/experiences";
 import { parseExperienceInput } from "@/lib/experience-validation";
+import { typedNameMatches } from "@/lib/text-match";
 import { logActivity } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -69,7 +70,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     return NextResponse.json({ error: "That room is at a location your account doesn't cover." }, { status: 403 });
   }
 
-  let usage: { total: number; upcoming: number };
+  let usage: Awaited<ReturnType<typeof experienceUsage>>;
   try {
     usage = await experienceUsage(id);
   } catch (err) {
@@ -86,21 +87,25 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     return NextResponse.json(
       {
         error:
-          `${usage.upcoming} session${usage.upcoming === 1 ? " is" : "s are"} still booked in this room. ` +
-          `Move or cancel ${usage.upcoming === 1 ? "it" : "them"} first, or untick “Visible and bookable” ` +
-          `to take the room off sale without losing anything.`,
+          `${usage.upcoming} session${usage.upcoming === 1 ? " is" : "s are"} still booked in this room, ` +
+          `so deleting it would leave ${usage.upcoming === 1 ? "that customer" : "those customers"} ` +
+          `booked into a room that no longer exists. Move or cancel ` +
+          `${usage.upcoming === 1 ? "it" : "them"} first, or untick “Visible and bookable” to take the ` +
+          `room off sale without losing anything.`,
       },
       { status: 409 }
     );
   }
 
   // Past history is the owner's call, but they have to name the room to make it
-  // — a typo-proof confirmation for something that can't be undone.
+  // — a typo-proof confirmation for something that can't be undone. Matched
+  // loosely on punctuation: several room names carry an em dash, which is not
+  // on anyone's keyboard.
   if (usage.total > 0) {
     const typed = new URL(req.url).searchParams.get("confirm") ?? "";
-    if (typed.trim().toLowerCase() !== experience.name.trim().toLowerCase()) {
+    if (!typedNameMatches(typed, experience.name)) {
       return NextResponse.json(
-        { error: `Type the room's name exactly — “${experience.name}” — to confirm.` },
+        { error: `Type the room's name — “${experience.name}” — to confirm.` },
         { status: 400 }
       );
     }

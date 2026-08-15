@@ -150,7 +150,26 @@ export async function updateExperience(id: string, patch: Partial<Experience>): 
 //
 // `total` comes back as a count with no rows attached — the number is the whole
 // question, and six years of history is not worth moving to answer it.
-export async function experienceUsage(id: string): Promise<{ total: number; upcoming: number }> {
+export type UpcomingSession = {
+  bookingId: string;
+  reference: string;
+  date: string;
+  time: string;
+  guests: number;
+  customer: string;
+};
+
+export type ExperienceUsage = {
+  total: number;
+  upcoming: number;
+  // The soonest of the upcoming ones, so "move or cancel them first" comes with
+  // the list of what to move — a count alone leaves staff hunting the calendar.
+  nextSessions: UpcomingSession[];
+};
+
+const SESSIONS_SHOWN = 8;
+
+export async function experienceUsage(id: string): Promise<ExperienceUsage> {
   const contains = encodeURIComponent(JSON.stringify([{ roomId: id }]));
   const res = await rest(`bookings?items=cs.${contains}&select=id&limit=1`, {
     headers: { Prefer: "count=exact" },
@@ -166,10 +185,21 @@ export async function experienceUsage(id: string): Promise<{ total: number; upco
   // a real answer.
   const today = todayISO();
   const ahead = (await listBookingsInWindow(today, addDaysISO(today, 730))) ?? (await listBookings());
-  const upcoming = ahead
-    .flatMap((b) => b.items)
-    .filter((i) => i.roomId === id && i.date >= today).length;
-  return { total, upcoming };
+  const sessions = ahead
+    .flatMap((b) =>
+      b.items
+        .filter((i) => i.roomId === id && i.date >= today)
+        .map((i) => ({
+          bookingId: b.id,
+          reference: b.reference,
+          date: i.date,
+          time: i.time,
+          guests: i.quantity,
+          customer: `${b.customer.firstName} ${b.customer.lastName}`.trim(),
+        }))
+    )
+    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  return { total, upcoming: sessions.length, nextSessions: sessions.slice(0, SESSIONS_SHOWN) };
 }
 
 export async function deleteExperience(id: string): Promise<void> {

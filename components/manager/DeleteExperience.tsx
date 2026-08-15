@@ -1,9 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatDateLong, formatTime } from "@/lib/format";
+import { typedNameMatches } from "@/lib/text-match";
 
-type Usage = { name: string; total: number; upcoming: number };
+type Session = {
+  bookingId: string;
+  reference: string;
+  date: string;
+  time: string;
+  guests: number;
+  customer: string;
+};
+
+type Usage = { name: string; total: number; upcoming: number; nextSessions: Session[] };
 
 // Deleting a room, with the danger scaled to what's actually behind it. The
 // counts are fetched when the panel is opened rather than on page load, because
@@ -73,7 +85,7 @@ export default function DeleteExperience({ id, name }: { id: string; name: strin
 
   const blocked = usage ? usage.upcoming > 0 : false;
   const needsTyping = usage ? usage.upcoming === 0 && usage.total > 0 : false;
-  const nameMatches = typed.trim().toLowerCase() === name.trim().toLowerCase();
+  const nameMatches = typedNameMatches(typed, name);
 
   return (
     <div className="mgr-card" style={{ marginTop: 24, borderColor: "var(--danger)" }}>
@@ -85,14 +97,44 @@ export default function DeleteExperience({ id, name }: { id: string; name: strin
       {usage && (
         <>
           {blocked ? (
-            <p>
-              <strong>
-                {usage.upcoming.toLocaleString()} session{usage.upcoming === 1 ? " is" : "s are"} still
-                booked in {name}.
-              </strong>{" "}
-              Move or cancel {usage.upcoming === 1 ? "it" : "them"} first — or untick “Visible and
-              bookable” above, which takes the room off sale and leaves every booking where it is.
-            </p>
+            <>
+              <p>
+                <strong>
+                  {usage.upcoming.toLocaleString()} session{usage.upcoming === 1 ? " is" : "s are"} still
+                  booked in {name}.
+                </strong>{" "}
+                Deleting the room would leave {usage.upcoming === 1 ? "that customer" : "those customers"}{" "}
+                holding a booking for a room the portal no longer has:{" "}
+                {usage.upcoming === 1
+                  ? "the session would vanish off the calendar, so nobody would set it up and nobody would be there to run it."
+                  : "those sessions would vanish off the calendar, so nobody would set them up and nobody would be there to run them."}
+              </p>
+              <ul className="cust-activity">
+                {usage.nextSessions.map((s) => (
+                  <li key={`${s.bookingId}-${s.date}-${s.time}`}>
+                    <div className="body">
+                      <div>
+                        <Link href={`/manager/bookings/${s.bookingId}`}>{s.reference}</Link> — {s.customer}
+                      </div>
+                      <div className="when">
+                        {formatDateLong(s.date)}, {formatTime(s.time)} · {s.guests} guest
+                        {s.guests === 1 ? "" : "s"}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {usage.upcoming > usage.nextSessions.length && (
+                <p className="sub">
+                  …and {(usage.upcoming - usage.nextSessions.length).toLocaleString()} more.
+                </p>
+              )}
+              <p>
+                Move or cancel {usage.upcoming === 1 ? "it" : "them"} first — or untick “Visible and
+                bookable” above, which stops the room being sold from now on and leaves every booking
+                exactly where it is. That is usually what you actually want.
+              </p>
+            </>
           ) : usage.total > 0 ? (
             <>
               <p>
@@ -104,8 +146,11 @@ export default function DeleteExperience({ id, name }: { id: string; name: strin
                 customers, prices and references are all unaffected — but those sessions will
                 disappear from the Calendar grid and from Reports.
               </p>
-              <p className="card-sub">This cannot be undone. Type the room&apos;s name to confirm.</p>
-              <div className="field" style={{ maxWidth: 320 }}>
+              <p className="card-sub">
+                This cannot be undone. Type the room&apos;s name — <strong>{name}</strong> — to confirm.
+                Capitals and the kind of dash don&apos;t matter.
+              </p>
+              <div className="field" style={{ maxWidth: 360 }}>
                 <label htmlFor="del-confirm">Room name</label>
                 <input
                   id="del-confirm"
