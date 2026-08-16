@@ -4330,3 +4330,37 @@ textarea:focus {
   align-items: center;
   margin-bottom: 10px;
 }
+
+/* A booked slot on the calendar grid reads like a ticket: its own start time,
+   who's in it, then the party size. The row header gives the time too, but
+   fourteen rooms across is enough to land a line off — which is the mistake
+   this prevents. */
+.mgr-cal button.cell.booked {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 5px;
+  line-height: 1.15;
+  text-align: center;
+}
+.mgr-cal .cell-time {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.mgr-cal .cell-who {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  /* One line, cut cleanly. A hard cap rather than a percentage: the table sizes
+     columns to their content, so "Aleksandra Kowalczyk-Smith" would otherwise
+     stretch its whole column and knock the grid out of alignment. */
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mgr-cal .cell-count {
+  font-size: 11px;
+  font-weight: 700;
+}

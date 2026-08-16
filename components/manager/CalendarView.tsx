@@ -123,6 +123,17 @@ export default function CalendarView({
                             ? " full"
                             : " some";
                       const label = isBlocked && count === 0 ? "Blocked" : `${count}/${e.capacity}`;
+                      // A booked slot carries its own time and who's in it. The
+                      // grid gives the time on the row header, but staff read
+                      // across a 14-room row and land a line off — putting it on
+                      // the block itself is what stops the mix-up.
+                      const here = sessionsByKey[key] ?? [];
+                      const who =
+                        here.length === 0
+                          ? null
+                          : here.length === 1
+                            ? here[0].name
+                            : `${here[0].name} +${here.length - 1}`;
                       const title = isBlocked
                         ? `${e.name} at ${formatTime(time)}: blocked off — can't be booked${
                             count > 0 ? `, but ${count} already booked in` : ""
@@ -135,11 +146,13 @@ export default function CalendarView({
                           {count > 0 ? (
                             <button
                               type="button"
-                              className={`cell${cls}`}
+                              className={`cell${cls} booked`}
                               onClick={() => setSelectedKey(key)}
                               title={title}
                             >
-                              {label}
+                              <span className="cell-time">{formatTime(time)}</span>
+                              {who && <span className="cell-who">{who}</span>}
+                              <span className="cell-count">{label}</span>
                             </button>
                           ) : (
                             <span className={`cell${cls}`} title={title}>
