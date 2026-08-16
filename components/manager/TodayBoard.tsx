@@ -64,6 +64,12 @@ export default function TodayBoard({
   loc: string | null; // the one being shown, or null for all of them
 }) {
   const router = useRouter();
+  // A booking can hold several of today's sessions — a group taking four rooms
+  // buys them on one reference. The balance belongs to the BOOKING, so printing
+  // it on all four rows read as four times the money.
+  const sessionsPerBooking = new Map<string, number>();
+  for (const r of rows) sessionsPerBooking.set(r.bookingId, (sessionsPerBooking.get(r.bookingId) ?? 0) + 1);
+
   const [openId, setOpenId] = useState<string | null>(null);
 
   const guests = rows.reduce((s, r) => s + r.quantity, 0);
@@ -148,8 +154,18 @@ export default function TodayBoard({
                   </span>
                   <span className="today-money">
                     {r.balanceCents > 0 ? (
-                      <span className="mgr-pill" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+                      <span
+                        className="mgr-pill"
+                        style={{ borderColor: "var(--danger)", color: "var(--danger)" }}
+                        title={
+                          (sessionsPerBooking.get(r.bookingId) ?? 1) > 1
+                            ? `${formatMoney(r.balanceCents)} is owed on ${r.reference} as a whole, covering all ${sessionsPerBooking.get(r.bookingId)} of its rooms today — not per room.`
+                            : undefined
+                        }
+                      >
                         {formatMoney(r.balanceCents)} due
+                        {(sessionsPerBooking.get(r.bookingId) ?? 1) > 1 &&
+                          ` · all ${sessionsPerBooking.get(r.bookingId)} rooms`}
                       </span>
                     ) : r.refundOwedCents > 0 ? (
                       // Overpaid. "Paid" would be true but useless here — the
@@ -174,6 +190,12 @@ export default function TodayBoard({
                         <span className="req-label">Contact</span>{" "}
                         <a href={`tel:${r.phone}`}>{r.phone}</a> · <a href={`mailto:${r.email}`}>{r.email}</a>
                       </div>
+                      {(sessionsPerBooking.get(r.bookingId) ?? 1) > 1 && (
+                        <div className="sub">
+                          {r.reference} covers {sessionsPerBooking.get(r.bookingId)} rooms today — the figures
+                          below are for the whole booking, and one payment settles all of them.
+                        </div>
+                      )}
                       <div>
                         <span className="req-label">Total</span> {formatMoney(r.totalCents)} ·{" "}
                         <span className="req-label">Paid</span> {formatMoney(r.paidCents)}
