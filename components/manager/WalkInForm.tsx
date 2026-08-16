@@ -35,7 +35,9 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [paymentOption, setPaymentOption] = useState<"full" | "deposit" | "none">("full");
+  // No deposit option at the desk — taken out on request. The customer-facing
+  // checkout still offers one, so nothing changes for online bookings.
+  const [paymentOption, setPaymentOption] = useState<"full" | "none">("full");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -351,10 +353,6 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         <label className={`pay-option ${paymentOption === "full" ? "selected" : ""}`}>
           <input type="radio" checked={paymentOption === "full"} onChange={() => setPaymentOption("full")} />
           <span>Paid in full at the desk</span>
-        </label>
-        <label className={`pay-option ${paymentOption === "deposit" ? "selected" : ""}`}>
-          <input type="radio" checked={paymentOption === "deposit"} onChange={() => setPaymentOption("deposit")} />
-          <span>Deposit only (25%) — balance due later</span>
         </label>
         <label className={`pay-option ${paymentOption === "none" ? "selected" : ""}`}>
           <input type="radio" checked={paymentOption === "none"} onChange={() => setPaymentOption("none")} />
