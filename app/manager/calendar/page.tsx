@@ -2,6 +2,7 @@ import Link from "next/link";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import DateJump from "@/components/manager/DateJump";
 import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
+import DayTimes from "@/components/manager/DayTimes";
 import CalendarView, { type SessionBooking } from "@/components/manager/CalendarView";
 import { blockedKeysForDate } from "@/lib/blocks";
 import { bookingsForDate } from "@/lib/db";
@@ -162,6 +163,15 @@ export default async function ManagerCalendar({
         sessionsByKey={sessionsByKey}
         blockedKeys={[...blockedKeys]}
       />
+
+      {/* Changing a day's hours is schedule work, so it needs that permission —
+          the same one that lets someone edit the room itself. */}
+      {hasPermission(staff, "experiences") && view === "calendar" && (
+        <DayTimes
+          date={date}
+          rooms={experiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))}
+        />
+      )}
     </>
   );
 }

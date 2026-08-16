@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { allowedLocations, canSeeLocation, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
+import DayTimes from "@/components/manager/DayTimes";
 import DeleteExperience from "@/components/manager/DeleteExperience";
 import ExperienceForm from "@/components/manager/ExperienceForm";
 import { getExperience } from "@/lib/experiences";
@@ -29,6 +30,9 @@ export default async function EditExperiencePage({ params }: { params: Promise<{
         this room off the booking site without deleting it, untick the box at the bottom.
       </p>
       <ExperienceForm initial={experience} locations={locations} />
+      <DayTimes
+        rooms={[{ id: experience.id, name: experience.name, location: experience.location }]}
+      />
       <DeleteExperience id={experience.id} name={experience.name} />
     </>
   );

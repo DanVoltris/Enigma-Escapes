@@ -505,6 +505,16 @@ export async function updateBookingPartySize(
 // All booked spot counts for one date, keyed "roomId|time". One query per date
 // (the availability page needs every slot) using a jsonb contains filter.
 // Live pending checkouts count — their spots are held until they expire.
+// Everything live booked into one room on one date. Used before changing a
+// day's start times: a time that has a booking must not be taken off the list,
+// or the group's session disappears from the grid with nothing to explain it.
+export async function bookingsForRoomOnDate(roomId: string, date: string): Promise<Booking[]> {
+  const filter = encodeURIComponent(JSON.stringify([{ roomId, date }]));
+  const res = await rest(`bookings?select=*&items=cs.${filter}`);
+  if (!res.ok) throw await restError(res, "Loading that day's bookings");
+  return ((await res.json()) as BookingRow[]).map(toBooking).filter(isLiveBooking);
+}
+
 export async function bookedCountsForDate(date: string): Promise<Map<string, number>> {
   const filter = encodeURIComponent(JSON.stringify([{ date }]));
   const res = await rest(`bookings?select=items,status,pending_expires_at&items=cs.${filter}`);
