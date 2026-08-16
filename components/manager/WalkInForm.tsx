@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
@@ -13,17 +13,24 @@ const WALK_IN_MIN = 1;
 type Exp = { id: string; name: string; location: string; priceCents: number; capacity: number; times: string[] };
 type KnownCustomer = { firstName: string; lastName: string; email: string; phone: string };
 
+// One room on the booking. A group often takes two — same reference, one total,
+// one payment — so this is a list rather than a single room/date/time.
+// `key` only exists to keep React rows stable while they're being edited.
+type Session = { key: number; roomId: string; date: string; time: string; quantity: number };
+
 // onRoomChange lets the page react to the chosen experience — the on-shift
 // panel above the form uses it to highlight who can run that room.
 export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: string) => void } = {}) {
   const router = useRouter();
   const today = todayISO();
 
-  const [experiences, setExperiences] = useState<Exp[]>([]);
-  const [roomId, setRoomId] = useState("");
-  const [date, setDate] = useState(today);
-  const [time, setTime] = useState("");
-  const [quantity, setQuantity] = useState(2);
+  // Room lists are per-date: a room runs different hours on a Friday than a
+  // Sunday, so each session's date gets its own fetch, cached by date.
+  const [expByDate, setExpByDate] = useState<Record<string, Exp[]>>({});
+  const [sessions, setSessions] = useState<Session[]>([
+    { key: 1, roomId: "", date: today, time: "", quantity: 2 },
+  ]);
+  const nextKey = useRef(2);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -100,50 +107,111 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
       </ul>
     ) : null;
 
-  // Reloaded whenever the date changes: a room's start times depend on the
-  // weekday (Fridays and Saturdays run later than a Sunday), so a list fetched
-  // for one date is wrong for another. Stale responses are ignored, so quickly
-  // stepping through dates can't leave the previous day's times on screen.
+  // Every date in play gets its room list fetched once and kept. Stale
+  // responses are ignored, so stepping through dates can't leave one day's
+  // times sitting under another day's rooms.
+  const dates = sessions.map((x) => x.date).join(",");
   useEffect(() => {
     let current = true;
-    fetch(`/api/manager/experiences/list?date=${encodeURIComponent(date)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!current) return;
-        const list: Exp[] = d.experiences ?? [];
-        setExperiences(list);
-        if (list[0] && !roomId) {
-          setRoomId(list[0].id);
-          // The form defaults to the first experience, so tell the page too —
-          // otherwise the panel above shows nothing highlighted while the
-          // dropdown clearly has a room selected.
-          onRoomChange?.(list[0].id);
-        }
-      })
-      .catch(() => {
-        if (current) setError("Could not load experiences. Reload the page.");
-      });
+    const wanted = [...new Set(dates.split(",").filter(Boolean))];
+    for (const d of wanted) {
+      if (expByDate[d]) continue;
+      fetch(`/api/manager/experiences/list?date=${encodeURIComponent(d)}`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (!current) return;
+          setExpByDate((prev) => ({ ...prev, [d]: (res.experiences ?? []) as Exp[] }));
+        })
+        .catch(() => {
+          if (current) setError("Could not load experiences. Reload the page.");
+        });
+    }
     return () => {
       current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- roomId is seeded here, not a trigger
-  }, [date]);
+  }, [dates, expByDate]);
 
-  const selected = useMemo(() => experiences.find((e) => e.id === roomId), [experiences, roomId]);
+  const roomsFor = (d: string): Exp[] => expByDate[d] ?? [];
+  const expFor = (x: Session): Exp | undefined => roomsFor(x.date).find((e) => e.id === x.roomId);
 
-  // Keep the selected time valid whenever the experience or the date changes —
-  // 21:30 exists on a Friday but not on a Sunday.
+  // Fill in a room and a time as soon as the list for that date arrives, and
+  // correct any time that doesn't exist on the newly chosen day.
   useEffect(() => {
-    if (selected && !selected.times.includes(time)) setTime(selected.times[0] ?? "");
-  }, [selected, time]);
+    setSessions((prev) => {
+      let touched = false;
+      const next = prev.map((x) => {
+        const list = expByDate[x.date];
+        if (!list || list.length === 0) return x;
+        const room = list.find((e) => e.id === x.roomId) ?? list[0];
+        const time = room.times.includes(x.time) ? x.time : (room.times[0] ?? "");
+        if (room.id === x.roomId && time === x.time) return x;
+        touched = true;
+        return { ...x, roomId: room.id, time };
+      });
+      return touched ? next : prev;
+    });
+    // Also runs when a row's date or room changes, not just when a new date's
+    // list lands — otherwise switching to a date already fetched leaves the old
+    // day's time sitting there. Returning `prev` untouched makes this a no-op,
+    // so there's no loop.
+  }, [expByDate, sessions]);
 
-  const subtotal = selected ? selected.priceCents * quantity : 0;
+  // The on-shift panel above highlights whoever can run the first room.
+  const leadRoom = sessions[0]?.roomId;
+  useEffect(() => {
+    if (leadRoom) onRoomChange?.(leadRoom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the caller's, not a trigger
+  }, [leadRoom]);
+
+  const update = (key: number, patch: Partial<Session>) =>
+    setSessions((prev) => prev.map((x) => (x.key === key ? { ...x, ...patch } : x)));
+
+  const addSession = () => {
+    const last = sessions[sessions.length - 1];
+    const date = last?.date ?? today;
+    // Seeded from the last row — a second room is nearly always the same day for
+    // the same group — and defaulted to a room they haven't already got, since
+    // the same room twice at the same time is the one thing they can't have.
+    const used = new Set(sessions.filter((x) => x.date === date).map((x) => x.roomId));
+    const list = expByDate[date] ?? [];
+    const room = list.find((e) => !used.has(e.id)) ?? list[0];
+    setSessions((prev) => [
+      ...prev,
+      {
+        key: nextKey.current++,
+        roomId: room?.id ?? "",
+        date,
+        time: room?.times[0] ?? "",
+        quantity: last?.quantity ?? 2,
+      },
+    ]);
+  };
+
+  const removeSession = (key: number) => setSessions((prev) => prev.filter((x) => x.key !== key));
+
+  const subtotal = sessions.reduce((sum, x) => {
+    const exp = expFor(x);
+    return sum + (exp ? exp.priceCents * x.quantity : 0);
+  }, 0);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!selected) return setError("Pick an experience.");
-    if (quantity > selected.capacity) return setError(`Capacity for ${selected.name} is ${selected.capacity}.`);
+
+    for (const x of sessions) {
+      const exp = expFor(x);
+      if (!exp) return setError("Pick an experience for every room on this booking.");
+      if (!x.time) return setError(`Pick a start time for ${exp.name}.`);
+      if (x.quantity > exp.capacity) return setError(`Capacity for ${exp.name} is ${exp.capacity}.`);
+    }
+    // The same room twice at the same time is one slot sold twice, and the
+    // server sees two separate items rather than a clash — so it's caught here.
+    const slots = sessions.map((x) => `${x.roomId}|${x.date}|${x.time}`);
+    const duplicate = slots.find((slot, i) => slots.indexOf(slot) !== i);
+    if (duplicate) {
+      const exp = expFor(sessions.find((x) => `${x.roomId}|${x.date}|${x.time}` === duplicate)!);
+      return setError(`${exp?.name ?? "That room"} is on this booking twice at the same time.`);
+    }
 
     setSaving(true);
     try {
@@ -151,7 +219,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: [{ roomId, date, time, quantity }],
+          items: sessions.map((x) => ({ roomId: x.roomId, date: x.date, time: x.time, quantity: x.quantity })),
           customer: { firstName, lastName, email, phone, subscribe: false },
           paymentOption,
         }),
@@ -170,57 +238,86 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
     <form className="form-card mgr-form" onSubmit={submit} noValidate>
       {error && <div className="error-banner">{error}</div>}
 
-      <h3>Session</h3>
-      <div className="field-row">
-        <div className="field">
-          <label>Experience</label>
-          <SingleSelect
-            ariaLabel="Experience"
-            value={roomId}
-            onChange={(v) => {
-              setRoomId(v);
-              onRoomChange?.(v);
-            }}
-            options={experiences.map((e) => ({ value: e.id, label: `${e.name} — ${e.location}` }))}
-          />
-        </div>
-        <div className="field">
-          <label>Time</label>
-          <SingleSelect
-            ariaLabel="Time"
-            value={time}
-            onChange={setTime}
-            options={(selected?.times ?? []).map((t) => ({ value: t, label: formatTime(t) }))}
-          />
-        </div>
-      </div>
-      <div className="field-row">
-        <div className="field">
-          <label>Date</label>
-          <DatePicker value={date} min={today} max={addDaysISO(today, BOOKING_WINDOW_DAYS)} onChange={setDate} />
-        </div>
-        <div className="field">
-          <label>Guests</label>
-          <div className="stepper">
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => Math.max(WALK_IN_MIN, q - 1))}
-              disabled={quantity <= WALK_IN_MIN}
-              aria-label="Fewer guests"
-            >
-              −
-            </button>
-            <span className="value">{quantity}</span>
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => Math.min(selected?.capacity ?? q, q + 1))}
-              disabled={!!selected && quantity >= selected.capacity}
-              aria-label="More guests"
-            >
-              +
-            </button>
+      <h3>{sessions.length > 1 ? "Rooms" : "Session"}</h3>
+      {sessions.map((x, i) => {
+        const exp = expFor(x);
+        const rooms = roomsFor(x.date);
+        return (
+          <div key={x.key} className={sessions.length > 1 ? "walkin-session" : undefined}>
+            {sessions.length > 1 && (
+              <div className="walkin-session-head">
+                <strong>Room {i + 1}</strong>
+                <button type="button" className="mgr-linklike danger" onClick={() => removeSession(x.key)}>
+                  Remove
+                </button>
+              </div>
+            )}
+            <div className="field-row">
+              <div className="field">
+                <label>Experience</label>
+                <SingleSelect
+                  ariaLabel={`Experience for room ${i + 1}`}
+                  value={x.roomId}
+                  onChange={(v) => update(x.key, { roomId: v })}
+                  options={rooms.map((e) => ({ value: e.id, label: `${e.name} — ${e.location}` }))}
+                />
+              </div>
+              <div className="field">
+                <label>Time</label>
+                <SingleSelect
+                  ariaLabel={`Time for room ${i + 1}`}
+                  value={x.time}
+                  onChange={(v) => update(x.key, { time: v })}
+                  options={(exp?.times ?? []).map((t) => ({ value: t, label: formatTime(t) }))}
+                />
+              </div>
+            </div>
+            <div className="field-row">
+              <div className="field">
+                <label>Date</label>
+                <DatePicker
+                  value={x.date}
+                  min={today}
+                  max={addDaysISO(today, BOOKING_WINDOW_DAYS)}
+                  onChange={(v) => update(x.key, { date: v })}
+                />
+              </div>
+              <div className="field">
+                <label>Guests</label>
+                <div className="stepper">
+                  <button
+                    type="button"
+                    onClick={() => update(x.key, { quantity: Math.max(WALK_IN_MIN, x.quantity - 1) })}
+                    disabled={x.quantity <= WALK_IN_MIN}
+                    aria-label={`Fewer guests in room ${i + 1}`}
+                  >
+                    −
+                  </button>
+                  <span className="value">{x.quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => update(x.key, { quantity: Math.min(exp?.capacity ?? x.quantity, x.quantity + 1) })}
+                    disabled={!!exp && x.quantity >= exp.capacity}
+                    aria-label={`More guests in room ${i + 1}`}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        );
+      })}
+
+      {/* Guests are counted per room, not shared: two rooms at the same time is
+          two teams racing, and they are rarely the same size. */}
+      <div className="vch-save" style={{ marginTop: 4, marginBottom: 20 }}>
+        <button type="button" className="btn btn-outline" onClick={addSession}>
+          + Add another room
+        </button>
+        {sessions.length > 1 && (
+          <span className="sub">One booking, one reference, one payment — guests counted per room.</span>
+        )}
       </div>
 
       <h3>Customer</h3>

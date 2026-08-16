@@ -200,15 +200,21 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
 
             <GameResultForm bookingId={booking.id} initial={booking.gameResult} />
 
-            {booking.status !== "cancelled" && items.length === 1 && (
+            {/* Every live booking, however many rooms are on it. It used to be
+                single-session only, which left a two-room booking with no way to
+                change a guest count at all. */}
+            {booking.status !== "cancelled" && items.length > 0 && (
               <BookingActions
                 bookingId={booking.id}
                 paidCents={pricing.paidCents}
                 stripeLive={stripeConfigured()}
-                currentRoomId={items[0].roomId}
-                currentDate={items[0].date}
-                currentTime={items[0].time}
-                currentQuantity={items[0].quantity}
+                sessions={items.map((i) => ({
+                  roomId: i.roomId,
+                  roomName: i.roomName,
+                  date: i.date,
+                  time: i.time,
+                  quantity: i.quantity,
+                }))}
                 rooms={experiences
                   .filter((e) => e.active)
                   .map((e) => ({ id: e.id, name: e.name, location: e.location }))}

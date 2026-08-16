@@ -4316,3 +4316,17 @@ textarea:focus {
     grid-column: 1 / -1;
   }
 }
+
+/* Walk-in booking with more than one room on it: each session boxed so it's
+   clear which date and guest count belong to which room. */
+.walkin-session {
+  border: 1px solid var(--border);
+  padding: 16px 16px 0;
+  margin-bottom: 12px;
+}
+.walkin-session-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}

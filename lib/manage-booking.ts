@@ -247,16 +247,18 @@ export async function cancelForStaff(
 // What they have paid is left alone. The balance moves instead: more guests
 // means more owed at the desk, fewer means the balance drops and can go
 // negative, which shows as a refund owed rather than being written off.
+// `itemIndex` picks the session being changed. A booking can hold several — a
+// group taking two rooms buys them on one reference — and each is resized on
+// its own; the price is then rebuilt from all of them together.
 export async function changePartySize(
   booking: Booking,
   quantity: number,
-  staffName: string
+  staffName: string,
+  itemIndex = 0
 ): Promise<{ items: Booking["items"]; pricing: Booking["pricing"] } | { error: string }> {
-  if (booking.items.length !== 1) {
-    return { error: "This booking has several sessions — change them from the calendar instead." };
-  }
   if (booking.status === "cancelled") return { error: "This booking is cancelled." };
-  const item = booking.items[0];
+  const item = booking.items[itemIndex];
+  if (!item) return { error: "That session is no longer on this booking." };
   const exp = await getExperience(item.roomId);
   if (!exp) return { error: "That experience no longer exists." };
 
@@ -279,10 +281,14 @@ export async function changePartySize(
   }
 
   // Rebuild the totals at the new size, keeping the per-person price and the
-  // effective discount rate this booking was sold at.
-  const listedBefore = item.priceCents * item.quantity;
+  // effective discount rate this booking was sold at. The rate comes off the
+  // whole booking, not this one session, or a two-room booking would have its
+  // discount recalculated from a fraction of what it was sold at.
+  const listedBefore = booking.items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
-  const items: Booking["items"] = [{ ...item, quantity }];
+  const items: Booking["items"] = booking.items.map((i, idx) =>
+    idx === itemIndex ? { ...i, quantity } : i
+  );
   const totals = computeTotals(items, percentOff, await activeTaxPercent(), await getPricingMode());
 
   const paid = booking.pricing.paidCents;
@@ -296,13 +302,15 @@ export async function changePartySize(
   };
 
   await updateBookingPartySize(booking.id, items, pricing);
+  // Named when there's more than one, so the note says which room changed.
+  const which = booking.items.length > 1 ? `${item.roomName} ${formatTime(item.time)}: ` : "";
   await logActivity(
     "Party size changed by staff",
-    `${booking.reference} — ${staffName} — ${item.quantity} → ${quantity} guests`
+    `${booking.reference} — ${staffName} — ${which}${item.quantity} → ${quantity} guests`
   );
   await addBookingNote(
     booking.id,
-    `Party size changed from ${item.quantity} to ${quantity}. Total is now ${formatMoney(totals.totalCents)}; ` +
+    `${which}party size changed from ${item.quantity} to ${quantity}. Total is now ${formatMoney(totals.totalCents)}; ` +
       (pricing.balanceCents > 0
         ? `${formatMoney(pricing.balanceCents)} still to collect.`
         : pricing.balanceCents < 0
@@ -316,12 +324,11 @@ export async function changePartySize(
 export async function rescheduleForStaff(
   booking: Booking,
   target: { date: string; time: string; roomId?: string },
-  staffName: string
+  staffName: string,
+  itemIndex = 0
 ): Promise<RescheduleResult> {
-  if (booking.items.length !== 1) {
-    return { error: "This booking has several sessions — move them from the calendar instead." };
-  }
-  const item = booking.items[0];
+  const item = booking.items[itemIndex];
+  if (!item) return { error: "That session is no longer on this booking." };
   const roomId = target.roomId ?? item.roomId;
   const exp = await getExperience(roomId);
   if (!exp || !exp.active) return { error: "That experience isn't bookable at the moment." };
@@ -346,19 +353,29 @@ export async function rescheduleForStaff(
     };
   }
 
-  const items: Booking["items"] = [
-    {
-      ...item,
-      roomId: exp.id,
-      roomName: exp.name,
-      location: exp.location,
-      badgeBg: exp.badgeBg,
-      badgeFg: exp.badgeFg,
-      durationMinutes: exp.durationMinutes,
-      date: target.date,
-      time: target.time,
-    },
-  ];
+  // Moving one session onto another session of the same booking would have the
+  // group in two places at once, and the seat check above can't see it: those
+  // seats belong to this very booking.
+  const clash = booking.items.some(
+    (i, idx) => idx !== itemIndex && i.roomId === exp.id && i.date === target.date && i.time === target.time
+  );
+  if (clash) return { error: `This booking already has ${exp.name} at ${formatTime(target.time)} that day.` };
+
+  const items: Booking["items"] = booking.items.map((i, idx) =>
+    idx === itemIndex
+      ? {
+          ...i,
+          roomId: exp.id,
+          roomName: exp.name,
+          location: exp.location,
+          badgeBg: exp.badgeBg,
+          badgeFg: exp.badgeFg,
+          durationMinutes: exp.durationMinutes,
+          date: target.date,
+          time: target.time,
+        }
+      : i
+  );
   await rescheduleBooking(booking.id, items);
   await logActivity(
     "Booking rescheduled by staff",

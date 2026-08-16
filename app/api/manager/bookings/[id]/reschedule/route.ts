@@ -27,17 +27,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "That booking is cancelled — it can't be moved." }, { status: 400 });
   }
 
+  // Which session is moving. A booking can hold several; absent means the first,
+  // which is every booking made before this existed.
+  const itemIndex = Number.isInteger(o.itemIndex) ? (o.itemIndex as number) : 0;
+  if (itemIndex < 0 || itemIndex >= booking.items.length) {
+    return NextResponse.json({ error: "That session is no longer on this booking." }, { status: 400 });
+  }
+
   try {
     const result = await rescheduleForStaff(
       booking,
       { date, time, roomId: typeof o.roomId === "string" && o.roomId ? o.roomId : undefined },
-      guard.staff.name || guard.staff.email
+      guard.staff.name || guard.staff.email,
+      itemIndex
     );
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
 
     if (o.notify !== false) {
       try {
-        const moved = result.items[0];
+        const moved = result.items[itemIndex];
         await notifyBookingRescheduled(
           { ...booking, items: result.items },
           { roomName: moved.roomName, date: moved.date, time: moved.time },

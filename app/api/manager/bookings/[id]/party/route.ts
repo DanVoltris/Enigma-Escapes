@@ -31,7 +31,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
   }
 
-  const result = await changePartySize(booking, quantity, guard.staff.name);
+  const itemIndex = Number.isInteger(raw.itemIndex) ? (raw.itemIndex as number) : 0;
+  if (itemIndex < 0 || itemIndex >= booking.items.length) {
+    return NextResponse.json({ error: "That session is no longer on this booking." }, { status: 400 });
+  }
+
+  const result = await changePartySize(booking, quantity, guard.staff.name, itemIndex);
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({
     ok: true,

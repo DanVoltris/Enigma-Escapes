@@ -5,33 +5,36 @@ import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
-import { addDaysISO, formatMoney, formatTime, todayISO } from "@/lib/format";
+import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
 
 type Room = { id: string; name: string; location: string };
+export type Session = { roomName: string; roomId: string; date: string; time: string; quantity: number };
 
 // Cancel or move a booking from the portal — the phone-call cases the
 // customer's own self-service link deliberately can't cover.
+//
+// A booking can hold several sessions: a group taking two rooms buys them on one
+// reference. Guest count and moves apply to ONE of them, chosen here and passed
+// to the API as an index; cancelling still takes the whole booking, because
+// that's what a booking is.
 export default function BookingActions({
   bookingId,
   paidCents,
   stripeLive,
-  currentRoomId,
-  currentDate,
-  currentTime,
-  currentQuantity,
+  sessions,
   rooms,
 }: {
   bookingId: string;
   paidCents: number;
   stripeLive: boolean;
-  currentRoomId: string;
-  currentDate: string;
-  currentTime: string;
-  currentQuantity: number;
+  sessions: Session[];
   rooms: Room[];
 }) {
   const router = useRouter();
   const [panel, setPanel] = useState<"none" | "cancel" | "move" | "party">("none");
+  // Which session the party/move panels are acting on.
+  const [target, setTarget] = useState(0);
+  const current = sessions[target] ?? sessions[0];
 
   // Cancel
   const [refund, setRefund] = useState<"full" | "partial" | "none">("full");
@@ -40,7 +43,7 @@ export default function BookingActions({
   const [confirming, setConfirming] = useState(false);
 
   // Party size
-  const [guests, setGuests] = useState(String(currentQuantity));
+  const [guests, setGuests] = useState(String(current.quantity));
 
   // Move. The times offered come from the room's own schedule for the chosen
   // date, with what's already taken marked — a room runs different hours on a
@@ -48,14 +51,28 @@ export default function BookingActions({
   // the point of saving.
   type Slot = { time: string; blocked: boolean; taken: number; remaining: number };
   const [slots, setSlots] = useState<Slot[] | null>(null);
-  const [roomId, setRoomId] = useState(currentRoomId);
-  const [date, setDate] = useState(currentDate);
-  const [time, setTime] = useState(currentTime);
+  const [roomId, setRoomId] = useState(current.roomId);
+  const [date, setDate] = useState(current.date);
+  const [time, setTime] = useState(current.time);
   const [notifyMove, setNotifyMove] = useState(true);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+
+  // Opening a panel seeds it from the session it will act on — otherwise the
+  // second room's panel would come up showing the first room's time.
+  function open(next: "cancel" | "move" | "party", index = 0) {
+    const s = sessions[index] ?? sessions[0];
+    setTarget(index);
+    setGuests(String(s.quantity));
+    setRoomId(s.roomId);
+    setDate(s.date);
+    setTime(s.time);
+    setError(null);
+    setDone(null);
+    setPanel(next);
+  }
 
   const refundCents =
     refund === "full" ? paidCents : refund === "partial" ? Math.round(Number(partial) * 100) || 0 : 0;
@@ -98,7 +115,7 @@ export default function BookingActions({
       const res = await fetch(`/api/manager/bookings/${bookingId}/reschedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, date, time, notify: notifyMove }),
+        body: JSON.stringify({ roomId, date, time, notify: notifyMove, itemIndex: target }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not move that booking.");
@@ -137,7 +154,7 @@ export default function BookingActions({
       const res = await fetch(`/api/manager/bookings/${bookingId}/party`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: Number(guests) }),
+        body: JSON.stringify({ quantity: Number(guests), itemIndex: target }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -172,21 +189,67 @@ export default function BookingActions({
       {error && <p className="field-error">{error}</p>}
 
       {panel === "none" && (
-        <div className="vch-save">
-          <button type="button" className="btn btn-outline" onClick={() => setPanel("party")}>
-            Change guest count
-          </button>
-          <button type="button" className="btn btn-outline" onClick={() => setPanel("move")}>
-            Move to another session
-          </button>
-          <button type="button" className="btn btn-danger" onClick={() => setPanel("cancel")}>
-            Cancel booking
-          </button>
-        </div>
+        <>
+          {sessions.length === 1 ? (
+            <div className="vch-save">
+              <button type="button" className="btn btn-outline" onClick={() => open("party")}>
+                Change guest count
+              </button>
+              <button type="button" className="btn btn-outline" onClick={() => open("move")}>
+                Move to another session
+              </button>
+              <button type="button" className="btn btn-danger" onClick={() => open("cancel")}>
+                Cancel booking
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Several rooms on one booking, so each gets its own controls —
+                  changing the guest count "on the booking" would be ambiguous. */}
+              <ul className="cust-activity alert-list">
+                {sessions.map((s, i) => (
+                  <li key={`${s.roomId}-${s.date}-${s.time}`}>
+                    <div className="body" style={{ width: "100%" }}>
+                      <div>
+                        <strong>{s.roomName}</strong> — {formatDateLong(s.date)}, {formatTime(s.time)}
+                      </div>
+                      <div className="when">
+                        {s.quantity} guest{s.quantity === 1 ? "" : "s"}
+                      </div>
+                      <div className="vch-save" style={{ marginTop: 6 }}>
+                        <button type="button" className="btn btn-outline" onClick={() => open("party", i)}>
+                          Change guest count
+                        </button>
+                        <button type="button" className="btn btn-outline" onClick={() => open("move", i)}>
+                          Move this session
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="card-sub">
+                Cancelling takes the whole booking — every room on it — and refunds against the one
+                payment. To drop a single room, move the others onto a new booking first.
+              </p>
+              <div className="vch-save">
+                <button type="button" className="btn btn-danger" onClick={() => open("cancel")}>
+                  Cancel booking
+                </button>
+              </div>
+            </>
+          )}
+        </>
       )}
 
       {panel === "party" && (
         <>
+          {sessions.length > 1 && (
+            <p className="card-sub" style={{ marginTop: 4 }}>
+              Changing <strong>{current.roomName}</strong> — {formatDateLong(current.date)},{" "}
+              {formatTime(current.time)}.
+            </p>
+          )}
           <div className="field" style={{ maxWidth: 220 }}>
             <label htmlFor="ba-guests">Guests playing</label>
             <input
@@ -207,7 +270,7 @@ export default function BookingActions({
               type="button"
               className="btn"
               onClick={changeParty}
-              disabled={busy || !guests.trim() || Number(guests) === currentQuantity}
+              disabled={busy || !guests.trim() || Number(guests) === current.quantity}
             >
               {busy ? "Saving…" : "Save guest count"}
             </button>
@@ -220,6 +283,12 @@ export default function BookingActions({
 
       {panel === "move" && (
         <>
+          {sessions.length > 1 && (
+            <p className="card-sub" style={{ marginTop: 4 }}>
+              Moving <strong>{current.roomName}</strong> — {formatDateLong(current.date)},{" "}
+              {formatTime(current.time)}. The other rooms on this booking stay where they are.
+            </p>
+          )}
           <div className="vch-row">
             <div className="field">
               <label>Experience</label>
