@@ -96,15 +96,20 @@ export default function CalendarView({
                   <tr key={time}>
                     <th scope="row">{formatTime(time)}</th>
                     {experiences.map((e) => {
-                      if (!e.times.includes(time)) {
+                      const key = `${e.id}|${time}`;
+                      const count = countOf(key);
+                      // "Not offered at this time" — unless somebody is booked
+                      // into it anyway, which happens with sessions carried over
+                      // from the old system. Hiding those was how a sold game
+                      // could be missing from the grid entirely.
+                      if (!e.times.includes(time) && count === 0) {
                         return (
                           <td key={e.id}>
                             <span className="cell na">—</span>
                           </td>
                         );
                       }
-                      const key = `${e.id}|${time}`;
-                      const count = countOf(key);
+                      const offSchedule = !e.times.includes(time);
                       const isBlocked = blocked.has(key);
                       // Blocked shows red whatever else is true. A blocked slot
                       // that still holds guests is worth seeing loudly — it
@@ -122,7 +127,9 @@ export default function CalendarView({
                         ? `${e.name} at ${formatTime(time)}: blocked off — can't be booked${
                             count > 0 ? `, but ${count} already booked in` : ""
                           }`
-                        : `${e.name} at ${formatTime(time)}: ${count} of ${e.capacity} spots booked — view bookings`;
+                        : offSchedule
+                          ? `${e.name} at ${formatTime(time)}: ${count} booked, but this isn't one of the room's start times — carried over from the old system. Nobody can book it here.`
+                          : `${e.name} at ${formatTime(time)}: ${count} of ${e.capacity} spots booked — view bookings`;
                       return (
                         <td key={e.id}>
                           {count > 0 ? (

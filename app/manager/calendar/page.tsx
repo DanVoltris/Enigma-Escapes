@@ -53,7 +53,17 @@ export default async function ManagerCalendar({
 
   // Each experience's start times for the viewed date, from its schedule.
   const timesById = new Map(experiences.map((e) => [e.id, startTimesFor(e, date, hoursMap.get(e.location) ?? null)]));
-  const allTimes = Array.from(new Set(experiences.flatMap((e) => timesById.get(e.id) ?? []))).sort();
+  // Rows come from the published start times AND from anything actually booked
+  // that day. Sessions imported from the old system often don't sit on our
+  // published times, and a grid built from the schedule alone gave them no row
+  // at all — the game was sold, the group was coming, and the calendar showed
+  // nothing.
+  const bookedTimes = dayBookings.flatMap((b) =>
+    b.items.filter((i) => i.date === date).map((i) => i.time)
+  );
+  const allTimes = Array.from(
+    new Set([...experiences.flatMap((e) => timesById.get(e.id) ?? []), ...bookedTimes])
+  ).sort();
   const isToday = date === today;
   const nowMinutes = nowMinutesInBusinessTZ();
 
