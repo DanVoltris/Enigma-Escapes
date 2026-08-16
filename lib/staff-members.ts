@@ -56,6 +56,13 @@ export async function listStaffMembers(): Promise<StaffMember[]> {
   return ((await res.json()) as MemberRow[]).map(toMember);
 }
 
+export async function getStaffMember(id: string): Promise<StaffMember | undefined> {
+  const res = await rest(`staff_members?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+  if (!res.ok) throw await restError(res, "Loading that person");
+  const rows = (await res.json()) as MemberRow[];
+  return rows[0] ? toMember(rows[0]) : undefined;
+}
+
 export async function createStaffMember(name: string, homeLocation: string | null): Promise<StaffMember | undefined> {
   const row = {
     id: randomUUID(),

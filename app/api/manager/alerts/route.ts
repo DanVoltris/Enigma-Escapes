@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { phoneProblem } from "@/lib/request-alerts";
-import { updateStaffMember } from "@/lib/staff-members";
+import { getStaffMember, updateStaffMember } from "@/lib/staff-members";
 import { updateStaff } from "@/lib/staff";
 
 export const dynamic = "force-dynamic";
@@ -51,9 +51,12 @@ export async function PATCH(req: NextRequest) {
       if (!found) return NextResponse.json({ error: "That person is no longer on the list." }, { status: 404 });
     }
     if (patch.requestAlerts !== undefined) {
+      // Named. "someone on the staff list" was useless the first time anyone
+      // asked why a particular person was still getting texts.
+      const who = source === "roster" ? (await getStaffMember(id).catch(() => undefined))?.name : null;
       await logActivity(
         "Booking request alerts changed",
-        `${guard.staff.name} turned request texts ${patch.requestAlerts ? "on" : "off"} for someone on the staff list`
+        `${guard.staff.name} turned request texts ${patch.requestAlerts ? "on" : "off"} for ${who ?? "a staff member"}`
       );
     }
     return NextResponse.json({ ok: true });
