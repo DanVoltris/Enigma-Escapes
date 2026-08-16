@@ -6,7 +6,13 @@ import type { Experience, ScheduleMode, Windows } from "./types";
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-export type ExperienceInput = Omit<Experience, "id" | "sort"> & { sort?: number };
+// dateTimes is optional: the room editor doesn't send it, and a save from there
+// must not wipe a one-off slot somebody added for a particular day. Absent means
+// "leave whatever is stored alone", not "clear it".
+export type ExperienceInput = Omit<Experience, "id" | "sort" | "dateTimes"> & {
+  sort?: number;
+  dateTimes?: Record<string, string[]>;
+};
 
 export function slugify(name: string): string {
   return name
@@ -130,6 +136,20 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     imageUrl = d.imageUrl;
   }
 
+  // One-off starts, keyed by date. Left undefined when the caller doesn't send
+  // them, so saving a room from the editor can't wipe a slot added for a day.
+  let dateTimes: Record<string, string[]> | undefined;
+  if (d.dateTimes && typeof d.dateTimes === "object") {
+    dateTimes = {};
+    for (const [day, list] of Object.entries(d.dateTimes as Record<string, unknown>)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { error: `"${day}" is not a valid date.` };
+      if (!Array.isArray(list)) return { error: `${day}: the extra times must be a list.` };
+      const clean = [...new Set(list.filter((t): t is string => typeof t === "string" && TIME_RE.test(t)))].sort();
+      if (clean.length !== list.length) return { error: `${day}: every extra time must be a 24-hour HH:MM.` };
+      if (clean.length > 0) dateTimes[day] = clean;
+    }
+  }
+
   return {
     name,
     location,
@@ -146,6 +166,7 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     times,
     intervalMinutes,
     windows,
+    dateTimes,
     badgeBg,
     badgeFg,
     imageUrl,

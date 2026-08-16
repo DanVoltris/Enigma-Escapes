@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
     }
     const all = await listExperiences();
     const sort = Math.max(0, ...all.map((e) => e.sort)) + 1;
-    await createExperience({ ...parsed, id, sort });
+    // A brand-new room has no one-off dates yet.
+    await createExperience({ ...parsed, dateTimes: parsed.dateTimes ?? {}, id, sort });
     await logActivity("Created experience", parsed.name);
     return NextResponse.json({ id }, { status: 201 });
   } catch (err) {

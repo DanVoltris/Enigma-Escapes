@@ -32,6 +32,9 @@ export type Experience = {
   times: string[]; // "times" mode: explicit 24h "HH:MM" starts, every day
   intervalMinutes: number; // "window"/"store" modes: minutes between starts
   windows: Windows; // "window" mode: per-weekday first/last start
+  // Extra starts on one date only, keyed "YYYY-MM-DD" — a slot run for a
+  // particular day without touching what that weekday does every week.
+  dateTimes: Record<string, string[]>;
   badgeBg: string;
   badgeFg: string;
   imageUrl: string | null; // poster image; when set, shown instead of the colour block
