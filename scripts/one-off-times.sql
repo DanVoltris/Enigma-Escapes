@@ -4,9 +4,9 @@
 
 alter table experiences add column if not exists date_times jsonb;
 
--- Shape is { "YYYY-MM-DD": ["HH:MM", ...] }, added to whatever the room's normal
--- schedule already gives that day. To add 4:30 PM to Blackbeard's Brig on
--- 16 Aug 2026 only:
+-- Shape is { "YYYY-MM-DD": ["HH:MM", ...] }, and it REPLACES the room's normal
+-- schedule for that date. To run Blackbeard's Brig on a different timetable on
+-- 16 Aug 2026 only (list the whole day, not just the difference):
 --
 --   update experiences
 --   set date_times = coalesce(date_times, '{}'::jsonb) || '{"2026-08-16": ["16:30"]}'::jsonb

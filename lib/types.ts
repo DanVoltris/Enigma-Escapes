@@ -32,8 +32,9 @@ export type Experience = {
   times: string[]; // "times" mode: explicit 24h "HH:MM" starts, every day
   intervalMinutes: number; // "window"/"store" modes: minutes between starts
   windows: Windows; // "window" mode: per-weekday first/last start
-  // Extra starts on one date only, keyed "YYYY-MM-DD" — a slot run for a
-  // particular day without touching what that weekday does every week.
+  // The complete start times for one date, keyed "YYYY-MM-DD". Replaces that
+  // day's usual schedule — for a day that runs a different timetable (short of
+  // staff, a private hire) without touching what the weekday does every week.
   dateTimes: Record<string, string[]>;
   badgeBg: string;
   badgeFg: string;

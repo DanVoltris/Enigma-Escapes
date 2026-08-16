@@ -30,36 +30,39 @@ function seriesInclusive(firstMin: number, lastMin: number, intervalMin: number)
 // The start times an experience offers on a given date, from its schedule mode.
 // `hours` is the experience's location's opening hours (needed for "store" mode).
 export function startTimesFor(exp: Experience, date: string, hours?: LocationHours | null): string[] {
-  // Added to whatever the schedule already gives that day, not instead of it:
-  // these are one-off extras, and the regular slots still run.
-  const extra = exp.dateTimes?.[date] ?? [];
-  const withExtra = (list: string[]): string[] =>
-    extra.length === 0 ? list : [...new Set([...list, ...extra])].sort();
+  // A date with its own list runs exactly that list — it replaces the weekday's
+  // schedule rather than adding to it. That's what these are for: a day short of
+  // staff runs fewer, differently spaced games, so the normal grid has to go,
+  // not gain entries. To open one extra slot on an otherwise normal day, list
+  // that day's usual times plus the extra one.
+  const forDate = exp.dateTimes?.[date];
+  if (forDate && forDate.length > 0) return [...forDate].sort();
 
   if (exp.scheduleMode === "times") {
-    return withExtra([...exp.times]).sort();
+    return [...exp.times].sort();
   }
 
   const dow = String(weekdayOf(date));
 
   if (exp.scheduleMode === "window") {
     const w: DayWindow | undefined = exp.windows[dow];
-    if (!w || w.closed) return withExtra([]);
+    if (!w || w.closed) return [];
     // An explicit list for this weekday beats the interval: it is exactly what
     // the customer is shown, irregular gaps and all.
-    if (w.times && w.times.length > 0) return withExtra([...w.times]);
+    if (w.times && w.times.length > 0) return [...w.times].sort();
     const first = toMinutes(w.first);
     const last = toMinutes(w.last);
-    if (last < first) return withExtra([]);
-    return withExtra(seriesInclusive(first, last, exp.intervalMinutes));
+    if (last < first) return [];
+    return seriesInclusive(first, last, exp.intervalMinutes);
   }
 
   // "store" mode: generate from the location's opening hours, last start such
   // that the game finishes by close (close − duration).
   const dh: DayHours | undefined = hours?.hours[dow];
-  if (!dh || dh.closed) return withExtra([]);
+  if (!dh || dh.closed) return [];
   const open = toMinutes(dh.open);
   const lastStart = toMinutes(dh.close) - exp.durationMinutes;
-  if (lastStart < open) return withExtra([]);
-  return withExtra(seriesInclusive(open, lastStart, exp.intervalMinutes));
+  if (lastStart < open) return [];
+  return seriesInclusive(open, lastStart, exp.intervalMinutes);
 }
+
