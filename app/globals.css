@@ -3078,6 +3078,14 @@ a.mgr-pill.on:hover {
   color: var(--danger);
   border-color: var(--sold-bg);
   text-decoration: line-through;
+  /* Clickable: this is where staff go to put a slot back on sale. */
+  cursor: pointer;
+}
+.blk-time.blocked:hover {
+  border-color: var(--danger);
+  text-decoration: none;
+}
+.blk-time.blocked:disabled {
   cursor: not-allowed;
 }
 /* marks a session that already has bookings */

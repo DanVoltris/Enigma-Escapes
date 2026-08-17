@@ -43,6 +43,11 @@ export default function BlocksManager({
     loadDay();
   }, [loadDay]);
 
+  // The block covering one slot on the day being shown, if there is one — this
+  // is what makes a struck-through slot clickable rather than dead.
+  const blockAt = (roomId: string, time: string) =>
+    initialBlocks.find((b) => b.roomId === roomId && b.date === date && b.time === time);
+
   function toggle(key: string) {
     setPicked((p) => {
       const next = new Set(p);
@@ -155,6 +160,11 @@ export default function BlocksManager({
           </div>
         </div>
 
+        <p className="card-sub">
+          Pick the sessions to take out of service. A slot already blocked shows struck through —
+          click it to put it back on sale.
+        </p>
+
         {rooms === null ? (
           <p className="mgr-empty">Loading sessions…</p>
         ) : rooms.length === 0 ? (
@@ -177,14 +187,27 @@ export default function BlocksManager({
                   {room.times.map((t) => {
                     const key = `${room.id}|${t.time}`;
                     const cls = t.blocked ? "blk-time blocked" : picked.has(key) ? "blk-time picked" : "blk-time";
+                    // A blocked slot unblocks when clicked. It used to be
+                    // disabled, so the one place everybody tries first did
+                    // nothing at all and the only way back was a list further
+                    // down the page.
+                    const existing = t.blocked ? blockAt(room.id, t.time) : undefined;
                     return (
                       <button
                         key={key}
                         type="button"
                         className={cls}
-                        disabled={t.blocked}
-                        title={t.blocked ? "Already blocked" : t.booked ? "Has bookings — blocking hides it from new customers" : undefined}
-                        onClick={() => toggle(key)}
+                        disabled={busy || (t.blocked && !existing)}
+                        title={
+                          t.blocked
+                            ? existing
+                              ? `Blocked${existing.reason ? ` — ${existing.reason}` : ""}. Click to unblock.`
+                              : "Blocked"
+                            : t.booked
+                              ? "Has bookings — blocking hides it from new customers"
+                              : undefined
+                        }
+                        onClick={() => (existing ? unblockOne(existing.id) : t.blocked ? undefined : toggle(key))}
                       >
                         {formatTime(t.time)}
                         {t.booked && !t.blocked && <span className="blk-dot" aria-label="has bookings" />}

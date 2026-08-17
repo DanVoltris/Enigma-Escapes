@@ -236,6 +236,24 @@ function matchOne(row: Row, col: string, expr: string): boolean {
       const wants = Array.isArray(want) ? want : [want];
       return wants.every((w) => (cur as unknown[]).some((el) => contains(el, w)));
     }
+    // Comparisons. Dates and times here are ISO strings, which compare
+    // correctly as text — the same reason the rest of the app sorts them raw.
+    case "gte":
+      return String(cur) >= val;
+    case "gt":
+      return String(cur) > val;
+    case "lte":
+      return String(cur) <= val;
+    case "lt":
+      return String(cur) < val;
+    case "neq":
+      return String(cur) !== val;
+    case "like":
+    case "ilike": {
+      // PostgREST wildcards are * in the query string, % in SQL; both appear.
+      const pattern = val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\*/g, ".*").replace(/%/g, ".*");
+      return new RegExp(`^${pattern}$`, op === "ilike" ? "i" : "").test(String(cur));
+    }
     case "in": {
       // id=in.(a,b,c) — PostgREST's list membership, used when a screen holds
       // a set of ids and wants them all in one query.
@@ -246,6 +264,11 @@ function matchOne(row: Row, col: string, expr: string): boolean {
         .includes(String(cur));
     }
     default:
+      // An operator this store doesn't implement would otherwise match nothing,
+      // which reads as "no rows" instead of "not supported" — the kind of
+      // silence that makes local mode disagree with the database for no
+      // visible reason.
+      console.warn(`local-db: unsupported filter "${col}=${expr}" — treating as no match`);
       return false;
   }
 }
