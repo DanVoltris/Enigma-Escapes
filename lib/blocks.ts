@@ -11,10 +11,20 @@ export type SlotBlock = {
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
   reason: string;
+  blockedBy: string; // who took it out of service; "" for the importer's own
   createdAt: string;
 };
 
-type Row = { id: string; room_id: string; date: string; time: string; reason: string | null; created_at: string };
+type Row = {
+  id: string;
+  room_id: string;
+  date: string;
+  time: string;
+  reason: string | null;
+  // Added later, so rows written before the column existed read as undefined.
+  blocked_by?: string | null;
+  created_at: string;
+};
 
 function toBlock(r: Row): SlotBlock {
   return {
@@ -23,6 +33,7 @@ function toBlock(r: Row): SlotBlock {
     date: r.date,
     time: r.time,
     reason: r.reason ?? "",
+    blockedBy: r.blocked_by ?? "",
     createdAt: r.created_at,
   };
 }
@@ -58,7 +69,8 @@ export async function isBlocked(roomId: string, date: string, time: string): Pro
 // unique index makes re-blocking a no-op rather than an error).
 export async function createBlocks(
   entries: { roomId: string; date: string; time: string }[],
-  reason: string
+  reason: string,
+  blockedBy: string
 ): Promise<number> {
   if (entries.length === 0) return 0;
   const rows = entries.map((e) => ({
@@ -67,6 +79,7 @@ export async function createBlocks(
     date: e.date,
     time: e.time,
     reason: reason || null,
+    blocked_by: blockedBy || null,
     created_at: new Date().toISOString(),
   }));
   const res = await rest("slot_blocks?on_conflict=room_id,date,time", {
@@ -78,13 +91,16 @@ export async function createBlocks(
   return rows.length;
 }
 
-export async function deleteBlock(id: string): Promise<boolean> {
+// Returns the row that was removed, so the caller can say what went back on
+// sale rather than logging a bare id nobody can look up.
+export async function deleteBlock(id: string): Promise<SlotBlock | undefined> {
   const res = await rest(`slot_blocks?id=eq.${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: { Prefer: "return=minimal" },
+    headers: { Prefer: "return=representation" },
   });
   if (!res.ok) throw await restError(res, "Unblocking the slot");
-  return true;
+  const rows = (await res.json()) as Row[];
+  return rows[0] ? toBlock(rows[0]) : undefined;
 }
 
 // Clears every block on one date (optionally just for one room).

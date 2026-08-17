@@ -32,7 +32,16 @@ export async function POST(req: NextRequest) {
   if (!wholeDay && wantedTimes.length === 0) {
     return NextResponse.json({ error: "Pick at least one time, or block the whole day." }, { status: 400 });
   }
+  // Required. A slot goes out of service and a week later nobody can say why —
+  // which is exactly the position the venue was in with sixteen unexplained
+  // blocks on the books.
   const reason = typeof o.reason === "string" ? o.reason.trim().slice(0, 200) : "";
+  if (reason.length < 3) {
+    return NextResponse.json(
+      { error: "Say why it's blocked — maintenance, private event, short-staffed. Whoever finds it later needs to know." },
+      { status: 400 }
+    );
+  }
 
   const entries: { roomId: string; date: string; time: string }[] = [];
   const roomNames: string[] = [];
@@ -51,10 +60,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const count = await createBlocks(entries, reason);
+    const who = guard.staff.name || guard.staff.email;
+    const count = await createBlocks(entries, reason, who);
     await logActivity(
       "Slots blocked off",
-      `${count} slot(s) on ${formatDateLong(date)} — ${roomNames.join(", ")}${reason ? ` (${reason})` : ""}`
+      `${count} slot(s) on ${formatDateLong(date)} — ${roomNames.join(", ")} — ${who}: ${reason}`
     );
     return NextResponse.json({ ok: true, blocked: count }, { status: 201 });
   } catch (err) {
@@ -73,7 +83,10 @@ export async function DELETE(req: NextRequest) {
   const roomId = typeof o.roomId === "string" && o.roomId ? o.roomId : undefined;
   try {
     await deleteBlocksForDate(date, roomId);
-    await logActivity("Slots unblocked", `All blocks cleared on ${formatDateLong(date)}`);
+    await logActivity(
+      "Slots unblocked",
+      `All blocks cleared on ${formatDateLong(date)} — ${guard.staff.name || guard.staff.email}`
+    );
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("unblocking day failed:", err);

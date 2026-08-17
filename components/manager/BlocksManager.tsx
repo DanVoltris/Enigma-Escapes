@@ -149,14 +149,18 @@ export default function BlocksManager({
             <DatePicker value={date} min={todayISO()} max={addDaysISO(todayISO(), 365)} onChange={setDate} />
           </div>
           <div className="field" style={{ minWidth: 260 }}>
-            <label htmlFor="blk-reason">Reason (optional)</label>
+            <label htmlFor="blk-reason">Reason</label>
             <input
               id="blk-reason"
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Maintenance, private event"
+              placeholder="e.g. Maintenance, private event, short-staffed"
+              aria-required="true"
             />
+            <p className="field-hint">
+              Required — whoever finds this blocked next week needs to know why.
+            </p>
           </div>
         </div>
 
@@ -201,7 +205,8 @@ export default function BlocksManager({
                         title={
                           t.blocked
                             ? existing
-                              ? `Blocked${existing.reason ? ` — ${existing.reason}` : ""}. Click to unblock.`
+                              ? `Blocked${existing.reason ? ` — ${existing.reason}` : ""}` +
+                                `${existing.blockedBy ? ` (${existing.blockedBy})` : ""}. Click to unblock.`
                               : "Blocked"
                             : t.booked
                               ? "Has bookings — blocking hides it from new customers"
@@ -221,7 +226,12 @@ export default function BlocksManager({
         )}
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 18 }}>
-          <button type="button" className="btn" onClick={block} disabled={busy || picked.size === 0}>
+          <button
+            type="button"
+            className="btn"
+            onClick={block}
+            disabled={busy || picked.size === 0 || reason.trim().length < 3}
+          >
             {busy ? "Blocking…" : `Block ${picked.size || ""} session${picked.size === 1 ? "" : "s"}`.trim()}
           </button>
           {picked.size > 0 && (
@@ -253,7 +263,12 @@ export default function BlocksManager({
                       <div>
                         <strong>{formatTime(b.time)}</strong> · {roomNames[b.roomId] ?? b.roomId}
                       </div>
-                      {b.reason && <div className="sub">{b.reason}</div>}
+                      {(b.reason || b.blockedBy) && (
+                        <div className="sub">
+                          {b.reason || "No reason recorded"}
+                          {b.blockedBy ? ` · ${b.blockedBy}` : ""}
+                        </div>
+                      )}
                     </div>
                     <button type="button" className="link-button" onClick={() => unblockOne(b.id)}>
                       Unblock
