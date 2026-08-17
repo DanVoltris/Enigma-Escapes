@@ -2288,9 +2288,12 @@ a.mgr-pill.on:hover {
    controls stay lined up with the grid under them, and the columns widen to
    match. Below this width it sits in the column and scrolls as before. */
 @media (min-width: 1240px) {
-  .mgr-wide {
-    width: calc(100vw - 64px);
-    margin-left: calc(50% - 50vw + 32px);
+  /* The content column itself opens up for this page, rather than the page
+     breaking out of it with negative margins: 100vw counts the scrollbar the
+     page is already using, so a width based on it runs about 15px past the
+     right edge and takes the last room column with it. */
+  .mgr-content:has(.mgr-wide) {
+    max-width: none;
   }
   /* Forms don't want to be two thousand pixels wide, so cards keep their
      reading width inside the wide page. */
