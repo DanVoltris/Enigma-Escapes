@@ -2280,7 +2280,31 @@ a.mgr-pill.on:hover {
      The cap keeps the grid inside the window under the tabs and the day
      controls; a day with few start times still shrinks to fit its rows. */
   overflow: auto;
-  max-height: calc(100vh - 260px);
+  max-height: calc(100vh - 235px);
+}
+/* The calendar is the one screen that wants the whole window: fourteen rooms
+   against a day of start times doesn't fit the 1180px column the rest of the
+   portal reads better in. The page breaks out of that column so the day
+   controls stay lined up with the grid under them, and the columns widen to
+   match. Below this width it sits in the column and scrolls as before. */
+@media (min-width: 1240px) {
+  .mgr-wide {
+    width: calc(100vw - 64px);
+    margin-left: calc(50% - 50vw + 32px);
+  }
+  /* Forms don't want to be two thousand pixels wide, so cards keep their
+     reading width inside the wide page. */
+  .mgr-wide .mgr-card {
+    max-width: 1180px;
+  }
+}
+/* Wider columns only where there's room for all fourteen at once — on a laptop
+   they'd just mean more sideways scrolling than the 92px they replaced. */
+@media (min-width: 1700px) {
+  .mgr-cal td,
+  .mgr-cal th.rot {
+    min-width: 112px;
+  }
 }
 .mgr-cal {
   border-collapse: collapse;

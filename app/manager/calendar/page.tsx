@@ -114,7 +114,7 @@ export default async function ManagerCalendar({
   };
 
   return (
-    <>
+    <div className="mgr-wide">
       <div className="mgr-actions-row" style={{ marginBottom: 0 }}>
         <h1 className="mgr-page-title" style={{ marginBottom: 0 }}>
           Calendar
@@ -173,6 +173,6 @@ export default async function ManagerCalendar({
           rooms={experiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))}
         />
       )}
-    </>
+    </div>
   );
 }
