@@ -447,6 +447,29 @@ export async function listBookingsForEmail(email: string): Promise<Booking[]> {
     .filter(isLiveBooking);
 }
 
+// The same correction across every live booking that carries the old address —
+// a typo is rarely on just one of them, and leaving the rest behind splits one
+// person into two customer profiles. Reuses the rewrite the merge tool uses.
+export async function updateCustomerAcrossBookings(
+  oldEmail: string,
+  patch: { firstName: string; lastName: string; email: string; phone: string }
+): Promise<{ changed: number; failed: string[] }> {
+  const bookings = await listBookingsForEmail(oldEmail);
+  let changed = 0;
+  const failed: string[] = [];
+  for (const b of bookings) {
+    try {
+      // Spread first so participants and the marketing preference survive.
+      await updateBookingCustomer(b.id, { ...b.customer, ...patch });
+      changed++;
+    } catch (err) {
+      console.error(`updating contact details on ${b.reference} failed:`, err);
+      failed.push(b.reference);
+    }
+  }
+  return { changed, failed };
+}
+
 // Cancels a booking: frees the slot, records what's owed back and whether
 // Stripe already returned it. Refund figures live in the pricing JSONB.
 export async function cancelBooking(

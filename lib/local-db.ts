@@ -200,6 +200,20 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
   return json({ error: `Unsupported method ${method}` }, 405);
 }
 
+// A column, or a field inside a jsonb one: PostgREST writes those as
+// "customer->>email" (text) and "customer->field" (json), and the app filters
+// bookings by the customer's address that way.
+function readColumn(row: Row, col: string): unknown {
+  if (!col.includes("->")) return row[col];
+  const [head, ...rest] = col.split(/->>?/);
+  let cur: unknown = row[head];
+  for (const key of rest) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[key];
+  }
+  return cur;
+}
+
 // Every non-directive query param is a column filter (col=op.value); a row must
 // satisfy all of them.
 function matchesFilters(row: Row, params: URLSearchParams): boolean {
@@ -214,7 +228,7 @@ function matchOne(row: Row, col: string, expr: string): boolean {
   const dot = expr.indexOf(".");
   const op = expr.slice(0, dot);
   const val = expr.slice(dot + 1);
-  const cur = row[col];
+  const cur = readColumn(row, col);
   switch (op) {
     case "eq":
       return String(cur) === val;

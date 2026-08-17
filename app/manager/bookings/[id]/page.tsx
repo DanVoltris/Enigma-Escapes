@@ -2,6 +2,7 @@ import Link from "next/link";
 import { hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
+import EditCustomer from "@/components/manager/EditCustomer";
 import BookingNotes from "@/components/manager/BookingNotes";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
 import GameResultForm from "@/components/manager/GameResultForm";
@@ -196,6 +197,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                   </span>
                 </span>
               </p>
+              {hasPermission(staff, "bookings.modify") && <EditCustomer bookingId={booking.id} />}
             </div>
 
             <GameResultForm bookingId={booking.id} initial={booking.gameResult} />
