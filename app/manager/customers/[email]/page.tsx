@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requirePermission } from "@/lib/auth";
+import { hasPermission, requirePermission } from "@/lib/auth";
+import EditCustomerProfile from "@/components/manager/EditCustomerProfile";
 import { notFound } from "next/navigation";
 import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from "@/components/manager/CustomerTabs";
 import { getManualCustomer, isImportedBooking, itemisedLegacy } from "@/lib/customers";
@@ -18,7 +19,7 @@ export default async function ManagerCustomerDetail({
 }: {
   params: Promise<{ email: string }>;
 }) {
-  await requirePermission("customers.view", "/manager/customers/[email]");
+  const staff = await requirePermission("customers.view", "/manager/customers/[email]");
   const { email: rawEmail } = await params;
   const email = decodeURIComponent(rawEmail).toLowerCase();
 
@@ -176,6 +177,16 @@ export default async function ManagerCustomerDetail({
                 </span>
               )}
             </p>
+            {hasPermission(staff, "bookings.modify") && (
+              <EditCustomerProfile
+                email={customer.email}
+                firstName={customer.firstName}
+                lastName={customer.lastName}
+                phone={customer.phone}
+                subscribe={customer.subscribe}
+                bookings={bookings.length}
+              />
+            )}
           </div>
 
           {imported && (
