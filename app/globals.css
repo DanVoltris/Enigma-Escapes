@@ -4393,3 +4393,78 @@ textarea:focus {
   background: var(--muted-bg);
   border-color: var(--accent);
 }
+
+/* ---------------------------------------------------------------------------
+   Phone legibility for the staff portal.
+
+   The portal is built for a desk: a lot of 10–13px grey used as supporting
+   detail, which reads fine at arm's length on a monitor and is genuinely hard
+   work on a phone held at the counter. On a small screen the grey goes to the
+   same near-black as body text and the small print comes up to 15px — the
+   hierarchy is carried by weight and spacing instead of by fading the words
+   out. Desktop is untouched.
+   --------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .mgr {
+    --text-secondary: #16212b; /* same ink as body text */
+    --sold-text: #40484f; /* "sold out" was the palest thing on the page */
+  }
+
+  /* The small print, brought up to a size that can be read at a glance. */
+  .mgr .card-sub,
+  .mgr .sub,
+  .mgr .field-hint,
+  .mgr .field label,
+  .mgr .req-label,
+  .mgr .mgr-pill,
+  .mgr .cust-activity .when,
+  .mgr .mgr-notes .when,
+  .mgr .mgr-activity .when,
+  .mgr .mgr-stat .label,
+  .mgr .mgr-stat .hint,
+  .mgr .mgr-highlight .label,
+  .mgr .mgr-highlight .hint,
+  .mgr .cust-totals .label,
+  .mgr .cust-facts dt,
+  .mgr .cust-since,
+  .mgr .cust-info .sub,
+  .mgr .rpt-tile .label,
+  .mgr .shift-list .rooms,
+  .mgr .shift-list .where,
+  .mgr .panel-meta,
+  .mgr .panel-subtotal,
+  .mgr .step-label,
+  .mgr .vch-summary > div,
+  .mgr .vch-code,
+  .mgr .blk-time,
+  .mgr .daytime,
+  .mgr .mgr-legend,
+  .mgr .cust-purchase-sub,
+  .mgr .attn-list .who,
+  .mgr .mgr-drawer-count {
+    font-size: 15px;
+  }
+
+  /* Tables carry most of the portal's content. */
+  .mgr .mgr-table th {
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+  .mgr .mgr-table td {
+    font-size: 15px;
+  }
+
+  /* The nav is the one thing every screen depends on. */
+  .mgr .mgr-tab {
+    font-size: 15px;
+  }
+
+  /* Three-class rules elsewhere outrank the list above, so they're named. */
+  .mgr .mgr-whoami .who .sub,
+  .mgr .cust-lookup-list button .sub,
+  .mgr .vch-card .sub,
+  .mgr .vch-card .who,
+  .mgr .vch-detail-head .sub {
+    font-size: 15px;
+  }
+}
