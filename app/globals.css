@@ -2281,6 +2281,16 @@ a.mgr-pill.on:hover {
      controls; a day with few start times still shrinks to fit its rows. */
   overflow: auto;
   max-height: calc(100vh - 235px);
+  /* Reserve the scrollbar's width instead of letting it sit over the content.
+     With scrollbars set to "Always" the grid's own scrollbar overlays the right
+     edge, and what it covers is the last room's column. */
+  scrollbar-gutter: stable;
+}
+/* The rightmost column needs its own closing edge: collapsed borders give a
+   cell its left border, so the last one in a row has nothing on its right and
+   reads as though it runs off the page. */
+.mgr-cal tr > *:last-child {
+  border-right: 1px solid var(--border);
 }
 /* The calendar is the one screen that wants the whole window: fourteen rooms
    against a day of start times doesn't fit the 1180px column the rest of the
