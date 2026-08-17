@@ -168,7 +168,8 @@ export default async function ManagerCalendar({
           the same one that lets someone edit the room itself. */}
       {hasPermission(staff, "experiences") && view === "calendar" && (
         <DayTimes
-          date={date}
+          initialDate={date}
+          viewingDate={date}
           rooms={experiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))}
         />
       )}

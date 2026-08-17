@@ -19,17 +19,19 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 // additions, can never take a game away.
 export default function DayTimes({
   rooms,
-  date: fixedDate,
+  initialDate,
   initialRoomId,
+  viewingDate,
 }: {
   rooms: Room[];
-  date?: string; // fixed (from the calendar); omitted = pick a date here
+  initialDate?: string; // where the picker starts (the calendar's day)
   initialRoomId?: string;
+  viewingDate?: string; // the day the grid above is showing, if any
 }) {
   const router = useRouter();
   const today = todayISO();
   const [roomId, setRoomId] = useState(initialRoomId ?? rooms[0]?.id ?? "");
-  const [date, setDate] = useState(fixedDate ?? today);
+  const [date, setDate] = useState(initialDate ?? today);
   const [day, setDay] = useState<Day | null>(null);
   const [times, setTimes] = useState<string[]>([]);
   const [adding, setAdding] = useState("");
@@ -114,8 +116,17 @@ export default function DayTimes({
       <h2>Times for one day</h2>
       <p className="card-sub">
         Change what a room runs on a single date — a group asking for a different hour, or a day short of
-        staff. Every other {fixedDate ? "day" : "week"} is untouched.
+        staff. Every other week is untouched.
       </p>
+
+      {/* Editing a different day from the one on screen is easy to do by
+          accident once the date can be changed here, so it says so. */}
+      {viewingDate && date !== viewingDate && (
+        <p className="card-sub" style={{ color: "var(--danger)" }}>
+          The grid above is showing {formatDateLong(viewingDate)} — you&apos;re editing{" "}
+          {formatDateLong(date)}.
+        </p>
+      )}
 
       <div className="mgr-inline-form">
         {rooms.length > 1 && (
@@ -129,12 +140,10 @@ export default function DayTimes({
             />
           </div>
         )}
-        {!fixedDate && (
-          <div className="field">
-            <label>Date</label>
-            <DatePicker value={date} min={today} max={addDaysISO(today, 365)} onChange={setDate} />
-          </div>
-        )}
+        <div className="field">
+          <label>Date</label>
+          <DatePicker value={date} min={today} max={addDaysISO(today, 365)} onChange={setDate} />
+        </div>
       </div>
 
       {error && <p className="field-error">{error}</p>}
