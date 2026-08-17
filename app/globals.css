@@ -4383,6 +4383,11 @@ textarea:focus {
 .mgr-cal button.cell.booked {
   display: flex;
   flex-direction: column;
+  /* Centred, not stretched: the name is capped at 80px, and a stretched flex
+     child that can't fill its line sits against the start of it — which put the
+     name against the left edge while the time and count above and below it were
+     centred. */
+  align-items: center;
   gap: 1px;
   padding: 6px 5px;
   line-height: 1.15;
