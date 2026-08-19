@@ -37,7 +37,12 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   const [phone, setPhone] = useState("");
   // No deposit option at the desk — taken out on request. The customer-facing
   // checkout still offers one, so nothing changes for online bookings.
-  const [paymentOption, setPaymentOption] = useState<"full" | "none">("full");
+  //
+  // Defaults to nothing taken: the money is usually collected after the booking
+  // is made, and a default of "paid in full" quietly writes off a payment
+  // nobody made. Owing money that has been paid is a question at the desk;
+  // being marked paid when you haven't is a loss that never gets noticed.
+  const [paymentOption, setPaymentOption] = useState<"full" | "none">("none");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
