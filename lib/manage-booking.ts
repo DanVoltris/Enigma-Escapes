@@ -2,7 +2,7 @@
 // text): reschedule to another time, or cancel. Both are refused once the
 // session is inside the cutoff — at that point staff are already prepping the
 // room, so it's a phone call instead.
-import { maxPerBooking, minPerBooking, remainingSpots } from "./capacity";
+import { maxPerBooking, minPerBooking, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
 import {
   addBookingNote,
   bookedCount,
@@ -342,6 +342,23 @@ export async function rescheduleForStaff(
     return { error: "That session is blocked off — unblock it first or pick another." };
   }
 
+  // Free for the whole game, not just at the start. Sessions belonging to this
+  // very booking are ignored — a booking can't clash with itself, and the
+  // same-booking case is caught by the explicit check below with a clearer
+  // message.
+  const { busySessionsForDate } = await import("./db");
+  const busyHere = ((await busySessionsForDate(target.date)).get(exp.id) ?? []).filter(
+    (b) => !(exp.id === item.roomId && item.date === target.date && b.time === item.time)
+  );
+  const clash = overlappedBy(busyHere, target.time, exp.durationMinutes);
+  if (clash) {
+    return {
+      error:
+        `${exp.name} is running ${formatTime(clash.time)}–${formatTime(minutesToTime(clash.end))} that day, ` +
+        `so ${formatTime(target.time)} isn't free.`,
+    };
+  }
+
   // Its own seats shouldn't count against it when staying in the same slot.
   const sameSlot = item.roomId === roomId && item.date === target.date && item.time === target.time;
   const takenElsewhere = (await bookedCount(exp.id, target.date, target.time)) - (sameSlot ? item.quantity : 0);
@@ -356,10 +373,12 @@ export async function rescheduleForStaff(
   // Moving one session onto another session of the same booking would have the
   // group in two places at once, and the seat check above can't see it: those
   // seats belong to this very booking.
-  const clash = booking.items.some(
+  const sameBookingClash = booking.items.some(
     (i, idx) => idx !== itemIndex && i.roomId === exp.id && i.date === target.date && i.time === target.time
   );
-  if (clash) return { error: `This booking already has ${exp.name} at ${formatTime(target.time)} that day.` };
+  if (sameBookingClash) {
+    return { error: `This booking already has ${exp.name} at ${formatTime(target.time)} that day.` };
+  }
 
   const items: Booking["items"] = booking.items.map((i, idx) =>
     idx === itemIndex

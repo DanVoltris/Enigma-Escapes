@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { allowedLocations, apiGuard, hasPermission } from "@/lib/auth";
 import { blockedKeysForDate } from "@/lib/blocks";
-import { remainingSpots } from "@/lib/capacity";
-import { bookedCountsForDate } from "@/lib/db";
+import { minutesToTime, overlappedBy, remainingSpots } from "@/lib/capacity";
+import { bookedCountsForDate, busySessionsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { isValidISODate } from "@/lib/format";
 import { locationHoursMap } from "@/lib/hours";
@@ -31,11 +31,12 @@ export async function GET(req: NextRequest) {
   const ignoreId = req.nextUrl.searchParams.get("ignore") ?? "";
   if (!isValidISODate(date)) return NextResponse.json({ error: "Invalid date." }, { status: 400 });
 
-  const [experiences, hoursMap, blocked, booked] = await Promise.all([
+  const [experiences, hoursMap, blocked, booked, busy] = await Promise.all([
     listExperiences({ activeOnly: true }),
     locationHoursMap(),
     blockedKeysForDate(date),
     bookedCountsForDate(date),
+    busySessionsForDate(date),
   ]);
 
   // Seats held by the booking being moved, keyed "roomId|time".
@@ -44,7 +45,12 @@ export async function GET(req: NextRequest) {
     const { getBooking } = await import("@/lib/db");
     const b = await getBooking(ignoreId);
     for (const i of b?.items ?? []) {
-      if (i.date === date) ownSeats.set(`${i.roomId}|${i.time}`, i.quantity);
+      if (i.date !== date) continue;
+      ownSeats.set(`${i.roomId}|${i.time}`, i.quantity);
+      // Its own session must not make every neighbouring slot look occupied —
+      // it's the thing being moved out of the way.
+      const list = busy.get(i.roomId);
+      if (list) busy.set(i.roomId, list.filter((x) => x.time !== i.time));
     }
   }
 
@@ -58,12 +64,16 @@ export async function GET(req: NextRequest) {
     times: startTimesFor(exp, date, hoursMap.get(exp.location) ?? null).map((time) => {
       const key = `${exp.id}|${time}`;
       const taken = Math.max(0, (booked.get(key) ?? 0) - (ownSeats.get(key) ?? 0));
+      // A game running through this time takes the room, whatever this slot's
+      // own count says.
+      const clash = overlappedBy(busy.get(exp.id), time, exp.durationMinutes);
       return {
         time,
         blocked: blocked.has(key),
         booked: taken > 0,
         taken,
-        remaining: remainingSpots(exp, taken),
+        remaining: clash ? 0 : remainingSpots(exp, taken),
+        busyWith: clash ? `${clash.time}–${minutesToTime(clash.end)}` : null,
       };
     }),
   }));

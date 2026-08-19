@@ -46,6 +46,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   return NextResponse.json({
     date,
     roomName: day.exp.name,
+    durationMinutes: day.exp.durationMinutes,
     times: day.times,
     normal: day.normal,
     booked: day.booked,

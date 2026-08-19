@@ -5,10 +5,19 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatDateLong, formatTime, todayISO } from "@/lib/format";
+import { minutesOfTime, minutesToTime } from "@/lib/capacity";
 
 type Room = { id: string; name: string; location: string };
 type Booked = { time: string; reference: string; guests: number; bookingId: string };
-type Day = { date: string; roomName: string; times: string[]; normal: string[]; booked: Booked[]; custom: boolean };
+type Day = {
+  date: string;
+  roomName: string;
+  durationMinutes: number;
+  times: string[];
+  normal: string[];
+  booked: Booked[];
+  custom: boolean;
+};
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -65,6 +74,23 @@ export default function DayTimes({
   }, [load]);
 
   const bookedAt = (t: string) => (day?.booked ?? []).filter((b) => b.time === t);
+
+  // Games that would run into each other. Allowed — a room can offer times a
+  // group chooses between — but worth seeing, because only one of an
+  // overlapping pair can ever be sold.
+  const clashes = (() => {
+    const d = day?.durationMinutes ?? 0;
+    if (!d) return [];
+    const out: { a: string; b: string; mins: number }[] = [];
+    const sorted = [...times].sort();
+    for (let i = 0; i < sorted.length; i++) {
+      for (let j = i + 1; j < sorted.length; j++) {
+        const over = minutesOfTime(sorted[i]) + d - minutesOfTime(sorted[j]);
+        if (over > 0) out.push({ a: sorted[i], b: sorted[j], mins: over });
+      }
+    }
+    return out;
+  })();
   const dirty = day ? times.join() !== day.times.join() : false;
 
   function addTime() {
@@ -194,6 +220,23 @@ export default function DayTimes({
               })
             )}
           </div>
+
+          {clashes.length > 0 && (
+            <div className="card-sub" style={{ color: "var(--danger)" }}>
+              <strong>
+                {clashes.length === 1 ? "Two of these games overlap" : "Some of these games overlap"} — only one
+                of each pair can be sold.
+              </strong>
+              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                {clashes.map((c) => (
+                  <li key={`${c.a}-${c.b}`}>
+                    {formatTime(c.a)} runs to {formatTime(minutesToTime(minutesOfTime(c.a) + (day.durationMinutes ?? 0)))} —
+                    overlaps {formatTime(c.b)} by {c.mins} min
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="mgr-inline-form" style={{ marginTop: 12 }}>
             <div className="field" style={{ maxWidth: 150 }}>

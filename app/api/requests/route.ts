@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isBlocked } from "@/lib/blocks";
-import { remainingSpots } from "@/lib/capacity";
-import { bookedCount, logActivity } from "@/lib/db";
+import { minutesToTime, overlappedBy, remainingSpots } from "@/lib/capacity";
+import { bookedCount, busySessionsForDate, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES } from "@/lib/format";
 import { getLocationHours } from "@/lib/hours";
@@ -66,6 +66,15 @@ export async function POST(req: NextRequest) {
   const quantity = typeof o.quantity === "number" && Number.isInteger(o.quantity) ? o.quantity : 0;
   if (quantity < 1 || quantity > exp.capacity) {
     return NextResponse.json({ error: `Guests must be between 1 and ${exp.capacity}.` }, { status: 400 });
+  }
+  // Same rule as booking: a game running through this time takes the room, so
+  // there's nothing to request.
+  const clash = overlappedBy((await busySessionsForDate(date)).get(exp.id), time, exp.durationMinutes);
+  if (clash) {
+    return NextResponse.json(
+      { error: `${exp.name} is running ${formatTime(clash.time)}–${formatTime(minutesToTime(clash.end))} — please pick another time.` },
+      { status: 400 }
+    );
   }
   const remaining = remainingSpots(exp, await bookedCount(exp.id, date, time));
   if (remaining < quantity) {

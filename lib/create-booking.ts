@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { isBlocked } from "./blocks";
-import { maxPerBooking, minPerBooking, remainingSpots } from "./capacity";
-import { bookedCountsForDate, getPromo } from "./db";
+import { maxPerBooking, minPerBooking, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
+import { bookedCountsForDate, busySessionsForDate, getPromo } from "./db";
 import { getExperience } from "./experiences";
 import { addDaysISO, formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES, todayISO } from "./format";
 import { getLocationHours } from "./hours";
@@ -135,6 +135,15 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       const quantity = rawItem.quantity;
       if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < minParty || quantity > maxParty) {
         return err(`${exp.name}: guests must be between ${minParty} and ${maxParty}.`);
+      }
+      // The room has to be free for the whole game, not just at its start —
+      // otherwise a 2:00 start sells while the 1:15 game is still running in it.
+      const clash = overlappedBy((await busySessionsForDate(date)).get(exp.id), time, exp.durationMinutes);
+      if (clash) {
+        return err(
+          `${exp.name} is running ${formatTime(clash.time)}–${formatTime(minutesToTime(clash.end))} that day, ` +
+            `so ${formatTime(time)} isn't free.`
+        );
       }
       const booked = await bookedCountsForDate(date);
       const remaining = remainingSpots(exp, booked.get(`${exp.id}|${time}`) ?? 0);

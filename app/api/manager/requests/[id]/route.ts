@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
-import { remainingSpots } from "@/lib/capacity";
-import { bookedCount, logActivity } from "@/lib/db";
+import { minutesToTime, overlappedBy, remainingSpots } from "@/lib/capacity";
+import { bookedCount, busySessionsForDate, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { formatTime } from "@/lib/format";
 import { buildBooking } from "@/lib/create-booking";
@@ -41,6 +41,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (action === "accept") {
       const exp = await getExperience(request.roomId);
       if (!exp || !exp.active) return NextResponse.json({ error: "That room no longer exists." }, { status: 400 });
+      // Checked again at acceptance: the room may have been filled, or a
+      // neighbouring game booked, while the request sat waiting.
+      const clash = overlappedBy(
+        (await busySessionsForDate(request.date)).get(request.roomId),
+        request.time,
+        exp.durationMinutes
+      );
+      if (clash) {
+        return NextResponse.json(
+          {
+            error:
+              `${exp.name} is running ${formatTime(clash.time)}–${formatTime(minutesToTime(clash.end))} that day, ` +
+              `so this session can't run. Decline it, or move the other booking first.`,
+          },
+          { status: 409 }
+        );
+      }
       const remaining = remainingSpots(exp, await bookedCount(request.roomId, request.date, request.time));
       if (remaining < request.quantity) {
         return NextResponse.json(

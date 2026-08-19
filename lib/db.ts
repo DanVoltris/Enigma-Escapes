@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { minutesOfTime, type BusySession } from "./capacity";
 import { todayISO } from "./format";
 import { rest, restAllPages, restError } from "./supabase";
 import { spendVoucher } from "./vouchers";
@@ -553,6 +554,33 @@ export async function bookedCountsForDate(date: string): Promise<Map<string, num
     }
   }
   return counts;
+}
+
+// Every live session running in each room on a date, as intervals, so a slot
+// can be checked against the games either side of it and not just the one that
+// starts at the same minute. Keyed by roomId.
+//
+// Each session's own stored duration is used, not the room's current one: a
+// booking sold when the game ran 75 minutes still occupies 75.
+export async function busySessionsForDate(date: string): Promise<Map<string, BusySession[]>> {
+  const filter = encodeURIComponent(JSON.stringify([{ date }]));
+  const res = await rest(`bookings?select=items,status,pending_expires_at&items=cs.${filter}`);
+  if (!res.ok) throw await restError(res, "Loading the day's sessions");
+  const rows = (await res.json()) as Pick<BookingRow, "items" | "status" | "pending_expires_at">[];
+  const busy = new Map<string, BusySession[]>();
+  for (const row of rows) {
+    if (!rowIsLive(row.status, row.pending_expires_at)) continue;
+    for (const item of row.items) {
+      if (item.date !== date) continue;
+      const start = minutesOfTime(item.time);
+      const list = busy.get(item.roomId) ?? [];
+      const existing = list.find((s) => s.start === start);
+      if (existing) existing.guests += item.quantity;
+      else list.push({ time: item.time, start, end: start + item.durationMinutes, guests: item.quantity });
+      busy.set(item.roomId, list);
+    }
+  }
+  return busy;
 }
 
 export async function bookedCount(roomId: string, date: string, time: string): Promise<number> {
