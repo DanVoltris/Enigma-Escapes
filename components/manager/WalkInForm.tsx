@@ -16,7 +16,16 @@ type KnownCustomer = { firstName: string; lastName: string; email: string; phone
 // One room on the booking. A group often takes two — same reference, one total,
 // one payment — so this is a list rather than a single room/date/time.
 // `key` only exists to keep React rows stable while they're being edited.
-type Session = { key: number; roomId: string; date: string; time: string; quantity: number };
+type Session = {
+  key: number;
+  roomId: string;
+  date: string;
+  time: string;
+  quantity: number;
+  // Set once someone gives this room a date of its own. Until then it follows
+  // the first room, because a group taking two rooms is coming on one visit.
+  ownDate?: boolean;
+};
 
 // onRoomChange lets the page react to the chosen experience — the on-shift
 // panel above the form uses it to highlight who can run that room.
@@ -173,6 +182,24 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   const update = (key: number, patch: Partial<Session>) =>
     setSessions((prev) => prev.map((x) => (x.key === key ? { ...x, ...patch } : x)));
 
+  // Rooms follow the first one's date until one is deliberately moved.
+  //
+  // The second room is seeded with the first one's date, so changing only the
+  // row you clicked left the other quietly sitting on today and half the
+  // booking was made for the wrong day. Matching on the old date instead was
+  // worse — every row matches at the start, so nothing could ever be separated.
+  const changeDate = (key: number, next: string) =>
+    setSessions((prev) => {
+      const first = prev[0];
+      const movingFirst = first?.key === key;
+      return prev.map((x) => {
+        if (x.key === key) return { ...x, date: next, ownDate: movingFirst ? x.ownDate : true };
+        // The rest follow only when the first room moves, and only while they
+        // haven't been given a date of their own.
+        return movingFirst && !x.ownDate ? { ...x, date: next } : x;
+      });
+    });
+
   const addSession = () => {
     const last = sessions[sessions.length - 1];
     const date = last?.date ?? today;
@@ -286,7 +313,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
                   value={x.date}
                   min={today}
                   max={addDaysISO(today, BOOKING_WINDOW_DAYS)}
-                  onChange={(v) => update(x.key, { date: v })}
+                  onChange={(v) => changeDate(x.key, v)}
                 />
               </div>
               <div className="field">
