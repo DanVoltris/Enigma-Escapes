@@ -27,10 +27,35 @@ function toE164(phone: string): string | null {
   return null;
 }
 
+// Characters that read the same but cost three times as much.
+//
+// A text is 160 characters per segment only while every character is in the
+// GSM-7 alphabet. One that isn't — an em dash, a curly apostrophe, an ellipsis —
+// silently re-encodes the WHOLE message as UCS-2 at 70 characters a segment,
+// and Twilio bills per segment. Our copy is written in prose style, so a single
+// "—" was turning a two-segment confirmation into a five-segment one.
+//
+// Swapped here rather than policed in the templates: this way the copy can go on
+// being written naturally and can never quietly get expensive again.
+const GSM_SAFE: [RegExp, string][] = [
+  [/[\u2010-\u2015\u2212]/g, "-"], // ‐ ‑ ‒ – — ― and the minus sign
+  [/[\u2018\u2019\u201B\u2032]/g, "'"],
+  [/[\u201C\u201D\u201F\u2033]/g, '"'],
+  [/\u2026/g, "..."],
+  [/\u2192/g, "->"],
+  [/\u00A0/g, " "], // non-breaking space
+  [/[\u2022\u00B7]/g, "*"],
+];
+
+export function toGsmSafe(body: string): string {
+  return GSM_SAFE.reduce((text, [re, to]) => text.replace(re, to), body);
+}
+
 async function sendSms(to: string, body: string): Promise<void> {
   if (!smsConfigured()) return;
   const dest = toE164(to);
   if (!dest) return;
+  body = toGsmSafe(body);
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${SID}/Messages.json`, {
     method: "POST",
     headers: {
@@ -152,11 +177,10 @@ export async function notifyBookingConfirmed(
   if (!smsConfigured()) return;
   const first = booking.items[0];
   const more = booking.items.length > 1 ? ` (+${booking.items.length - 1} more)` : "";
-  const link = `${origin}/confirmation/${booking.id}`;
   try {
     await sendSms(
       booking.customer.phone,
-      `Booking confirmed! ${first.roomName} ${first.date} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details: ${link} — change or cancel (up to 24h before): ${origin}/booking/${booking.id}`
+      `Booking confirmed! ${first.roomName} ${first.date} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details, changes or cancellation: ${origin}/booking/${booking.id}`
     );
   } catch (err) {
     console.error("customer SMS failed:", err);
@@ -194,7 +218,7 @@ export async function notifyRewardCode(
   try {
     await sendSms(
       booking.customer.phone,
-      `Thanks for booking with Enigma Escapes! Here's ${percentOff}% off your next game: ${code}. Book a later session before ${deadline} to use it — it expires when your ${booking.reference} session starts.`
+      `Thanks for booking with Enigma Escapes! Here's ${percentOff}% off your next game: ${code}. Use it on a later session before ${deadline}.`
     );
   } catch (err) {
     console.error("reward SMS failed:", err);
@@ -239,10 +263,10 @@ export async function notifyNewRequest(
 
   const who = `${request.firstName} ${request.lastName}`.trim();
   const body =
-    `NEW BOOKING REQUEST — ${request.roomName} (${request.location}) ` +
+    `NEW REQUEST: ${request.roomName} (${request.location}) ` +
     `${formatDateLong(request.date)} at ${formatTime(request.time)}, ${request.quantity} guest` +
     `${request.quantity === 1 ? "" : "s"}. ${who} ${request.phone}. ` +
-    `Accept or decline: ${origin}/manager/requests`;
+    `Accept/decline: ${origin}/manager/requests`;
 
   const results = await Promise.allSettled(numbers.map((n) => sendSms(n, body)));
   results.forEach((r, i) => {
