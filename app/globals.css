@@ -4510,3 +4510,14 @@ textarea:focus {
     font-size: 15px;
   }
 }
+
+/* What's about to be booked, shown beside the Create button so the date can't
+   go through unread. */
+.walkin-when {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+.walkin-when span { display: block; }

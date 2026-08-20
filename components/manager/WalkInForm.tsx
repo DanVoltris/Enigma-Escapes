@@ -65,6 +65,10 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [rolledOver, setRolledOver] = useState(false);
+  // What the desk actually chose in the date picker, per row. Kept so a date
+  // that changes by any other route can be caught before the booking is made
+  // rather than discovered afterwards.
+  const pickedDates = useRef<Record<number, string>>({});
 
   // Customer lookup: typing 2+ characters in ANY customer field (name, email,
   // phone) suggests known customers; picking one fills all four fields.
@@ -216,7 +220,8 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   // row you clicked left the other quietly sitting on today and half the
   // booking was made for the wrong day. Matching on the old date instead was
   // worse — every row matches at the start, so nothing could ever be separated.
-  const changeDate = (key: number, next: string) =>
+  const changeDate = (key: number, next: string) => {
+    pickedDates.current[key] = next;
     setSessions((prev) => {
       const first = prev[0];
       const movingFirst = first?.key === key;
@@ -224,9 +229,16 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         if (x.key === key) return { ...x, date: next, ownDate: movingFirst ? x.ownDate : true };
         // The rest follow only when the first room moves, and only while they
         // haven't been given a date of their own.
-        return movingFirst && !x.ownDate ? { ...x, date: next } : x;
+        // Rows dragged along by the first one count as chosen too — the desk
+        // moved them on purpose, just with one click.
+        if (movingFirst && !x.ownDate) {
+          pickedDates.current[x.key] = next;
+          return { ...x, date: next };
+        }
+        return x;
       });
     });
+  };
 
   const addSession = () => {
     const last = sessions[sessions.length - 1];
@@ -273,6 +285,22 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
     if (duplicate) {
       const exp = expFor(sessions.find((x) => `${x.roomId}|${x.date}|${x.time}` === duplicate)!);
       return setError(`${exp?.name ?? "That room"} is on this booking twice at the same time.`);
+    }
+
+    // A date that isn't the one that was picked means something moved it, and
+    // the desk is one click from booking the wrong day. Caught here rather than
+    // trusted: this has been reported happening and the cause isn't found yet.
+    const drifted = sessions.find(
+      (x) => pickedDates.current[x.key] && pickedDates.current[x.key] !== x.date
+    );
+    if (drifted) {
+      const chose = pickedDates.current[drifted.key];
+      pickedDates.current = {};
+      setSessions((prev) => prev.map((x) => (x.key === drifted.key ? { ...x, date: chose } : x)));
+      return setError(
+        `This booking was about to be made for ${formatDateLong(drifted.date)}, but ${formatDateLong(chose)} ` +
+          `was chosen. The date has been put back — check it and press Create booking again.`
+      );
     }
 
     setSaving(true);
@@ -430,6 +458,16 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         <span className="panel-subtotal">
           Subtotal <span className="amount">{formatMoney(subtotal)}</span>
           <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-secondary)" }}> + tax</span>
+          {/* The date and time in plain sight at the moment of pressing, so a
+              wrong day can't go through unread. */}
+          <span className="walkin-when">
+            {sessions.map((x) => (
+              <span key={x.key}>
+                {expFor(x)?.name ?? "—"} · {formatDateLong(x.date)}
+                {x.time ? ` · ${formatTime(x.time)}` : ""}
+              </span>
+            ))}
+          </span>
         </span>
         <button type="submit" className="btn" disabled={saving}>
           {saving ? "Saving…" : "Create booking"}
