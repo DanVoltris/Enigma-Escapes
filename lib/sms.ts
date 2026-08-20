@@ -156,7 +156,7 @@ export async function notifyBookingCancelled(booking: Booking): Promise<void> {
     if (staffPhone) {
       await sendSms(
         staffPhone,
-        `Cancelled ${booking.reference}${first ? `: ${first.roomName} ${first.date} ${formatTime(first.time)}` : ""} — ${booking.customer.firstName} ${booking.customer.lastName}`
+        `Cancelled ${booking.reference}${first ? `: ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}` : ""} — ${booking.customer.firstName} ${booking.customer.lastName}`
       );
     }
   } catch (err) {
@@ -180,7 +180,7 @@ export async function notifyBookingConfirmed(
   try {
     await sendSms(
       booking.customer.phone,
-      `Booking confirmed! ${first.roomName} ${first.date} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details, changes or cancellation: ${origin}/booking/${booking.id}`
+      `Booking confirmed! ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details, changes or cancellation: ${origin}/booking/${booking.id}`
     );
   } catch (err) {
     console.error("customer SMS failed:", err);
@@ -192,7 +192,7 @@ export async function notifyBookingConfirmed(
     if (staffPhone) {
       await sendSms(
         staffPhone,
-        `New booking ${booking.reference}: ${first.roomName} ${first.date} ${formatTime(first.time)}, ${first.quantity} guests${more} — ${booking.customer.firstName} ${booking.customer.lastName}`
+        `New booking ${booking.reference}: ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}, ${first.quantity} guests${more}`
       );
     }
   } catch (err) {
@@ -210,11 +210,7 @@ export async function notifyRewardCode(
   validUntil: string
 ): Promise<void> {
   if (!smsConfigured()) return;
-  const by = new Date(validUntil);
-  const deadline = by.toLocaleString("en-CA", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const deadline = new Date(validUntil).toLocaleDateString("en-CA", { dateStyle: "medium" });
   try {
     await sendSms(
       booking.customer.phone,
@@ -261,12 +257,10 @@ export async function notifyNewRequest(
   }
   if (numbers.length === 0) return 0;
 
-  const who = `${request.firstName} ${request.lastName}`.trim();
   const body =
     `NEW REQUEST: ${request.roomName} (${request.location}) ` +
     `${formatDateLong(request.date)} at ${formatTime(request.time)}, ${request.quantity} guest` +
-    `${request.quantity === 1 ? "" : "s"}. ${who} ${request.phone}. ` +
-    `Accept/decline: ${origin}/manager/requests`;
+    `${request.quantity === 1 ? "" : "s"}. ${origin}/manager/requests`;
 
   const results = await Promise.allSettled(numbers.map((n) => sendSms(n, body)));
   results.forEach((r, i) => {
