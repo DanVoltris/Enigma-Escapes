@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
-import { addDaysISO, formatMoney, formatTime, todayISO } from "@/lib/format";
+import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
 import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 
 // Staff can book walk-ins of any size; the 4-person minimum is customer-only.
@@ -27,11 +27,21 @@ type Session = {
   ownDate?: boolean;
 };
 
+// Sessions left on a day that has passed move to the new today; the time is
+// cleared with them because the new day runs a different schedule. Exported so
+// the rollover can be checked without waiting for midnight.
+export function rollForward(sessions: Session[], today: string): Session[] {
+  return sessions.map((x) => (x.date < today ? { ...x, date: today, time: "" } : x));
+}
+
 // onRoomChange lets the page react to the chosen experience — the on-shift
 // panel above the form uses it to highlight who can run that room.
 export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: string) => void } = {}) {
   const router = useRouter();
-  const today = todayISO();
+  // Live, not frozen at page load. The desk leaves this form open, and a form
+  // opened at 11:55 PM was still offering yesterday when submitted at 12:05 AM —
+  // the server rejects the date as past, which reads as the form breaking.
+  const [today, setToday] = useState(todayISO());
 
   // Room lists are per-date: a room runs different hours on a Friday than a
   // Sunday, so each session's date gets its own fetch, cached by date.
@@ -54,6 +64,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   const [paymentOption, setPaymentOption] = useState<"full" | "none">("none");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [rolledOver, setRolledOver] = useState(false);
 
   // Customer lookup: typing 2+ characters in ANY customer field (name, email,
   // phone) suggests known customers; picking one fills all four fields.
@@ -122,6 +133,23 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         ))}
       </ul>
     ) : null;
+
+  // Watch for the venue day rolling over while the form sits open. Anything
+  // still pointing at a day that has now passed is moved forward — leaving it
+  // would only fail at the point of saving, after the customer's details have
+  // been typed in.
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const now = todayISO();
+      setToday((was) => {
+        if (was === now) return was;
+        setSessions((prev) => rollForward(prev, now));
+        setRolledOver(true);
+        return now;
+      });
+    }, 60_000);
+    return () => clearInterval(tick);
+  }, []);
 
   // Every date in play gets its room list fetched once and kept. Stale
   // responses are ignored, so stepping through dates can't leave one day's
@@ -271,6 +299,12 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   return (
     <form className="form-card mgr-form" onSubmit={submit} noValidate>
       {error && <div className="error-banner">{error}</div>}
+      {rolledOver && (
+        <div className="card-sub" style={{ color: "var(--danger)" }}>
+          It&apos;s past midnight — this booking has been moved to {formatDateLong(today)}. Check the
+          date and time before saving.
+        </div>
+      )}
 
       <h3>{sessions.length > 1 ? "Rooms" : "Session"}</h3>
       {sessions.map((x, i) => {
