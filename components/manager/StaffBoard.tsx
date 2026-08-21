@@ -28,10 +28,20 @@ export default function StaffBoard({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<StaffMember | null>(null);
-  const [where, setWhere] = useState(locations[0] ?? "");
+  // Empty = every site. The list starts unfiltered: whoever is standing at the
+  // desk should find their own name without first working out which site the
+  // dropdown has decided they are at.
+  const ALL = "";
+  const [where, setWhere] = useState(ALL);
 
   const roomName = new Map(rooms.map((r) => [r.id, r.name]));
   const onNow = new Map(onShift.map((s) => [s.memberId, s]));
+
+  // Where the shift gets recorded. With a site chosen it's that site; with
+  // "All locations" it falls back to where the person normally works, so the
+  // shift still says where they were rather than nowhere at all.
+  const shiftLocationFor = (m: { homeLocation: string | null }): string | null =>
+    where || m.homeLocation;
 
   async function clock(memberId: string, action: "in" | "out", location?: string) {
     setBusy(memberId);
@@ -104,12 +114,20 @@ export default function StaffBoard({
               value={where}
               onChange={setWhere}
               ariaLabel="Location"
-              options={locations.map((l) => ({ value: l, label: l }))}
+              options={[
+                { value: ALL, label: "All locations" },
+                ...locations.map((l) => ({ value: l, label: l })),
+              ]}
             />
           </div>
         )}
         <div className="staff-grid">
-          {active.map((m) => {
+          {/* Picking a site shows the people who work there, plus anyone who
+              covers both. It used to name a site and then list everybody, which
+              read as a filter that had stopped working. */}
+          {active
+            .filter((m) => !where || m.homeLocation === where || m.homeLocation === null)
+            .map((m) => {
             const on = onNow.get(m.id);
             return (
               <button
@@ -138,12 +156,15 @@ export default function StaffBoard({
         title={pending ? `Check in ${pending.name}?` : ""}
         confirmLabel="Check in"
         busy={busy !== null}
-        onConfirm={() => pending && clock(pending.id, "in", where || undefined)}
+        onConfirm={() =>
+          pending && clock(pending.id, "in", shiftLocationFor(pending) ?? undefined)
+        }
         onCancel={() => setPending(null)}
       >
         <p>
-          Starts a shift at <strong>{where || "this location"}</strong>, timed from now. Check out at the end of the
-          shift to record the hours.
+          Starts a shift at{" "}
+          <strong>{(pending && shiftLocationFor(pending)) || "this location"}</strong>, timed from now.
+          Check out at the end of the shift to record the hours.
         </p>
       </ConfirmDialog>
     </>
