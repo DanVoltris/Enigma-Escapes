@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import CustomerRow from "@/components/manager/CustomerRow";
@@ -87,6 +88,7 @@ export default async function ManagerCustomers({
 
   return (
     <>
+      <BoardPage />
       <h1 className="mgr-page-title">Customers</h1>
       <p className="mgr-page-sub">
         Everyone who has booked with you, grouped by email address. Most recent first.
@@ -114,6 +116,7 @@ export default async function ManagerCustomers({
         </div>
       </div>
 
+      <div className="mgr-card">
       <div className="mgr-list-tools">
         <span>
           {total.toLocaleString()} customer{total === 1 ? "" : "s"}
@@ -190,6 +193,7 @@ export default async function ManagerCustomers({
           </span>
         </div>
       )}
+      </div>
     </>
   );
 }

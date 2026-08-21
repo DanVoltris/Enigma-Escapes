@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import VoucherProducts from "@/components/manager/VoucherProducts";
 import { requirePermission } from "@/lib/auth";
 import { listVoucherProducts } from "@/lib/voucher-products";
@@ -13,6 +14,7 @@ export default async function ManagerVouchers() {
 
   return (
     <>
+      <BoardPage />
       <h1 className="mgr-page-title">Gift vouchers</h1>
       <p className="mgr-page-sub">
         The gift vouchers customers can buy on the site. Switch one off to take it off sale without losing its

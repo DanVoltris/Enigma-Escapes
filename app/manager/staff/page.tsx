@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import RequestAlerts, { type AlertRow } from "@/components/manager/RequestAlerts";
 import StaffBoard from "@/components/manager/StaffBoard";
 import TrainingGrid from "@/components/manager/TrainingGrid";
@@ -87,6 +88,7 @@ export default async function ManagerStaff() {
 
   return (
     <>
+      <BoardPage />
       <h1 className="mgr-page-title">Staff</h1>
       <p className="mgr-page-sub">
         Who is on shift, and which rooms each person can run. Everyone shares a login, so check in under your own name.

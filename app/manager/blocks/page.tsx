@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BlocksManager from "@/components/manager/BlocksManager";
@@ -18,6 +19,7 @@ export default async function BlocksPage() {
   const scopedBlocks = scope ? blocks.filter((x) => mine.has(x.roomId)) : blocks;
   return (
     <>
+      <BoardPage />
       <p style={{ marginBottom: 16 }}>
         <Link href="/manager/calendar">← Back to calendar</Link>
       </p>

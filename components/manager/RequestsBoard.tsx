@@ -70,6 +70,12 @@ export default function RequestsBoard({
     <>
       {error && <div className="error-banner">{error}</div>}
 
+      <div className="mgr-card">
+        <h2>
+          {pending.length === 0
+            ? "Waiting on you"
+            : `${pending.length} request${pending.length === 1 ? "" : "s"} waiting on you`}
+        </h2>
       {pending.length === 0 ? (
         <p className="mgr-empty">No requests waiting — new ones appear here the moment a customer asks.</p>
       ) : (
@@ -134,6 +140,7 @@ export default function RequestsBoard({
           })}
         </div>
       )}
+      </div>
 
       {decided.length > 0 && (
         <div className="mgr-card">

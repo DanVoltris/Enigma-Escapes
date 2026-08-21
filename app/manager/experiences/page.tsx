@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import RoomBadge from "@/components/RoomBadge";
@@ -20,6 +21,7 @@ export default async function ManagerExperiences({
 
   return (
     <>
+      <BoardPage />
       <h1 className="mgr-page-title">Experiences</h1>
       <p className="mgr-page-sub">
         The escape rooms customers can book. Changes here appear on the booking site immediately.
@@ -28,14 +30,15 @@ export default async function ManagerExperiences({
       {saved && <div className="mgr-success">Saved — your changes are live on the booking site.</div>}
       {deleted && <div className="mgr-success">Room deleted — it&apos;s gone from the booking site.</div>}
 
-      <div className="mgr-actions-row">
-        <span style={{ color: "var(--text-secondary)" }}>
-          {experiences.length} experience{experiences.length === 1 ? "" : "s"}
-        </span>
-        <Link href="/manager/experiences/new" className="btn">
-          + Add experience
-        </Link>
-      </div>
+      <div className="mgr-card">
+        <div className="intg-head">
+          <h2>
+            {experiences.length} experience{experiences.length === 1 ? "" : "s"}
+          </h2>
+          <Link href="/manager/experiences/new" className="btn" style={{ marginLeft: "auto" }}>
+            + Add experience
+          </Link>
+        </div>
 
       <div className="mgr-table-wrap">
         <table className="mgr-table">
@@ -85,6 +88,7 @@ export default async function ManagerExperiences({
             ))}
           </tbody>
         </table>
+      </div>
       </div>
     </>
   );

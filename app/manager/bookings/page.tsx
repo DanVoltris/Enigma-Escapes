@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
@@ -151,6 +152,7 @@ export default async function ManagerBookings({
 
   return (
     <>
+      <BoardPage />
       <div className="mgr-actions-row">
         <div>
           <h1 className="mgr-page-title">Bookings</h1>
@@ -168,7 +170,8 @@ export default async function ManagerBookings({
           Showing bookings with a session on <strong>{formatDateLong(date)}</strong>.
         </p>
       )}
-      <p className="mgr-page-sub" style={{ marginTop: date ? 0 : 14 }}>
+      <div className="mgr-card" style={{ marginTop: 18 }}>
+      <h2>
         {total.toLocaleString()} booking{total === 1 ? "" : "s"}
         {range === "30d" && " in the last 30 days"}
         {range === "7d" && " in the last 7 days"}
@@ -178,7 +181,7 @@ export default async function ManagerBookings({
         {status === "noshow" && " · no-shows"}
         {pay === "paid" && " · paid in full"}
         {pay === "unpaid" && " · with a balance due"}
-      </p>
+      </h2>
 
       {total === 0 ? (
         <p className="mgr-empty">
@@ -288,6 +291,7 @@ export default async function ManagerBookings({
           </span>
         </p>
       )}
+      </div>
     </>
   );
 }

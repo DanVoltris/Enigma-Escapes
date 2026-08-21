@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import TodayBoard, { type TodayRow } from "@/components/manager/TodayBoard";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import { bookingsForDate } from "@/lib/db";
@@ -72,7 +73,9 @@ export default async function TodayPage({
   rows.sort((a, b) => (a.time === b.time ? a.roomName.localeCompare(b.roomName) : a.time.localeCompare(b.time)));
 
   return (
-    <TodayBoard
+    <>
+      <BoardPage />
+      <TodayBoard
       terminalReady={terminalReady}
       canSetUpTerminal={hasPermission(staff, "settings")}
       rows={rows}
@@ -83,5 +86,6 @@ export default async function TodayPage({
       dateLabel={formatDateLong(date)}
       nowMinutes={nowMinutesInBusinessTZ()}
     />
+    </>
   );
 }

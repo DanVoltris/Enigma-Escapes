@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import Link from "next/link";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import DateJump from "@/components/manager/DateJump";
@@ -115,6 +116,7 @@ export default async function ManagerCalendar({
 
   return (
     <div className="mgr-wide">
+      <BoardPage />
       <div className="mgr-actions-row" style={{ marginBottom: 0 }}>
         <h1 className="mgr-page-title" style={{ marginBottom: 0 }}>
           Calendar

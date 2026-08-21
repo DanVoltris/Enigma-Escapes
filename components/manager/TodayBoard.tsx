@@ -90,12 +90,6 @@ export default function TodayBoard({
           </Link>
         </div>
       </div>
-      <p className="mgr-page-sub">
-        {rows.length === 0
-          ? "Nobody booked in."
-          : `${rows.length} session${rows.length === 1 ? "" : "s"} · ${guests} guest${guests === 1 ? "" : "s"}`}
-        {loc && ` · ${loc}`}
-      </p>
 
       {/* Only worth showing when there's more than one venue to choose between.
           The day carries across, so switching venue keeps you on the same date. */}
@@ -124,6 +118,13 @@ export default function TodayBoard({
         </div>
       )}
 
+      <div className="mgr-card">
+        <h2>
+          {rows.length === 0
+            ? "Nobody booked in"
+            : `${rows.length} session${rows.length === 1 ? "" : "s"} · ${guests} guest${guests === 1 ? "" : "s"}`}
+          {loc && ` · ${loc}`}
+        </h2>
       {rows.length === 0 ? (
         <p className="mgr-empty">No bookings for this day{loc ? ` at ${loc}` : ""}.</p>
       ) : (
@@ -247,6 +248,7 @@ export default function TodayBoard({
           })}
         </div>
       )}
+      </div>
     </>
   );
 }

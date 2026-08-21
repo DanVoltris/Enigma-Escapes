@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import NewStaffCode from "@/components/manager/NewStaffCode";
 import RewardCodeList from "@/components/manager/RewardCodeList";
 import PromoManager from "@/components/manager/PromoManager";
@@ -27,6 +28,7 @@ export default async function ManagerPromos() {
 
   return (
     <>
+      <BoardPage />
       <h1 className="mgr-page-title">Promo codes</h1>
       <p className="mgr-page-sub">Percentage discounts customers can apply at checkout.</p>
       <PromoManager promos={promos} />

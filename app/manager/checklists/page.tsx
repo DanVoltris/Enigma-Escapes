@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import ChecklistsBoard from "@/components/manager/ChecklistsBoard";
 import { requirePermission } from "@/lib/auth";
 import { getChecklists, getTodayState } from "@/lib/checklists";
@@ -10,6 +11,7 @@ export default async function ChecklistsPage() {
   const [lists, state] = await Promise.all([getChecklists(), getTodayState()]);
   return (
     <>
+      <BoardPage />
       <h1 className="mgr-page-title">Checklists</h1>
       <p className="mgr-page-sub">
         Daily task lists for {formatDateLong(state.date)} — ticks reset automatically each day.

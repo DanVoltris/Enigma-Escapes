@@ -1,3 +1,4 @@
+import BoardPage from "@/components/manager/BoardPage";
 import RequestsBoard from "@/components/manager/RequestsBoard";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import { slotRemaining } from "@/lib/availability";
@@ -20,6 +21,7 @@ export default async function RequestsPage() {
   }
   return (
     <>
+      <BoardPage />
       <h1 className="mgr-page-title">Booking requests</h1>
       <p className="mgr-page-sub">
         Sessions starting within 4 hours can&apos;t be booked directly — customers request them here, and the slot is

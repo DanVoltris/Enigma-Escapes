@@ -1133,11 +1133,15 @@ a:hover {
   min-height: 100vh;
 }
 .mgr-topbar {
-  background: var(--accent-tint);
+  background: var(--muted-bg);
   border-bottom: 1px solid var(--border);
 }
+/* The portal's frame — top bar and nav — keeps one width on every screen, so
+   the tabs never re-flow as you move between them. It matches the widened
+   content column, which is what left the logo indented against a full-width
+   table. */
 .mgr-topbar-inner {
-  max-width: 1180px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 16px 24px;
   display: flex;
@@ -1146,7 +1150,7 @@ a:hover {
   gap: 16px;
 }
 .mgr-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
 }
 .mgr-title::before {
@@ -1164,12 +1168,12 @@ a:hover {
 }
 .mgr-logo {
   display: block;
-  height: 34px;
-  width: 155px;
+  height: 40px;
+  width: 182px; /* 34 x 155 scaled up — same ratio, so the crop is unchanged */
   object-fit: cover; /* same crop trick as .brand-logo */
 }
 .mgr-view-site {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 .mgr-nav {
@@ -1180,11 +1184,11 @@ a:hover {
   z-index: 30;
 }
 .mgr-nav-inner {
-  max-width: 1180px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
-  gap: 2px;
+  gap: 10px;
   /* Fifteen tabs came to 1283px inside a 1132px strip, so the bar scrolled
      sideways on every screen — the cap matches the content column, so a wider
      window never helped. Tighter tabs (below) bring it to ~1105px; this stays
@@ -1193,7 +1197,7 @@ a:hover {
   scrollbar-width: thin;
 }
 .mgr-tab {
-  padding: 14px 8px 11px;
+  padding: 15px 14px 12px;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -1203,7 +1207,7 @@ a:hover {
 .mgr-tab:hover {
   color: var(--text);
   text-decoration: none;
-  background: var(--accent-tint);
+  background: var(--muted-bg);
 }
 .mgr-tab.active {
   color: var(--text);
@@ -1213,6 +1217,18 @@ a:hover {
   max-width: 1180px;
   margin: 0 auto;
   padding: 32px 24px 80px;
+}
+
+/* Fifteen tabs at full spacing measure ~1370px. On a laptop narrower than that
+   they would scroll sideways, so the spacing tightens back toward its old
+   values rather than the bar losing tabs off the edge. */
+@media (max-width: 1440px) {
+  .mgr-nav-inner {
+    gap: 4px;
+  }
+  .mgr-tab {
+    padding: 15px 9px 12px;
+  }
 }
 .mgr-page-title {
   font-size: 22px;
@@ -1701,7 +1717,7 @@ a:hover {
    than the reading column the rest of the portal uses. Deliberately NOT the
    calendar's .mgr-wide: that one is full-bleed and caps its cards at reading
    width for the forms inside them. */
-.mgr-content:has(> .mgr-board) {
+.mgr-content:has(.mgr-board) {
   max-width: 1680px;
 }
 .rpt-layout {
@@ -1714,6 +1730,21 @@ a:hover {
   gap: 4px 18px;
   padding: 0 0 12px;
   margin-bottom: 24px;
+  /* The links carry 12px of padding so the active one reads as a pill. That
+     pushed the first label to 36px while the page title, the lead paragraph
+     and every card edge sit at 24 — the row looked indented. Pulling the whole
+     row left by that padding lines the first label up with the rest of the
+     page; the rule underneath is drawn separately so it still starts at the
+     column edge rather than hanging 12px past it. */
+  position: relative;
+  margin-left: -12px;
+}
+.rpt-nav::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 0;
+  bottom: 0;
   border-bottom: 1px solid var(--border);
 }
 /* Sections stay legible as clusters without a heading apiece — a thin rule
@@ -1759,18 +1790,54 @@ a:hover {
    page was drawing its bars in brand green and its charts in blue. The calendar
    sets the precedent: its slot colours are a fixed blue ramp whatever the brand
    colour is. */
-.mgr-panels .mgr-meter .fill {
+.mgr-content:has(.mgr-panels) .mgr-meter .fill {
   background: var(--chart-1);
 }
 
-/* Report cards carry their heading on a tinted strip so a page of them reads as
-   a stack of named sections rather than a grid of identical grey boxes. Sharp
-   corners throughout, as everywhere else. */
-.mgr-panels .mgr-card {
+/* Cards carry their heading on a tinted strip so a page of them reads as a
+   stack of named sections rather than a grid of identical grey boxes. Sharp
+   corners throughout, as everywhere else.
+   
+   Only cards that HAVE a heading: the strip is what replaces the padding, so a
+   card without one — a form, a bare panel — keeps its ordinary padding instead
+   of losing it and having nothing stand in. */
+.mgr-content:has(.mgr-panels) .mgr-card:has(> h2),
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) {
   padding: 0;
-  overflow: hidden;
+  /* No overflow clipping. It was there to keep the heading strip inside the
+     card's corners, which is meaningless when nothing is rounded — and it cut
+     off every dropdown that opened past the card's edge. */
 }
-.mgr-panels .mgr-card > h2 {
+/* Some cards put the heading in a row beside a pill or a button rather than on
+   its own. That row is the heading as far as this treatment is concerned. */
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) > .intg-head {
+  margin: 0;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted-bg);
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) > .intg-head h2 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) > *:not(.intg-head) {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) > *:nth-child(2) {
+  margin-top: 16px;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) > *:last-child {
+  margin-bottom: 18px;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) > .mgr-table-wrap {
+  margin: 0;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .intg-head) > .mgr-table-wrap:last-child {
+  margin-bottom: 0;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> h2) > h2 {
   margin: 0;
   padding: 14px 20px;
   font-size: 15px;
@@ -1778,20 +1845,53 @@ a:hover {
   border-bottom: 1px solid var(--border);
   background: var(--muted-bg);
 }
-.mgr-panels .mgr-card > *:not(h2) {
+.mgr-content:has(.mgr-panels) .mgr-card:has(> h2) > *:not(h2) {
   margin-left: 20px;
   margin-right: 20px;
 }
-.mgr-panels .mgr-card > *:nth-child(2) {
+.mgr-content:has(.mgr-panels) .mgr-card:has(> h2) > *:nth-child(2) {
   margin-top: 16px;
 }
-.mgr-panels .mgr-card > *:last-child {
+.mgr-content:has(.mgr-panels) .mgr-card:has(> h2) > *:last-child {
   margin-bottom: 18px;
 }
-.mgr-panels .mgr-card > .mgr-table-wrap {
+.mgr-content:has(.mgr-panels) .mgr-card:has(> h2) > .mgr-table-wrap {
   margin: 0;
 }
-.mgr-panels .mgr-card > .mgr-table-wrap:last-child {
+.mgr-content:has(.mgr-panels) .mgr-card:has(> h2) > .mgr-table-wrap:last-child {
+  margin-bottom: 0;
+}
+
+/* Third heading variant: a list's own count-and-actions bar. The Bookings and
+   Customers lists already said "412 customers · Download CSV" above the table,
+   so that line becomes the panel's heading strip rather than a second one being
+   invented above it. */
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .mgr-list-tools) {
+  padding: 0;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .mgr-list-tools) > .mgr-list-tools {
+  margin: 0;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted-bg);
+  color: var(--text);
+  font-weight: 600;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .mgr-list-tools) > .mgr-list-tools span:last-child {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .mgr-list-tools) > *:not(.mgr-list-tools) {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .mgr-list-tools) > *:last-child {
+  margin-bottom: 18px;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .mgr-list-tools) > .mgr-table-wrap {
+  margin: 0;
+}
+.mgr-content:has(.mgr-panels) .mgr-card:has(> .mgr-list-tools) > .mgr-table-wrap:last-child {
   margin-bottom: 0;
 }
 
@@ -3126,7 +3226,7 @@ a.mgr-pill.on:hover {
   text-align: right;
 }
 .mgr-whoami .who .sub {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
