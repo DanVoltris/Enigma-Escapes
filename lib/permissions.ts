@@ -21,6 +21,7 @@ export const PERMISSIONS = [
   "settings",
   "staff",
   "alerts",
+  "roster",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -41,6 +42,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   settings: "Change business & booking-site settings",
   staff: "Manage staff accounts and their access",
   alerts: "Manage who gets texted when a booking request comes in",
+  roster: "Manage the staff list and room training",
 };
 
 // Front desk is day-to-day only: the calendar, taking and editing bookings,
@@ -60,7 +62,14 @@ const CLERK_PERMISSIONS: Permission[] = [
 
 // Manager runs the venue day to day but does not see what it earns: reports
 // and the revenue figures gated behind them are owner business, as is staff
-// administration. Admin gets the lot.
+// administration — creating logins, setting roles and passwords.
+//
+// The roster and the room-training grid are a different job and stay with the
+// manager: who works here and who is signed off on which room is floor
+// knowledge, and it used to be locked behind account administration because the
+// two shared one permission.
+//
+// Admin gets the lot.
 const MANAGER_PERMISSIONS: Permission[] = PERMISSIONS.filter((p) => p !== "staff" && p !== "reports");
 
 export function defaultPermissionsFor(role: StaffRole): Permission[] {

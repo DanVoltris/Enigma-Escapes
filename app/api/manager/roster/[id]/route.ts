@@ -5,7 +5,7 @@ import { deleteStaffMember, updateStaffMember } from "@/lib/staff-members";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const guard = await apiGuard("staff");
+  const guard = await apiGuard("roster");
   if (guard.response) return guard.response;
   const { id } = await ctx.params;
 
@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 }
 
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const guard = await apiGuard("staff");
+  const guard = await apiGuard("roster");
   if (guard.response) return guard.response;
   const { id } = await ctx.params;
   try {

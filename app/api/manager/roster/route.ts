@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Add someone to the roster. Managing the roster is staff administration;
 // checking in and out is not, and lives on its own route.
 export async function POST(req: NextRequest) {
-  const guard = await apiGuard("staff");
+  const guard = await apiGuard("roster");
   if (guard.response) return guard.response;
 
   let body: unknown;

@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 // the roster and the training grid still needs the staff permission.
 export default async function ManagerStaff() {
   const session = await requireStaff("/manager/staff");
-  const canManage = hasPermission(session, "staff");
+  const canManage = hasPermission(session, "roster");
   // Who gets texted about booking requests is manager work, not account admin —
   // its own permission, held by managers and admins alike.
   const canEditAlerts = hasPermission(session, "alerts");
