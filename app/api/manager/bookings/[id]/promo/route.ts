@@ -17,7 +17,8 @@ async function repriced(booking: Booking, percentOff: number): Promise<Booking["
     percentOff,
     taxPercent,
     await getPricingMode(),
-    booking.pricing.flatFeeCents ?? 0
+    booking.pricing.flatFeeCents ?? 0,
+    true // staff applying a promo by hand — same reach as one typed at checkout
   );
   return {
     ...booking.pricing,

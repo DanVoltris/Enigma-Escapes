@@ -61,7 +61,12 @@ export function computeTotals(
   mode: PricingMode = DEFAULT_PRICING_MODE,
   // A one-off charge for the whole booking — the corporate event fee. Added
   // once and never multiplied by the party.
-  flatFeeCents = 0
+  flatFeeCents = 0,
+  // Whether the percentage above may come off the fee. A promo code does — a
+  // giveaway has to be able to make a booking genuinely free. The 20% loyalty
+  // code does not: it is a nudge to come back for another game, and letting it
+  // take a cut of the host's time hands away $70 an event nobody chose to give.
+  feeDiscountable = true
 ): Totals {
   const roomsCents = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
   // Discounted along with everything else. It used to sit outside the discount
@@ -69,7 +74,8 @@ export function computeTotals(
   // which meant a 100% "prize" code left $350 to pay on a booking that was
   // supposed to be free. A code discounts the booking.
   const listedCents = roomsCents + flatFeeCents;
-  const discountCents = Math.round((listedCents * percentOff) / 100);
+  const discountBase = roomsCents + (feeDiscountable ? flatFeeCents : 0);
+  const discountCents = Math.round((discountBase * percentOff) / 100);
 
   let subtotalCents: number;
   let gstCents: number;

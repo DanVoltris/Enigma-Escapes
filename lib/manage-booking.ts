@@ -287,11 +287,13 @@ export async function changePartySize(
   // effective discount rate this booking was sold at. The rate comes off the
   // whole booking, not this one session, or a two-room booking would have its
   // discount recalculated from a fraction of what it was sold at.
-  // Same base the discount was struck against, fee included — reading the rate
-  // back off the rooms alone would inflate it on a corporate booking.
+  // Same base the discount was struck against. A promo reached the fee, the
+  // loyalty code didn't — read the rate back off the wrong one and the rebuild
+  // moves money.
+  const feeDiscountable = !booking.pricing.rewardCode;
   const listedBefore =
     booking.items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0) +
-    (booking.pricing.flatFeeCents ?? 0);
+    (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
   const items: Booking["items"] = booking.items.map((i, idx) =>
     idx === itemIndex ? { ...i, quantity } : i
@@ -304,7 +306,8 @@ export async function changePartySize(
     percentOff,
     await activeTaxPercent(),
     await getPricingMode(),
-    booking.pricing.flatFeeCents ?? 0
+    booking.pricing.flatFeeCents ?? 0,
+    feeDiscountable
   );
 
   const paid = booking.pricing.paidCents;

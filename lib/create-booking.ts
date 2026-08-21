@@ -222,7 +222,8 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     percentOff,
     await activeTaxPercent(),
     await getPricingMode(),
-    flatFeeCents
+    flatFeeCents,
+    !rewardCode // a promo reaches the fee; the 20% loyalty code doesn't
   );
 
   // Gift voucher — a prepaid balance, checked here against the real cart so the
