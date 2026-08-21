@@ -289,7 +289,16 @@ export async function changePartySize(
   const items: Booking["items"] = booking.items.map((i, idx) =>
     idx === itemIndex ? { ...i, quantity } : i
   );
-  const totals = computeTotals(items, percentOff, await activeTaxPercent(), await getPricingMode());
+  // The corporate fee is charged once for the booking and is not a per-person
+  // price, so it rides through a resize untouched — it is neither multiplied by
+  // the new party nor dropped by the rebuild.
+  const totals = computeTotals(
+    items,
+    percentOff,
+    await activeTaxPercent(),
+    await getPricingMode(),
+    booking.pricing.flatFeeCents ?? 0
+  );
 
   const paid = booking.pricing.paidCents;
   const pricing: Booking["pricing"] = {
@@ -333,8 +342,11 @@ export async function rescheduleForStaff(
   const exp = await getExperience(roomId);
   if (!exp || !exp.active) return { error: "That experience isn't bookable at the moment." };
 
+  // A corporate event may sit off the published grid — that's how it was booked
+  // in the first place — so moving one isn't held to the room's start times
+  // either. Everything that protects the room still runs below.
   const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
-  if (!startTimesFor(exp, target.date, hours).includes(target.time)) {
+  if (!booking.pricing.corporate && !startTimesFor(exp, target.date, hours).includes(target.time)) {
     return { error: `${exp.name} doesn't run at ${formatTime(target.time)} on that day.` };
   }
   const { isBlocked } = await import("./blocks");
@@ -389,7 +401,11 @@ export async function rescheduleForStaff(
           location: exp.location,
           badgeBg: exp.badgeBg,
           badgeFg: exp.badgeFg,
-          durationMinutes: exp.durationMinutes,
+          // The session keeps its own length. Re-stamping the room's current
+          // duration here silently shrank anything that wasn't the standard
+          // hour — an imported 30-minute session, or a session sold when the
+          // game ran longer — and reopened the slot it was still occupying.
+          durationMinutes: i.durationMinutes ?? exp.durationMinutes,
           date: target.date,
           time: target.time,
         }

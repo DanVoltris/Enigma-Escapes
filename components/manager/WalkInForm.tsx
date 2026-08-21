@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
+import { CORPORATE_FEE_CENTS, CORPORATE_LEAD_IN_MINUTES } from "@/lib/pricing";
+import { minutesOfTime, minutesToTime } from "@/lib/capacity";
 import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 
 // Staff can book walk-ins of any size; the 4-person minimum is customer-only.
@@ -65,6 +67,13 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [rolledOver, setRolledOver] = useState(false);
+  // A corporate event: one fee for the booking, the rooms at their usual price,
+  // and the group arriving early for team building somewhere other than a room.
+  const [corporate, setCorporate] = useState(false);
+  const [leadIn, setLeadIn] = useState(String(CORPORATE_LEAD_IN_MINUTES));
+  // Off-grid start, allowed only for corporate events. Empty = use the room's
+  // published times as normal.
+  const [customTime, setCustomTime] = useState("");
   // What the desk actually chose in the date picker, per row. Kept so a date
   // that changes by any other route can be caught before the booking is made
   // rather than discovered afterwards.
@@ -191,7 +200,14 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         const list = expByDate[x.date];
         if (!list || list.length === 0) return x;
         const room = list.find((e) => e.id === x.roomId) ?? list[0];
-        const time = room.times.includes(x.time) ? x.time : (room.times[0] ?? "");
+        // A corporate event sets its own time and isn't held to the room's
+        // published starts, so leave it alone — snapping it back to the grid
+        // was silently undoing the time the desk had just typed.
+        const time = corporate
+          ? x.time
+          : room.times.includes(x.time)
+            ? x.time
+            : (room.times[0] ?? "");
         if (room.id === x.roomId && time === x.time) return x;
         touched = true;
         return { ...x, roomId: room.id, time };
@@ -202,7 +218,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
     // list lands — otherwise switching to a date already fetched leaves the old
     // day's time sitting there. Returning `prev` untouched makes this a no-op,
     // so there's no loop.
-  }, [expByDate, sessions]);
+  }, [expByDate, sessions, corporate]);
 
   // The on-shift panel above highlights whoever can run the first room.
   const leadRoom = sessions[0]?.roomId;
@@ -255,7 +271,8 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         key: nextKey.current++,
         roomId: room?.id ?? "",
         date,
-        time: room?.times[0] ?? "",
+        // Every room of a corporate event runs at the one time the event does.
+        time: corporate ? (last?.time ?? "") : (room?.times[0] ?? ""),
         quantity: last?.quantity ?? 2,
       },
     ]);
@@ -263,10 +280,25 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
 
   const removeSession = (key: number) => setSessions((prev) => prev.filter((x) => x.key !== key));
 
-  const subtotal = sessions.reduce((sum, x) => {
+  const roomsTotal = sessions.reduce((sum, x) => {
     const exp = expFor(x);
     return sum + (exp ? exp.priceCents * x.quantity : 0);
   }, 0);
+  // The fee is charged once for the booking, however many rooms it holds.
+  const subtotal = roomsTotal + (corporate ? CORPORATE_FEE_CENTS : 0);
+
+  // Corporate events run all their rooms at one time, so a single start time
+  // governs the booking — the desk picks rooms, not a time per room.
+  const applyTimeToAll = (time: string) =>
+    setSessions((prev) => prev.map((x) => ({ ...x, time })));
+
+  // When the group is expected, counted back from the rooms' start.
+  const arrivesAt = (() => {
+    const start = sessions[0]?.time;
+    const mins = Number(leadIn);
+    if (!corporate || !start || !Number.isFinite(mins) || mins <= 0) return "";
+    return minutesToTime(minutesOfTime(start) - mins);
+  })();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -310,6 +342,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: sessions.map((x) => ({ roomId: x.roomId, date: x.date, time: x.time, quantity: x.quantity })),
+          ...(corporate ? { corporate: true, leadInMinutes: Number(leadIn) || 0 } : {}),
           customer: { firstName, lastName, email, phone, subscribe: false },
           paymentOption,
         }),
@@ -334,7 +367,55 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         </div>
       )}
 
-      <h3>{sessions.length > 1 ? "Rooms" : "Session"}</h3>
+      <label className="checkbox-row" style={{ marginBottom: 14 }}>
+        <input
+          type="checkbox"
+          checked={corporate}
+          onChange={(e) => {
+            setCorporate(e.target.checked);
+            if (!e.target.checked) setCustomTime("");
+          }}
+        />
+        <span>
+          Corporate event — {formatMoney(CORPORATE_FEE_CENTS)} plus the rooms, with team building
+          first
+        </span>
+      </label>
+
+      {corporate && (
+        <div className="mgr-inline-form" style={{ marginBottom: 14 }}>
+          <div className="field" style={{ maxWidth: 150 }}>
+            <label htmlFor="corp-time">Rooms start at</label>
+            <input
+              id="corp-time"
+              type="time"
+              value={customTime || sessions[0]?.time || ""}
+              onChange={(e) => {
+                setCustomTime(e.target.value);
+                applyTimeToAll(e.target.value);
+              }}
+            />
+            <p className="field-hint">Any time — a corporate event isn&apos;t held to the grid.</p>
+          </div>
+          <div className="field" style={{ maxWidth: 150 }}>
+            <label htmlFor="corp-lead">Team building (min)</label>
+            <input
+              id="corp-lead"
+              type="number"
+              min="0"
+              max="240"
+              step="5"
+              value={leadIn}
+              onChange={(e) => setLeadIn(e.target.value)}
+            />
+            <p className="field-hint">
+              {arrivesAt ? `Group arrives ${formatTime(arrivesAt)}` : "No room needed for this part"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <h3>{corporate ? "Rooms" : sessions.length > 1 ? "Rooms" : "Session"}</h3>
       {sessions.map((x, i) => {
         const exp = expFor(x);
         const rooms = roomsFor(x.date);
@@ -360,12 +441,22 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
               </div>
               <div className="field">
                 <label>Time</label>
-                <SingleSelect
-                  ariaLabel={`Time for room ${i + 1}`}
-                  value={x.time}
-                  onChange={(v) => update(x.key, { time: v })}
-                  options={(exp?.times ?? []).map((t) => ({ value: t, label: formatTime(t) }))}
-                />
+                {corporate ? (
+                  // One time governs the whole event, set above. The dropdown is
+                  // built from the room's published starts, so an off-grid
+                  // corporate time has nothing to select and the row would sit
+                  // there showing a time it wasn't going to book.
+                  <p className="sub" style={{ margin: "10px 0 0" }}>
+                    {x.time ? formatTime(x.time) : "—"} · set for the whole event
+                  </p>
+                ) : (
+                  <SingleSelect
+                    ariaLabel={`Time for room ${i + 1}`}
+                    value={x.time}
+                    onChange={(v) => update(x.key, { time: v })}
+                    options={(exp?.times ?? []).map((t) => ({ value: t, label: formatTime(t) }))}
+                  />
+                )}
               </div>
             </div>
             <div className="field-row">
@@ -456,11 +547,21 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
 
       <div className="form-actions" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <span className="panel-subtotal">
+          {corporate && (
+            <span className="walkin-when" style={{ marginTop: 0, marginBottom: 4 }}>
+              <span>
+                Rooms {formatMoney(roomsTotal)} + corporate fee {formatMoney(CORPORATE_FEE_CENTS)}
+              </span>
+            </span>
+          )}
           Subtotal <span className="amount">{formatMoney(subtotal)}</span>
           <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-secondary)" }}> + tax</span>
           {/* The date and time in plain sight at the moment of pressing, so a
               wrong day can't go through unread. */}
           <span className="walkin-when">
+            {corporate && arrivesAt && (
+              <span>Team building from {formatTime(arrivesAt)} — no room needed</span>
+            )}
             {sessions.map((x) => (
               <span key={x.key}>
                 {expFor(x)?.name ?? "—"} · {formatDateLong(x.date)}

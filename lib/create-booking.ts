@@ -9,7 +9,13 @@ import { getRequestByToken } from "./requests";
 import { getRewardCode, rewardProblem } from "./reward-codes";
 import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
-import { cardDueCents, computeTotals, voucherAppliedCents } from "./pricing";
+import {
+  CORPORATE_FEE_CENTS,
+  CORPORATE_LEAD_IN_MINUTES,
+  cardDueCents,
+  computeTotals,
+  voucherAppliedCents,
+} from "./pricing";
 import { getPricingMode } from "./pricing-settings";
 import { getVoucher } from "./vouchers";
 import { voucherProblem } from "./voucher-types";
@@ -34,6 +40,8 @@ type RawInput = {
   promoCode?: unknown;
   voucherCode?: unknown; // gift voucher put towards the booking
   requestToken?: unknown; // accepted booking-request token (sub-4h completions)
+  corporate?: unknown; // staff-only: a corporate event (flat fee + team building)
+  leadInMinutes?: unknown; // how early the group arrives, when corporate
 };
 
 // Validates input against live catalog + availability and builds a Booking.
@@ -63,6 +71,17 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   if (!optionAllowed) {
     return err("Choose whether to pay the full balance or the deposit.");
   }
+
+  // A corporate event: the desk's own booking type. Refused from the public
+  // checkout outright — it sets its own price and can sit off the published
+  // schedule, so it is not something a crafted request may ask for.
+  const corporate = raw.corporate === true;
+  if (corporate && source !== "in_person") {
+    return err("Corporate events are booked by staff, not through the website.");
+  }
+  const leadInMinutes = corporate
+    ? Math.min(240, Math.max(0, Number(raw.leadInMinutes ?? CORPORATE_LEAD_IN_MINUTES) || 0))
+    : 0;
 
   if (!Array.isArray(raw.items) || raw.items.length === 0) {
     return err("Add at least one session before booking.");
@@ -102,9 +121,15 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       if (!isValidISODate(date) || date < today || date > lastBookable) {
         return err(`${exp.name}: that date can no longer be booked.`);
       }
-      const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
-      if (!startTimesFor(exp, date, hours).includes(time)) {
-        return err(`${exp.name}: that time slot is not available on that day.`);
+      // Corporate events run to their own clock — a group arrives when it
+      // arrives — so they may start off the published grid. Everything that
+      // protects the room still runs below: blocked slots, overlapping games
+      // and capacity are all checked the same way.
+      if (!corporate) {
+        const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
+        if (!startTimesFor(exp, date, hours).includes(time)) {
+          return err(`${exp.name}: that time slot is not available on that day.`);
+        }
       }
       // Manager-blocked slots are out of service for everyone, walk-ins
       // included — unblock it first if the session should really run.
@@ -163,6 +188,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
         quantity,
         priceCents: exp.priceCents,
         durationMinutes: exp.durationMinutes,
+        ...(leadInMinutes > 0 ? { leadInMinutes } : {}),
         depositPercent: exp.depositPercent,
         badgeBg: exp.badgeBg,
         badgeFg: exp.badgeFg,
@@ -190,7 +216,14 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     if (problem) return err(problem);
   }
 
-  const totals = computeTotals(items, percentOff, await activeTaxPercent(), await getPricingMode());
+  const flatFeeCents = corporate ? CORPORATE_FEE_CENTS : 0;
+  const totals = computeTotals(
+    items,
+    percentOff,
+    await activeTaxPercent(),
+    await getPricingMode(),
+    flatFeeCents
+  );
 
   // Gift voucher — a prepaid balance, checked here against the real cart so the
   // date / time / experience rules on the voucher are enforced server-side. The
@@ -242,6 +275,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       totalCents: totals.totalCents,
       paidCents,
       balanceCents: totals.totalCents - paidCents,
+      ...(corporate ? { corporate: true, flatFeeCents } : {}),
       voucherCode,
       voucherCents,
       voucherRedeemed: false, // set once the balance is actually taken

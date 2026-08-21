@@ -12,7 +12,13 @@ export const dynamic = "force-dynamic";
 // paid. Tax uses the current configured rate (staff is editing the booking now).
 async function repriced(booking: Booking, percentOff: number): Promise<Booking["pricing"]> {
   const taxPercent = await activeTaxPercent();
-  const totals = computeTotals(booking.items, percentOff, taxPercent, await getPricingMode());
+  const totals = computeTotals(
+    booking.items,
+    percentOff,
+    taxPercent,
+    await getPricingMode(),
+    booking.pricing.flatFeeCents ?? 0
+  );
   return {
     ...booking.pricing,
     subtotalCents: totals.subtotalCents,

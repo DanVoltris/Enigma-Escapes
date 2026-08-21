@@ -48,14 +48,25 @@ function blendedDepositPercent(items: CartItem[]): number {
 // is exactly price x guests, and the tax is EXTRACTED from it. That keeps the
 // total on a round number for every group size, which repeatedly rounding a
 // tax-exclusive price cannot do (4 x $28.57 + 5% lands on $119.99, not $120).
+// A corporate event: half an hour of team building away from the rooms, a host,
+// then the games. One fee for the booking however many rooms it takes; the
+// rooms themselves are charged at their usual per-person price.
+export const CORPORATE_FEE_CENTS = 35_000;
+export const CORPORATE_LEAD_IN_MINUTES = 30;
+
 export function computeTotals(
   items: CartItem[],
   percentOff: number,
   taxPercent: number,
-  mode: PricingMode = DEFAULT_PRICING_MODE
+  mode: PricingMode = DEFAULT_PRICING_MODE,
+  // A one-off charge for the whole booking — the corporate event fee. Added
+  // once, never multiplied by the party, and never discounted: a promo code is
+  // for the games, not for the host's time.
+  flatFeeCents = 0
 ): Totals {
-  const listedCents = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
-  const discountCents = Math.round((listedCents * percentOff) / 100);
+  const roomsCents = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
+  const discountCents = Math.round((roomsCents * percentOff) / 100);
+  const listedCents = roomsCents + flatFeeCents;
 
   let subtotalCents: number;
   let gstCents: number;

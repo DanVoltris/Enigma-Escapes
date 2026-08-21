@@ -33,6 +33,12 @@ export async function settleRewardsFor(booking: Booking): Promise<void> {
   // chain never breaks and a repeat customer pays 20% less forever.
   if (spent) return;
 
+  // Nor does a corporate event. The 20% code is a nudge for an individual to
+  // come back for another game; handing one to a company that just booked out
+  // three rooms discounts the next corporate event by hundreds of dollars, and
+  // it would be texted to whoever's name happened to be on the booking.
+  if (booking.pricing.corporate) return;
+
   try {
     const minted = await mintRewardFor(booking);
     if (minted?.created) {
@@ -79,7 +85,13 @@ export async function revokeRewardsFor(booking: Booking): Promise<string | null>
     // Re-price at full: same sessions, no discount. balanceCents is always
     // total - paid, so the money now owed shows up by itself on the Today
     // board, the Bookings list and the booking's own Total due.
-    const totals = computeTotals(affected.items, 0, await activeTaxPercent(), await getPricingMode());
+    const totals = computeTotals(
+      affected.items,
+      0,
+      await activeTaxPercent(),
+      await getPricingMode(),
+      affected.pricing.flatFeeCents ?? 0
+    );
     const extraCents = totals.totalCents - affected.pricing.totalCents;
     if (extraCents <= 0) return `Reward code ${revoked.code} cancelled with it.`;
 

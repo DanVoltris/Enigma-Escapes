@@ -86,6 +86,11 @@ export type CartItem = {
   depositPercent: number; // carried from the experience so totals can blend deposits
   badgeBg: string;
   badgeFg: string;
+  // Corporate events start with team building somewhere other than the room, so
+  // the group arrives this many minutes before the session itself. The room is
+  // only occupied from `time`, which is why nothing in the scheduling code has
+  // to know about this — it is an arrival time, not a longer booking.
+  leadInMinutes?: number;
 };
 
 export type Customer = {
@@ -148,6 +153,16 @@ export type BookingPricing = {
   paidCents: number;
   balanceCents: number;
   payments?: BookingPayment[]; // manual payment records (stored in pricing JSONB)
+  // A corporate event: half an hour of team building away from the rooms, a
+  // host, then the games. Both live in the pricing JSONB because the bookings
+  // table has fixed columns and this needed no migration.
+  //
+  // flatFeeCents is charged once for the booking however many rooms it holds,
+  // added to the listed price before tax and deliberately kept out of the
+  // discount base: it is a cost, not a room, and a promo code shouldn't shave
+  // it.
+  corporate?: boolean;
+  flatFeeCents?: number;
   // Gift voucher put towards this booking. voucherCents counts inside
   // paidCents — it is money the customer already handed over, not a discount.
   // voucherRedeemed guards the balance being taken more than once when the
