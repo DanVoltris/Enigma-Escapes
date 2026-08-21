@@ -3,6 +3,7 @@ import { allowedLocations, requirePermission } from "@/lib/auth";
 import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
 import { bookingsRosterPage, listBookings } from "@/lib/db";
 import { addDaysISO, businessDateOf, formatDateLong, formatMoney, formatTime, isValidISODate, localeConfig, todayISO } from "@/lib/format";
+import { outstandingCents } from "@/lib/pricing";
 import type { Booking } from "@/lib/types";
 
 export const dynamic = "force-dynamic";

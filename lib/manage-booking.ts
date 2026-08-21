@@ -201,8 +201,11 @@ export async function cancelForStaff(
     }
   }
 
-  // Whatever was meant to go back but didn't is still owed.
-  const owedCents = Math.max(0, wanted - refundedCents);
+  // `owed` is the whole refund, `refunded` the part that actually went back —
+  // the same reading the customer-cancel path above uses. It previously held
+  // only the unsettled remainder here, so the two paths described the same
+  // situation with different numbers.
+  const owedCents = wanted;
   const updated = await cancelBooking(booking.id, { owedCents, refundedCents });
   // The reward this booking earned dies with it — and if it was already
   // spent, that booking goes back to full price.

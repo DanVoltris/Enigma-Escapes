@@ -11,6 +11,7 @@ import { getBooking, getBookingsByIds, listPromos } from "@/lib/db";
 import { getRewardCode, rewardForBooking } from "@/lib/reward-codes";
 import { listExperiences } from "@/lib/experiences";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
+import { outstandingCents, refundGoingBackCents } from "@/lib/pricing";
 import { stripeConfigured } from "@/lib/stripe";
 import { listTaxes } from "@/lib/taxes";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -48,6 +49,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     amountCents: i.priceCents * i.quantity,
   }));
 
+  const outstanding = outstandingCents(booking);
   const manualPayments = pricing.payments ?? [];
   // A gift voucher counts inside paidCents, so it comes out here to be listed
   // on its own — otherwise it would silently inflate the card figure.
@@ -271,13 +273,22 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                 <div className="label">Total paid</div>
                 <div className="value">{formatMoney(pricing.paidCents)}</div>
               </div>
+              {/* Shown whenever money is going back, so a refunded booking
+                  can't read as settled. Without it the page said "paid $120.04,
+                  nothing owing" on one refunded in full. */}
+              {refundGoingBackCents(pricing) > 0 && (
+                <div>
+                  <div className="label">Refunded</div>
+                  <div className="value">−{formatMoney(refundGoingBackCents(pricing))}</div>
+                </div>
+              )}
               <div>
                 <div className="label">Total due</div>
-                {/* Total − paid while the booking is live. A cancelled one is
-                    zero and says so, or the three figures look like they don't
-                    add up — money already taken is a refund, shown below. */}
-                <div className={`value${pricing.balanceCents > 0 ? " due" : ""}`}>
-                  {formatMoney(pricing.balanceCents)}
+                {/* Total less what the venue actually kept, so refunding a
+                    deposit puts it back on the bill. A cancelled one is zero and
+                    says so, or the figures look like they don't add up. */}
+                <div className={`value${outstanding > 0 ? " due" : ""}`}>
+                  {formatMoney(outstanding)}
                   {booking.status === "cancelled" && (
                     <>
                       <br />

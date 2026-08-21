@@ -3,6 +3,7 @@ import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import { bookingsForDate } from "@/lib/db";
 import { formatDateLong, isValidISODate, nowMinutesInBusinessTZ, todayISO } from "@/lib/format";
 import { listAllLocations } from "@/lib/hours";
+import { outstandingCents } from "@/lib/pricing";
 import { terminalConfigured } from "@/lib/stripe-terminal";
 import { getReaderMap } from "@/lib/terminal-settings";
 
@@ -55,7 +56,7 @@ export default async function TodayPage({
         email: b.customer.email,
         totalCents: b.pricing.totalCents,
         paidCents: b.pricing.paidCents,
-        balanceCents: b.pricing.balanceCents,
+        balanceCents: outstandingCents(b),
         refundOwedCents: Math.max(0, (b.pricing.refundOwedCents ?? 0) - (b.pricing.refundedCents ?? 0)),
         payments: (b.pricing.payments ?? []).map((p) => ({
           id: p.id,

@@ -1,4 +1,4 @@
-import type { CartItem, PaymentOption } from "./types";
+import type { BookingPricing, CartItem, PaymentOption } from "./types";
 
 export const HOLD_MINUTES = 15;
 export const BOOKING_WINDOW_DAYS = 60;
@@ -117,4 +117,35 @@ export function voucherAppliedCents(totals: Totals, voucherRemainingCents: numbe
 // at the venue.
 export function cardDueCents(totals: Totals, option: PaymentOption, voucherCents: number): number {
   return Math.max(0, amountDueCents(totals, option) - voucherCents);
+}
+
+// ---------- refunds, as the rest of the app should read them ----------
+//
+// Two fields carry a refund, and three code paths had each invented their own
+// meaning for them. Settled here:
+//
+//   refundOwedCents  the total the customer is due back
+//   refundedCents    how much of that has actually gone back
+//
+// so what is still to settle by hand is the difference. The max() below is for
+// rows written under the older readings, where "owed" sometimes meant only the
+// part not yet returned.
+export function refundGoingBackCents(pricing: BookingPricing): number {
+  return Math.max(pricing.refundOwedCents ?? 0, pricing.refundedCents ?? 0);
+}
+
+// What the customer still owes, with any refund taken into account. Named apart
+// from amountDueCents above, which answers a different question — how much to
+// charge at checkout.
+//
+// Refunding a deposit puts that money back on the bill: the booking is still
+// happening and the venue has handed the money back. Without this the page said
+// "paid $120.04, nothing owing" on a booking that had been refunded in full.
+export function outstandingCents(booking: {
+  pricing: BookingPricing;
+  status?: string;
+}): number {
+  if (booking.status === "cancelled") return 0; // nothing is chased on a cancelled booking
+  const kept = booking.pricing.paidCents - refundGoingBackCents(booking.pricing);
+  return booking.pricing.totalCents - Math.max(0, kept);
 }

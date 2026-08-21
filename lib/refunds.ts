@@ -99,15 +99,18 @@ export async function refundBookingPayment(
   const nextPayments = payments.map((p) =>
     p.id === paymentId ? { ...p, refundedCents: (p.refundedCents ?? 0) + amountCents } : p
   );
-  const refundedTotal = (booking.pricing.refundedCents ?? 0) + amountCents;
+  // Owed is what the customer is due back; refunded is what has actually
+  // reached them. A refund staff have to settle on the terminal counts towards
+  // the first and not the second, or the booking would claim the money had gone
+  // back when it is still sitting in the till.
+  const owedTotal = (booking.pricing.refundOwedCents ?? 0) + amountCents;
+  const refundedTotal = (booking.pricing.refundedCents ?? 0) + (toCard ? amountCents : 0);
   const pricing: Booking["pricing"] = {
     ...booking.pricing,
     payments: nextPayments,
     ...(online ? { onlineRefundedCents: online.refundedCents + amountCents } : {}),
     refundedCents: refundedTotal,
-    // Never let "owed" sit below what has actually gone back, or the two
-    // figures tell contradictory stories on the bookings list.
-    refundOwedCents: Math.max(booking.pricing.refundOwedCents ?? 0, refundedTotal),
+    refundOwedCents: owedTotal,
     refundedAt: new Date().toISOString(),
   };
 
