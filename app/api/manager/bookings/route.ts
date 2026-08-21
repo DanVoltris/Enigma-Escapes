@@ -24,6 +24,10 @@ export async function POST(req: NextRequest) {
   }
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
+  // Credit the account that took it, so Reports can say who books what. Online
+  // bookings have nobody to credit and leave it unset.
+  result.booking.bookedBy = guard.staff.name || guard.staff.email;
+
   try {
     await saveBooking(result.booking);
   } catch (err) {

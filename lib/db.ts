@@ -25,6 +25,8 @@ type BookingRow = {
   // Staff-recorded game outcome; optional for the same schema-compat reason.
   game_result?: Booking["gameResult"];
   notes?: BookingNote[] | null;
+  // Added later, so rows written before the column existed read as undefined.
+  booked_by?: string | null;
 };
 
 function toBooking(row: BookingRow): Booking {
@@ -49,6 +51,7 @@ function toBooking(row: BookingRow): Booking {
     pendingExpiresAt: row.pending_expires_at ?? null,
     gameResult: row.game_result ?? null,
     notes: row.notes ?? [],
+    bookedBy: row.booked_by ?? null,
   };
 }
 
@@ -165,6 +168,9 @@ export async function saveBooking(booking: Booking): Promise<void> {
     ...(booking.status === "pending"
       ? { status: booking.status, pending_expires_at: booking.pendingExpiresAt }
       : {}),
+    // Same reason: only written when there is something to write, so the column
+    // being absent can't break an online booking.
+    ...(booking.bookedBy ? { booked_by: booking.bookedBy } : {}),
   };
   const res = await rest("bookings", {
     method: "POST",

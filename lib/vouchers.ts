@@ -362,3 +362,96 @@ export async function redeemVoucher(
   });
   return { ok: true, spent: amount, remainingCents: after, spacesLeft: v.spacesLeft, forfeitedCents: forfeited };
 }
+
+// ---------- reporting ----------
+
+export type VoucherReport = {
+  issued: { count: number; faceCents: number; purchased: number; comp: number };
+  usedInPeriod: { count: number; spentToDateCents: number };
+  liability: { outstandingCents: number; live: number; averageCents: number };
+  expiringSoon: { count: number; outstandingCents: number; by: string | null };
+  fullySpent: number;
+  biggest: { code: string; remainingCents: number; faceCents: number; purchaser: string | null; expiryDate: string | null }[];
+};
+
+// What the Gift vouchers report needs, in one pass.
+//
+// The figure that matters most is the outstanding balance: money customers have
+// already handed over that the venue still owes in games. It is a liability, it
+// only grows quietly, and nothing in the portal showed it.
+//
+// "Redeemed in this period" is deliberately absent — spending isn't journalled,
+// only a running balance and a last-used stamp, so the honest question is how
+// many vouchers were touched in the period, not how much came off them.
+export async function voucherReport(fromISO: string, toISO: string): Promise<VoucherReport> {
+  const res = await rest(
+    "gift_vouchers?select=code,face_cents,remaining_cents,active,created_at,last_used_at,expiry_date,kind,purchaser&limit=20000"
+  );
+  if (!res.ok) throw await restError(res, "Loading vouchers for the report");
+  const rows = (await res.json()) as {
+    code: string;
+    face_cents: number | null;
+    remaining_cents: number | null;
+    active: boolean | null;
+    created_at: string | null;
+    last_used_at: string | null;
+    expiry_date: string | null;
+    kind: string | null;
+    purchaser: string | null;
+  }[];
+
+  const day = (v: string | null) => (v ? v.slice(0, 10) : null);
+  const inPeriod = (v: string | null) => {
+    const d = day(v);
+    return d !== null && d >= fromISO && d <= toISO;
+  };
+  const face = (r: (typeof rows)[number]) => r.face_cents ?? 0;
+  const left = (r: (typeof rows)[number]) => Math.max(0, r.remaining_cents ?? 0);
+  // Expired vouchers are not owed, whatever balance they carry.
+  const expired = (r: (typeof rows)[number]) => Boolean(r.expiry_date && r.expiry_date < toISO);
+  const owing = (r: (typeof rows)[number]) => r.active !== false && !expired(r) && left(r) > 0;
+
+  const issued = rows.filter((r) => inPeriod(r.created_at));
+  const used = rows.filter((r) => inPeriod(r.last_used_at));
+  const liveOwing = rows.filter(owing);
+
+  const horizon = new Date(`${toISO}T00:00:00Z`);
+  horizon.setUTCDate(horizon.getUTCDate() + 90);
+  const by = horizon.toISOString().slice(0, 10);
+  const soon = liveOwing.filter((r) => r.expiry_date && r.expiry_date <= by);
+
+  const outstandingCents = liveOwing.reduce((s, r) => s + left(r), 0);
+  return {
+    issued: {
+      count: issued.length,
+      faceCents: issued.reduce((s, r) => s + face(r), 0),
+      purchased: issued.filter((r) => r.kind !== "comp").length,
+      comp: issued.filter((r) => r.kind === "comp").length,
+    },
+    usedInPeriod: {
+      count: used.length,
+      spentToDateCents: used.reduce((s, r) => s + Math.max(0, face(r) - left(r)), 0),
+    },
+    liability: {
+      outstandingCents,
+      live: liveOwing.length,
+      averageCents: liveOwing.length ? Math.round(outstandingCents / liveOwing.length) : 0,
+    },
+    expiringSoon: {
+      count: soon.length,
+      outstandingCents: soon.reduce((s, r) => s + left(r), 0),
+      by: soon.length ? by : null,
+    },
+    fullySpent: rows.filter((r) => face(r) > 0 && left(r) === 0).length,
+    biggest: liveOwing
+      .sort((a, b) => left(b) - left(a))
+      .slice(0, 12)
+      .map((r) => ({
+        code: r.code,
+        remainingCents: left(r),
+        faceCents: face(r),
+        purchaser: r.purchaser,
+        expiryDate: r.expiry_date,
+      })),
+  };
+}

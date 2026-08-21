@@ -214,11 +214,7 @@ export default async function ManagerReports({
               Extras (add-ons sold with a booking) aren&apos;t part of the product yet — nothing to report.
             </p>
           )}
-          {tab === "vouchers" && (
-            <p className="mgr-empty">
-              Gift vouchers aren&apos;t set up yet — promo codes are the only discount instrument today.
-            </p>
-          )}
+          {tab === "vouchers" && <VouchersTab from={from} to={to} />}
           {tab === "guests" && <GuestsTab purchased={purchased} />}
           {tab === "capacity" && <CapacityTab bookings={bookings} from={from} to={to} today={today} />}
           {tab === "games" && <GamesTab bookings={bookings} from={from} to={to} />}
@@ -428,9 +424,72 @@ function SalesTab({
         </div>
         <div className="mgr-card">
           <h2>By staff user</h2>
-          <p className="cust-empty">Not tracked yet — bookings don't record which staff account took them.</p>
+          <StaffUserBreakdown purchased={purchased} />
         </div>
       </div>
+    </>
+  );
+}
+
+// Who took the bookings, for the ones taken at a desk. Bookings a customer made
+// themselves have nobody to credit and are counted separately rather than
+// dropped, or the totals here won't match the Sales tile above.
+function StaffUserBreakdown({ purchased }: { purchased: Booking[] }) {
+  const desk = purchased.filter((b) => b.source === "in_person");
+  const byStaff = new Map<string, { count: number; guests: number; grossCents: number }>();
+  let unattributed = 0;
+  for (const b of desk) {
+    if (!b.bookedBy) {
+      unattributed++;
+      continue;
+    }
+    const row = byStaff.get(b.bookedBy) ?? { count: 0, guests: 0, grossCents: 0 };
+    row.count += 1;
+    row.guests += b.items.reduce((s, i) => s + i.quantity, 0);
+    row.grossCents += b.pricing.totalCents;
+    byStaff.set(b.bookedBy, row);
+  }
+  const rows = [...byStaff.entries()].sort((a, b) => b[1].grossCents - a[1].grossCents);
+
+  if (rows.length === 0) {
+    return (
+      <p className="cust-empty">
+        No desk bookings in this range carry a staff name yet. Bookings taken from now on record the account that
+        took them; ones made before that don&apos;t, and can&apos;t be filled in after the fact.
+      </p>
+    );
+  }
+  return (
+    <>
+      <div className="mgr-table-wrap">
+        <table className="mgr-table">
+          <thead>
+            <tr>
+              <th>Staff</th>
+              <th className="num">Bookings</th>
+              <th className="num">Guests</th>
+              <th className="num">Gross</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([name, r]) => (
+              <tr key={name}>
+                <td>{name}</td>
+                <td className="num">{r.count.toLocaleString()}</td>
+                <td className="num">{r.guests.toLocaleString()}</td>
+                <td className="num">{formatMoney(r.grossCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="card-sub">
+        Desk bookings only — {purchased.length - desk.length} booking(s) in this range were made by customers on
+        the site.
+        {unattributed > 0
+          ? ` ${unattributed} desk booking(s) predate staff being recorded and aren't listed.`
+          : ""}
+      </p>
     </>
   );
 }
@@ -914,6 +973,111 @@ function DiscountsTab({ purchased }: { purchased: Booking[] }) {
 // Per-room game performance from staff-recorded results (Game result on each
 // booking). Sliced by session date; sessions without a recorded result are
 // counted separately so gaps in logging are visible rather than silent.
+// Gift vouchers. The headline is the outstanding balance — money already taken
+// that the venue still owes in games. It only grows quietly, and nothing showed
+// it before this.
+async function VouchersTab({ from, to }: { from: string; to: string }) {
+  const { voucherReport } = await import("@/lib/vouchers");
+  let r: Awaited<ReturnType<typeof voucherReport>>;
+  try {
+    r = await voucherReport(from, to);
+  } catch (err) {
+    console.error("voucher report failed:", err);
+    return <p className="mgr-empty">Could not load vouchers just now. Try again shortly.</p>;
+  }
+
+  return (
+    <>
+      <div className="rpt-tiles">
+        <div className="rpt-tile">
+          <div className="label">Outstanding</div>
+          <div className="value">{formatMoney(r.liability.outstandingCents)}</div>
+          <span className="rpt-delta muted">
+            {r.liability.live.toLocaleString()} live · avg {formatMoney(r.liability.averageCents)}
+          </span>
+        </div>
+        <div className="rpt-tile">
+          <div className="label">Issued this period</div>
+          <div className="value">{r.issued.count.toLocaleString()}</div>
+          <span className="rpt-delta muted">{formatMoney(r.issued.faceCents)} face value</span>
+        </div>
+        <div className="rpt-tile">
+          <div className="label">Bought / comped</div>
+          <div className="value">
+            {r.issued.purchased.toLocaleString()} / {r.issued.comp.toLocaleString()}
+          </div>
+          <span className="rpt-delta muted">of those issued</span>
+        </div>
+        <div className="rpt-tile">
+          <div className="label">Used this period</div>
+          <div className="value">{r.usedInPeriod.count.toLocaleString()}</div>
+          <span className="rpt-delta muted">vouchers touched</span>
+        </div>
+        <div className="rpt-tile">
+          <div className="label">Fully spent</div>
+          <div className="value">{r.fullySpent.toLocaleString()}</div>
+          <span className="rpt-delta muted">all time</span>
+        </div>
+        <div className="rpt-tile">
+          <div className="label">Expiring in 90 days</div>
+          <div className="value">{r.expiringSoon.count.toLocaleString()}</div>
+          <span className="rpt-delta muted">
+            {r.expiringSoon.count > 0 ? `${formatMoney(r.expiringSoon.outstandingCents)} of it` : "none"}
+          </span>
+        </div>
+      </div>
+
+      <p className="card-sub">
+        <strong>Outstanding is a liability, not income.</strong> It is what customers have already paid for and
+        can still redeem in games. Vouchers that have expired or been switched off are excluded.
+        {r.expiringSoon.by ? ` "Expiring" means on or before ${formatDateLong(r.expiringSoon.by)}.` : ""}
+      </p>
+
+      <div className="mgr-card">
+        <h2>Largest balances outstanding</h2>
+        {r.biggest.length === 0 ? (
+          <p className="mgr-empty">Nothing outstanding — every voucher is spent, expired or switched off.</p>
+        ) : (
+          <div className="mgr-table-wrap">
+            <table className="mgr-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Bought by</th>
+                  <th>Expires</th>
+                  <th className="num">Issued for</th>
+                  <th className="num">Still on it</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.biggest.map((v) => (
+                  <tr key={v.code}>
+                    <td>
+                      <Link href={`/manager/vouchers/${encodeURIComponent(v.code)}`}>{v.code}</Link>
+                    </td>
+                    <td>{v.purchaser ?? "—"}</td>
+                    <td>{v.expiryDate ? formatDateLong(v.expiryDate) : "No expiry"}</td>
+                    <td className="num">{formatMoney(v.faceCents)}</td>
+                    <td className="num">
+                      <strong>{formatMoney(v.remainingCents)}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <p className="card-sub">
+        Spending isn&apos;t journalled — a voucher carries a running balance and the date it was last used, not a
+        list of what came off it — so &ldquo;used this period&rdquo; counts vouchers touched rather than money
+        redeemed. Say the word if you want each redemption recorded.
+      </p>
+    </>
+  );
+}
+
 function GamesTab({ bookings, from, to }: { bookings: Booking[]; from: string; to: string }) {
   type Row = { name: string; plays: number; escapes: number; timeSum: number; timeN: number; hintSum: number; hintN: number };
   const rows = new Map<string, Row>();

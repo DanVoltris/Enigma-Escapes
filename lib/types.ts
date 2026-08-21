@@ -222,6 +222,9 @@ export type Booking = {
   pendingExpiresAt: string | null; // ISO; only set while status is "pending"
   gameResult: GameResult | null; // staff-recorded outcome, null until logged
   notes: BookingNote[]; // shown on the booking page, newest first
+  // Which staff account took this booking. Only set for bookings made at the
+  // desk — a customer booking themselves has nobody to credit.
+  bookedBy?: string | null;
 };
 
 // How a session actually went — recorded by staff after the game and fed into
