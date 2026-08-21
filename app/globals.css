@@ -1288,6 +1288,13 @@ a:hover {
 .mgr-stat:last-child {
   border-right: 0;
 }
+/* A stat standing on its own inside a card keeps its box. The row above gets
+   its shape from the dividers between cells, which a single cell doesn't have —
+   without this the No-shows figure was an accent rule with text floating under
+   it. */
+.mgr-card > .mgr-stat {
+  border: 1px solid var(--border);
+}
 .mgr-stat .label {
   font-size: 11px;
   font-weight: 600;

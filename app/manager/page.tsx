@@ -436,6 +436,9 @@ function PerformanceView({
 
   return (
     <>
+      {/* Same treatment as the Operations tab — both halves of the dashboard
+          are boards of panels, and only one of them had it. */}
+      <div className="mgr-board mgr-panels">
       <div className="mgr-actions-row">
         <div>
           <p style={{ color: "var(--text-secondary)" }}>
@@ -596,6 +599,7 @@ function PerformanceView({
             <Link href="/manager/bookings">Bookings</Link>.
           </p>
         </div>
+      </div>
       </div>
     </>
   );
