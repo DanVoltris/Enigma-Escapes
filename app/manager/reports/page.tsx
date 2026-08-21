@@ -40,12 +40,10 @@ const TABS = [
   { section: "Transactional", key: "bookings", label: "Bookings" },
   { section: "Transactional", key: "payments", label: "Payments" },
   { section: "Inventory", key: "items", label: "Experiences" },
-  { section: "Inventory", key: "extras", label: "Extras" },
   { section: "Inventory", key: "vouchers", label: "Gift vouchers" },
   { section: "Misc", key: "guests", label: "Guests" },
   { section: "Misc", key: "capacity", label: "Session fill" },
   { section: "Misc", key: "discounts", label: "Discounts" },
-  { section: "Misc", key: "abandonment", label: "Cart abandonment" },
   { section: "Misc", key: "games", label: "Games" },
   { section: "Misc", key: "surveys", label: "Surveys" },
 ] as const;
@@ -209,23 +207,12 @@ export default async function ManagerReports({
           {tab === "bookings" && <BookingsTab bookings={bookings} from={from} to={to} />}
           {tab === "payments" && <PaymentsTab purchased={purchased} />}
           {tab === "items" && <ItemsTab bookings={bookings} from={from} to={to} />}
-          {tab === "extras" && (
-            <p className="mgr-empty">
-              Extras (add-ons sold with a booking) aren&apos;t part of the product yet — nothing to report.
-            </p>
-          )}
           {tab === "vouchers" && <VouchersTab from={from} to={to} />}
           {tab === "guests" && <GuestsTab purchased={purchased} />}
           {tab === "capacity" && <CapacityTab bookings={bookings} from={from} to={to} today={today} />}
           {tab === "games" && <GamesTab bookings={bookings} from={from} to={to} />}
           {tab === "surveys" && <SurveysTab from={from} to={to} />}
           {tab === "discounts" && <DiscountsTab purchased={purchased} />}
-          {tab === "abandonment" && (
-            <p className="mgr-empty">
-              Cart abandonment isn&apos;t tracked — carts live in the visitor&apos;s browser until checkout, so
-              abandoned ones never reach the server. Say the word if you want hold events recorded.
-            </p>
-          )}
         </div>
       </div>
       </div>
