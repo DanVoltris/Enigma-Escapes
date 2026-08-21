@@ -40,19 +40,16 @@ const SECTIONS: { heading: string; items: { href: string; label: string }[] }[] 
 export default function SettingsNav() {
   const pathname = usePathname();
   return (
+    // Same bar as Reports: groups are clusters separated by a hairline, not a
+    // heading apiece. The group name rides along as the cluster's tooltip.
     <nav className="rpt-nav" aria-label="Settings sections">
       {SECTIONS.map((s) => (
-        <div key={s.heading}>
-          <h3>{s.heading}</h3>
-          <ul>
-            {s.items.map((t) => (
-              <li key={t.href}>
-                <Link href={t.href} className={pathname === t.href ? "active" : undefined}>
-                  {t.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <div className="rpt-nav-group" key={s.heading} title={s.heading}>
+          {s.items.map((t) => (
+            <Link key={t.href} href={t.href} className={pathname === t.href ? "active" : undefined}>
+              {t.label}
+            </Link>
+          ))}
         </div>
       ))}
     </nav>
