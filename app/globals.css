@@ -1273,32 +1273,38 @@ a:hover {
 }
 
 /* stat tiles */
+/* One row of figures, ruled rather than floating — the same treatment the
+   report tiles use, so the two screens read as one product. */
 .mgr-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  border: 1px solid var(--border);
+  margin-bottom: 28px;
 }
 .mgr-stat {
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--accent);
-  padding: 18px 20px;
+  padding: 18px 20px 16px;
+  border-right: 1px solid var(--border);
+}
+.mgr-stat:last-child {
+  border-right: 0;
 }
 .mgr-stat .label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 .mgr-stat .value {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 700;
-  line-height: 1.2;
-  margin: 4px 0 2px;
+  line-height: 1.1;
+  margin: 6px 0 6px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 .mgr-stat .hint {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -1684,7 +1690,11 @@ a:hover {
    documents and is capped for line length; this page is a dashboard, and the
    charts were being squeezed into two thirds of the screen while a column of
    links held the rest. */
-.mgr-content:has(> .rpt-page) {
+/* Dashboard-style pages — a board of panels rather than a document — run wider
+   than the reading column the rest of the portal uses. Deliberately NOT the
+   calendar's .mgr-wide: that one is full-bleed and caps its cards at reading
+   width for the forms inside them. */
+.mgr-content:has(> .mgr-board) {
   max-width: 1680px;
 }
 .rpt-layout {
@@ -1742,18 +1752,18 @@ a:hover {
    page was drawing its bars in brand green and its charts in blue. The calendar
    sets the precedent: its slot colours are a fixed blue ramp whatever the brand
    colour is. */
-.rpt-layout .mgr-meter .fill {
+.mgr-panels .mgr-meter .fill {
   background: var(--chart-1);
 }
 
 /* Report cards carry their heading on a tinted strip so a page of them reads as
    a stack of named sections rather than a grid of identical grey boxes. Sharp
    corners throughout, as everywhere else. */
-.rpt-layout .mgr-card {
+.mgr-panels .mgr-card {
   padding: 0;
   overflow: hidden;
 }
-.rpt-layout .mgr-card > h2 {
+.mgr-panels .mgr-card > h2 {
   margin: 0;
   padding: 14px 20px;
   font-size: 15px;
@@ -1761,20 +1771,20 @@ a:hover {
   border-bottom: 1px solid var(--border);
   background: var(--muted-bg);
 }
-.rpt-layout .mgr-card > *:not(h2) {
+.mgr-panels .mgr-card > *:not(h2) {
   margin-left: 20px;
   margin-right: 20px;
 }
-.rpt-layout .mgr-card > *:nth-child(2) {
+.mgr-panels .mgr-card > *:nth-child(2) {
   margin-top: 16px;
 }
-.rpt-layout .mgr-card > *:last-child {
+.mgr-panels .mgr-card > *:last-child {
   margin-bottom: 18px;
 }
-.rpt-layout .mgr-card > .mgr-table-wrap {
+.mgr-panels .mgr-card > .mgr-table-wrap {
   margin: 0;
 }
-.rpt-layout .mgr-card > .mgr-table-wrap:last-child {
+.mgr-panels .mgr-card > .mgr-table-wrap:last-child {
   margin-bottom: 0;
 }
 

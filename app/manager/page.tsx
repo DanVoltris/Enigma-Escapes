@@ -208,6 +208,8 @@ async function OperationsView({
         </div>
       </div>
 
+      {/* Full width and panel-style cards, the same treatment as Reports. */}
+      <div className="mgr-board mgr-panels">
       <div className="mgr-stats">
         <div className="mgr-stat">
           <div className="label">Games today</div>
@@ -373,6 +375,7 @@ async function OperationsView({
             </table>
           </div>
         )}
+      </div>
       </div>
     </>
   );

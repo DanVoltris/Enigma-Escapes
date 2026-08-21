@@ -159,8 +159,9 @@ export default async function ManagerReports({
 
   return (
     <>
-      {/* .rpt-page is what widens the container — see globals.css */}
-      <div className="rpt-page">
+      {/* mgr-board widens the container, mgr-panels gives the cards their
+          heading strip — both shared with the dashboard. */}
+      <div className="rpt-page mgr-board mgr-panels">
         <h1 className="mgr-page-title">Reports</h1>
 
       <div className="rpt-layout">
