@@ -161,22 +161,26 @@ export default async function ManagerReports({
 
   return (
     <>
-      <h1 className="mgr-page-title">Reports</h1>
+      {/* .rpt-page is what widens the container — see globals.css */}
+      <div className="rpt-page">
+        <h1 className="mgr-page-title">Reports</h1>
 
       <div className="rpt-layout">
+        {/* Across the top, not down the side: the reports are peers, and a
+            column of them ate a fifth of the width while the charts beside it
+            were squeezed. Grouped by a hairline rather than a heading each. */}
         <nav className="rpt-nav" aria-label="Report types">
           {sections.map((s) => (
-            <div key={s}>
-              <h3>{s}</h3>
-              <ul>
-                {TABS.filter((t) => t.section === s).map((t) => (
-                  <li key={t.key}>
-                    <Link href={qs(t.key)} className={t.key === tab ? "active" : undefined}>
-                      {t.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            <div className="rpt-nav-group" key={s} title={s}>
+              {TABS.filter((t) => t.section === s).map((t) => (
+                <Link
+                  key={t.key}
+                  href={qs(t.key)}
+                  className={t.key === tab ? "active" : undefined}
+                >
+                  {t.label}
+                </Link>
+              ))}
             </div>
           ))}
         </nav>
@@ -227,6 +231,7 @@ export default async function ManagerReports({
             </p>
           )}
         </div>
+      </div>
       </div>
     </>
   );

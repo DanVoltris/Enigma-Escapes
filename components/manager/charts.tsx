@@ -10,8 +10,11 @@ const AREA_FILL = "rgba(135, 206, 250, 0.28)"; // the accent, as a wash under th
 
 export type SeriesPoint = { label: string; value: number; display: string };
 
-const W = 720;
-const H = 220;
+// The SVG scales to its container's width and takes its height from the aspect
+// ratio, so a wide viewBox is what keeps a full-width chart from standing up
+// half a metre tall. 1200x260 gives roughly a 4.6:1 band at any width.
+const W = 1200;
+const H = 260;
 const PAD_L = 56;
 const PAD_B = 24;
 const PAD_T = 10;

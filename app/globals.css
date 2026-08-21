@@ -1680,52 +1680,54 @@ a:hover {
 }
 
 /* reports: left sub-nav + content */
+/* Reports runs the full width of the window. The rest of the portal reads as
+   documents and is capped for line length; this page is a dashboard, and the
+   charts were being squeezed into two thirds of the screen while a column of
+   links held the rest. */
+.mgr-content:has(> .rpt-page) {
+  max-width: 1680px;
+}
 .rpt-layout {
-  display: grid;
-  grid-template-columns: 190px 1fr;
-  gap: 32px;
-  align-items: start;
+  display: block;
 }
 .rpt-nav {
-  /* A rule instead of a box: the nav is a list beside the content, not a panel
-     competing with the cards next to it. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 0 0 12px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+/* Sections stay legible as clusters without a heading apiece — a thin rule
+   between groups does the same job in a fraction of the space. */
+.rpt-nav-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding-right: 18px;
   border-right: 1px solid var(--border);
-  padding: 4px 20px 4px 0;
-  position: sticky;
-  top: 16px;
 }
-.rpt-nav h3 {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--sold-text);
-  margin: 22px 0 6px;
+.rpt-nav-group:last-child {
+  border-right: 0;
+  padding-right: 0;
 }
-.rpt-nav div:first-child h3 {
-  margin-top: 0;
-}
-.rpt-nav ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.rpt-nav li a {
+.rpt-nav a {
   display: block;
-  padding: 7px 10px;
+  padding: 7px 12px;
   text-decoration: none;
   color: var(--text-secondary);
-  border-left: 3px solid transparent;
+  font-size: 14px;
+  white-space: nowrap;
 }
-.rpt-nav li a:hover {
+.rpt-nav a:hover {
   background: var(--muted-bg);
   color: var(--text);
 }
-.rpt-nav li a.active {
-  background: var(--accent-tint);
-  border-left-color: var(--accent);
-  color: var(--text);
-  font-weight: 700;
+.rpt-nav a.active {
+  background: var(--text);
+  color: #fff;
+  font-weight: 600;
 }
 .rpt-title {
   font-size: 26px;
