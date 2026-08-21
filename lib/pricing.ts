@@ -60,13 +60,16 @@ export function computeTotals(
   taxPercent: number,
   mode: PricingMode = DEFAULT_PRICING_MODE,
   // A one-off charge for the whole booking — the corporate event fee. Added
-  // once, never multiplied by the party, and never discounted: a promo code is
-  // for the games, not for the host's time.
+  // once and never multiplied by the party.
   flatFeeCents = 0
 ): Totals {
   const roomsCents = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
-  const discountCents = Math.round((roomsCents * percentOff) / 100);
+  // Discounted along with everything else. It used to sit outside the discount
+  // base on the theory that a promo is for the games and not the host's time —
+  // which meant a 100% "prize" code left $350 to pay on a booking that was
+  // supposed to be free. A code discounts the booking.
   const listedCents = roomsCents + flatFeeCents;
+  const discountCents = Math.round((listedCents * percentOff) / 100);
 
   let subtotalCents: number;
   let gstCents: number;
