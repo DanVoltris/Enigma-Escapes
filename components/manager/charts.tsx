@@ -6,7 +6,7 @@
 import { useRef, useState } from "react";
 
 const NAVY = "#0b2540"; // line ink — high contrast on white
-const AREA_FILL = "rgba(135, 206, 250, 0.3)"; // accent tint
+const AREA_FILL = "rgba(135, 206, 250, 0.28)"; // the accent, as a wash under the line
 
 export type SeriesPoint = { label: string; value: number; display: string };
 
@@ -64,7 +64,7 @@ export function AreaChart({ points, ariaLabel }: { points: SeriesPoint[]; ariaLa
       >
         {gridlines.map((g) => (
           <g key={g.v}>
-            <line x1={PAD_L} x2={W - 8} y1={g.yy} y2={g.yy} stroke="#e1e5e8" strokeWidth="1" />
+            <line x1={PAD_L} x2={W - 8} y1={g.yy} y2={g.yy} stroke="#eef1f4" strokeWidth="1" />
             <text x={PAD_L - 8} y={g.yy + 4} textAnchor="end" fontSize="11" fill="#5b6770">
               ${(g.v / 100).toLocaleString("en-CA", { maximumFractionDigits: 0 })}
             </text>
@@ -151,7 +151,21 @@ export function Donut({ slices, ariaLabel }: { slices: Slice[]; ariaLabel: strin
       ) : (
         <>
           <svg viewBox={`0 0 ${size} ${size}`} style={{ width: 170, height: 170, flexShrink: 0 }}>
-            {paths.map((s, i) => (
+            {/* One category holding everything sweeps a full turn, and an arc
+                whose start and end land on the same point draws nothing — the
+                card came out empty but for its legend. A whole ring is a
+                circle, not an arc. */}
+            {paths.length === 1 ? (
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={R}
+                fill={paths[0].color}
+                onPointerMove={(e) => onMove(e, 0)}
+                onPointerLeave={() => setTip(null)}
+              />
+            ) : (
+              paths.map((s, i) => (
               <path
                 key={i}
                 d={s.d}
@@ -162,7 +176,8 @@ export function Donut({ slices, ariaLabel }: { slices: Slice[]; ariaLabel: strin
                 onPointerMove={(e) => onMove(e, i)}
                 onPointerLeave={() => setTip(null)}
               />
-            ))}
+              ))
+            )}
             <circle cx={size / 2} cy={size / 2} r={R * 0.55} fill="#fff" pointerEvents="none" />
           </svg>
           <ul className="rpt-legend">

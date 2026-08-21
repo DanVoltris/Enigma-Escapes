@@ -26,9 +26,13 @@ export const dynamic = "force-dynamic";
 // Validated report palette (dataviz six-checks, light surface): status pair and
 // payment trio pass; red/green sits in the CVD floor band, so every donut adds
 // secondary encoding (white slice gaps + labelled legend with counts).
-const GOOD = "#1f7a4d";
+// Chart ink, from the site's own palette rather than a generic dashboard one.
+// GOOD is the strong sky blue the calendar uses for a full slot; MID its lighter
+// step; BAD stays the danger red, because a no-show should read as a problem and
+// nothing else on the page is red.
+const GOOD = "#1877b8";
+const MID = "#b3ddf7";
 const BAD = "#c43b3b";
-const MID = "#2b7bb9";
 
 const TABS = [
   { section: "Looking ahead", key: "upcoming", label: "Upcoming" },
@@ -337,7 +341,7 @@ function SalesTab({
         </div>
         <div className="rpt-tile">
           <div className="label">Paid</div>
-          <div className="value" style={{ color: GOOD }}>
+          <div className="value">
             {formatMoney(now.paid)}
           </div>
           <DeltaTag pct={delta(now.paid, was.paid)} upIsGood={true} />
@@ -419,7 +423,7 @@ function SalesTab({
         </div>
         <div className="mgr-card">
           <h2>By staff user</h2>
-          <p className="cust-empty">Not tracked yet — needs the staff login, which is still to be built.</p>
+          <p className="cust-empty">Not tracked yet — bookings don't record which staff account took them.</p>
         </div>
       </div>
     </>

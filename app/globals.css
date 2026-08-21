@@ -21,6 +21,18 @@
   --slot-full: #4aabe8; /* full */
   --slot-blocked: #f6cccc; /* taken out of service — can't be sold */
   --slot-na: #d5dbe1; /* not offered at this time */
+
+  /* Report charts. Built from the same sky blue the calendar and the accent
+     use, so a chart reads as part of this product rather than a widget dropped
+     in from another one — the old palette paired a forest green with a primary
+     blue and matched nothing on the page. Ordered light to dark so a series
+     keeps its meaning when it gains a category. */
+  --chart-1: #4aabe8;
+  --chart-2: #0b2540;
+  --chart-3: #b3ddf7;
+  --chart-4: #1877b8;
+  --chart-5: #7f8b95;
+  --chart-grid: #eef1f4;
 }
 
 * {
@@ -1675,18 +1687,20 @@ a:hover {
   align-items: start;
 }
 .rpt-nav {
-  border: 1px solid var(--border);
-  padding: 18px;
+  /* A rule instead of a box: the nav is a list beside the content, not a panel
+     competing with the cards next to it. */
+  border-right: 1px solid var(--border);
+  padding: 4px 20px 4px 0;
   position: sticky;
   top: 16px;
 }
 .rpt-nav h3 {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-secondary);
-  margin: 18px 0 8px;
+  color: var(--sold-text);
+  margin: 22px 0 6px;
 }
 .rpt-nav div:first-child h3 {
   margin-top: 0;
@@ -1700,63 +1714,126 @@ a:hover {
   display: block;
   padding: 7px 10px;
   text-decoration: none;
-  color: var(--text);
+  color: var(--text-secondary);
+  border-left: 3px solid transparent;
 }
 .rpt-nav li a:hover {
   background: var(--muted-bg);
+  color: var(--text);
 }
 .rpt-nav li a.active {
   background: var(--accent-tint);
-  border-left: 3px solid var(--accent);
-  padding-left: 7px;
+  border-left-color: var(--accent);
+  color: var(--text);
   font-weight: 700;
 }
 .rpt-title {
-  font-size: 20px;
+  font-size: 26px;
   font-weight: 700;
-  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px;
+}
+
+/* Fill bars on Reports read as data, not as a button. The portal's accent is
+   the venue's own brand colour (green here, and changeable in Settings), which
+   is right for things you click and wrong for a chart sitting beside one — the
+   page was drawing its bars in brand green and its charts in blue. The calendar
+   sets the precedent: its slot colours are a fixed blue ramp whatever the brand
+   colour is. */
+.rpt-layout .mgr-meter .fill {
+  background: var(--chart-1);
+}
+
+/* Report cards carry their heading on a tinted strip so a page of them reads as
+   a stack of named sections rather than a grid of identical grey boxes. Sharp
+   corners throughout, as everywhere else. */
+.rpt-layout .mgr-card {
+  padding: 0;
+  overflow: hidden;
+}
+.rpt-layout .mgr-card > h2 {
+  margin: 0;
+  padding: 14px 20px;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted-bg);
+}
+.rpt-layout .mgr-card > *:not(h2) {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+.rpt-layout .mgr-card > *:nth-child(2) {
+  margin-top: 16px;
+}
+.rpt-layout .mgr-card > *:last-child {
+  margin-bottom: 18px;
+}
+.rpt-layout .mgr-card > .mgr-table-wrap {
+  margin: 0;
+}
+.rpt-layout .mgr-card > .mgr-table-wrap:last-child {
+  margin-bottom: 0;
 }
 
 /* report stat tiles with period-over-period deltas */
 .rpt-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* Narrow enough that the usual six sit on one line — wrapping left a lone
+     tile with a stub of border trailing off beside it. */
+  grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
   border: 1px solid var(--border);
   margin-bottom: 28px;
 }
+/* Rules on the tiles rather than a coloured gap behind them: a short last row
+   left the leftover grid cells showing the background as a grey slab. */
 .rpt-tile {
-  padding: 16px 18px;
+  padding: 18px 18px 16px;
   border-right: 1px solid var(--border);
+}
+.rpt-tile:last-child {
+  border-right: 0;
 }
 .rpt-tile:last-child {
   border-right: 0;
 }
 .rpt-tile .label {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 .rpt-tile .value {
-  font-size: 24px;
+  /* The figure is the point of the tile: bigger, and tabular so a row of them
+     lines up digit for digit instead of wandering. */
+  font-size: 30px;
   font-weight: 700;
-  margin: 4px 0 2px;
-  line-height: 1.2;
+  margin: 6px 0 8px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
+/* The change against the previous period is context, not the headline — a
+   quiet chip rather than a coloured shout with an arrow glued to it. */
 .rpt-delta {
+  display: inline-block;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
+  padding: 2px 7px;
+  background: var(--muted-bg);
+  color: var(--text-secondary);
 }
 .rpt-delta.good {
-  color: #1f7a4d;
+  background: var(--accent-tint);
+  color: #10527e;
 }
 .rpt-delta.bad {
+  background: var(--danger-tint);
   color: var(--danger);
 }
 .rpt-delta.muted {
-  color: var(--text-secondary);
   font-weight: 400;
 }
 
@@ -1765,6 +1842,9 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 28px;
+  /* Each card ends where its content does. Stretching them all to the tallest
+     left short ones with a pool of empty space under the legend. */
+  align-items: start;
 }
 .rpt-cards .mgr-card {
   margin-bottom: 28px;
