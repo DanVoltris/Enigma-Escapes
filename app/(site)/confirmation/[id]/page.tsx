@@ -157,8 +157,16 @@ export default async function ConfirmationPage({
             <div className="summary-totals" style={{ borderTop: "none", paddingTop: 0 }}>
               <div className="summary-line">
                 <span>Subtotal</span>
-                <span>{formatMoney(pricing.subtotalCents)}</span>
+                {/* Before the discount, so the receipt adds up — the stored
+                    subtotal is already net of it. */}
+                <span>{formatMoney(pricing.subtotalCents + pricing.discountCents)}</span>
               </div>
+              {(pricing.flatFeeCents ?? 0) > 0 && (
+                <div className="summary-line">
+                  <span>Corporate event</span>
+                  <span>{formatMoney(pricing.flatFeeCents ?? 0)}</span>
+                </div>
+              )}
               {pricing.discountCents > 0 && (
                 <div className="summary-line discount">
                   <span>Promo ({booking.promoCode})</span>

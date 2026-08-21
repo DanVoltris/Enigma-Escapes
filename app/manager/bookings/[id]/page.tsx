@@ -253,8 +253,21 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
             <div className="cust-totals">
               <div>
                 <div className="label">Subtotal</div>
-                <div className="value">{formatMoney(pricing.subtotalCents)}</div>
+                {/* Before the discount, so the column adds up. The stored
+                    subtotal is already net of it, which read as
+                    "$0.00 subtotal, −$921.60 discount" on a booking given
+                    away — three figures that couldn't be reconciled. */}
+                <div className="value">{formatMoney(pricing.subtotalCents + pricing.discountCents)}</div>
               </div>
+              {(pricing.flatFeeCents ?? 0) > 0 && (
+                <div>
+                  {/* The fee is charged once for the booking, so it appears in
+                      no room's line above — without this the subtotal is larger
+                      than the sessions listed and nothing says why. */}
+                  <div className="label">Corporate event</div>
+                  <div className="value">{formatMoney(pricing.flatFeeCents ?? 0)}</div>
+                </div>
+              )}
               {pricing.discountCents > 0 && (
                 <div>
                   <div className="label">Discount</div>
