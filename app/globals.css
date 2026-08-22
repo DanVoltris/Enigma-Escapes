@@ -4504,6 +4504,28 @@ textarea:focus {
     padding-top: 10px;
     padding-bottom: 10px;
   }
+  /* Two links sit inline in tight rows, so they get their finger room from
+     padding cancelled by an equal negative margin: the hit area grows to 44px
+     while the layout around them is unchanged. */
+  .mgr-view-site,
+  .link-button {
+    padding: 11px 6px;
+    margin: -11px -6px;
+  }
+  /* A pill that is a link is a filter — the location and day switches. A pill
+     that is not is a status badge ("Paid", "Cancelled"), and growing those
+     would push every table row taller for nothing. */
+  a.mgr-pill {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* The reference in a table cell is the row's way in. Same padding trick, so
+     the row keeps its height. */
+  .mgr-table td a {
+    padding: 11px 0;
+    margin: -11px 0;
+  }
   /* Momentum scrolling for the tables that have to scroll sideways. */
   .mgr-table-wrap,
   .mgr-nav {
@@ -4720,3 +4742,68 @@ textarea:focus {
   color: var(--text-secondary);
 }
 .walkin-when span { display: block; }
+
+/* ---------------------------------------------------------------------------
+   Very large displays — 1440p monitors, 4K panels, and the screen in the back
+   room that the day's sessions get thrown up on. The portal's type is sized
+   for a desk at arm's length; on a wall or a 32" panel the same 13px grey is
+   unreadable from where anyone is standing, and 880px of the screen sits empty
+   either side of the content.
+
+   The cut-off is deliberately past 1920, the ordinary desktop width, so a
+   normal monitor is untouched — only screens big enough that the viewer is
+   either far away or has room to spare get the larger setting.
+   --------------------------------------------------------------------------- */
+@media (min-width: 2200px) {
+  .mgr-content:has(.mgr-board),
+  .mgr-topbar-inner,
+  .mgr-nav-inner {
+    max-width: 2040px;
+  }
+
+  /* Body copy and the things read at a glance across a room. */
+  .mgr .mgr-table th,
+  .mgr .mgr-tab,
+  .mgr .rpt-nav a,
+  .mgr .mgr-subtab {
+    font-size: 16px;
+  }
+  .mgr .mgr-table td,
+  .mgr .mgr-card,
+  .mgr .mgr-page-sub,
+  .mgr .today-list,
+  .mgr .req-rows {
+    font-size: 17px;
+  }
+  .mgr .card-sub,
+  .mgr .sub,
+  .mgr .field label,
+  .mgr .field-hint,
+  .mgr .mgr-pill,
+  .mgr .mgr-stat .label,
+  .mgr .rpt-tile .label,
+  .mgr .req-label {
+    font-size: 15px;
+  }
+
+  /* The figures are the point of the dashboard and the reports — they carry
+     furthest and should scale hardest. */
+  .mgr .mgr-stat .value,
+  .mgr .rpt-tile .value {
+    font-size: 34px;
+  }
+  .mgr .mgr-page-title {
+    font-size: 26px;
+  }
+  .mgr .mgr-card > h2,
+  .mgr .mgr-card > .intg-head h2 {
+    font-size: 17px;
+  }
+  .mgr .mgr-title {
+    font-size: 25px;
+  }
+  .mgr .mgr-logo {
+    width: 209px;
+    height: 46px; /* still 155 x 34 in proportion, so the crop is unchanged */
+  }
+}
