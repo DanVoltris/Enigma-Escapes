@@ -53,6 +53,26 @@ export async function getBusinessDetails(): Promise<SettingResult<BusinessDetail
   return getSetting<BusinessDetails>("business_details");
 }
 
+// The venue's own name, for anywhere a customer or staff member reads it: page
+// titles, the sign-in screen, the texts we send. Set in Settings -> Business.
+//
+// This is what lets one codebase run two venues. Nothing customer-facing should
+// hardcode a company name; if a second venue's customers get a text naming the
+// first one, this is the function that was skipped.
+export const DEFAULT_COMPANY_NAME = "Voltris Booking";
+
+// Never throws: it is called from page metadata and from SMS templates, and a
+// settings read failing is not a reason for either to fall over. An unset name
+// falls back to the product name, which is wrong but harmless and obvious.
+export async function getCompanyName(): Promise<string> {
+  try {
+    const { value } = await getBusinessDetails();
+    return value?.companyName?.trim() || DEFAULT_COMPANY_NAME;
+  } catch {
+    return DEFAULT_COMPANY_NAME;
+  }
+}
+
 // ---------- booking policies ----------
 // The reschedule/cancellation policy text a venue shows customers. These are
 // DISPLAY policies (rendered on the confirmation page) — not self-service

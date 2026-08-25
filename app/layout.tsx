@@ -3,13 +3,19 @@ import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { primeLocale } from "@/lib/format";
 import { getLocale } from "@/lib/locale";
+import { getCompanyName } from "@/lib/settings";
 
 const sourceSans = Source_Sans_3({ subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "Voltris Booking",
-  description: "Book your escape room experience with Voltris Booking.",
-};
+// The venue's name, not the software's — this is the browser tab a customer
+// sees, and the two venues running this code are different businesses.
+export async function generateMetadata(): Promise<Metadata> {
+  const company = await getCompanyName();
+  return {
+    title: company,
+    description: `Book your escape room experience with ${company}.`,
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Load the business locale once per render and prime it for server components;

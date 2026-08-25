@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCart } from "@/lib/cart";
 import { useSiteConfig } from "@/lib/site-config";
 
-export default function Header() {
+export default function Header({ company }: { company: string }) {
   const { items } = useCart();
   const { logoUrl } = useSiteConfig();
   const count = items.length;
@@ -15,11 +15,10 @@ export default function Header() {
         <Link href="/" className="brand">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- data URLs in local mode
-            <img src={logoUrl} alt="Voltris Booking" className="brand-logo" />
+            <img src={logoUrl} alt={company} className="brand-logo" />
           ) : (
-            <>
-              Voltris <span className="brand-accent">Booking</span>
-            </>
+            // No logo uploaded yet: the venue's own name, never the software's.
+            company
           )}
         </Link>
         <div className="header-right">

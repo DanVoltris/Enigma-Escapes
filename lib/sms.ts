@@ -5,7 +5,7 @@
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { alertRecipients } from "./request-alerts";
-import { getBusinessDetails } from "./settings";
+import { getBusinessDetails, getCompanyName } from "./settings";
 import { formatDateLong, formatTime } from "./format";
 import type { Booking } from "./types";
 
@@ -145,7 +145,7 @@ export async function notifyBookingCancelled(booking: Booking): Promise<void> {
   try {
     await sendSms(
       booking.customer.phone,
-      `Your Enigma Escapes booking ${booking.reference}${first ? ` (${first.roomName})` : ""} is cancelled. Any refund follows your original payment method.`
+      `Your ${await getCompanyName()} booking ${booking.reference}${first ? ` (${first.roomName})` : ""} is cancelled. Any refund follows your original payment method.`
     );
   } catch (err) {
     console.error("cancellation SMS failed:", err);
@@ -214,7 +214,7 @@ export async function notifyRewardCode(
   try {
     await sendSms(
       booking.customer.phone,
-      `Thanks for booking with Enigma Escapes! Here's ${percentOff}% off your next game: ${code}. Use it on a later session before ${deadline}.`
+      `Thanks for booking with ${await getCompanyName()}! Here's ${percentOff}% off your next game: ${code}. Use it on a later session before ${deadline}.`
     );
   } catch (err) {
     console.error("reward SMS failed:", err);

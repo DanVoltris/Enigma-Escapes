@@ -3,12 +3,17 @@ import Header from "@/components/Header";
 import { readableOn, shade, tint } from "@/lib/color";
 import { activeTrackers, fbPixelScript, gtmScript } from "@/lib/integrations";
 import { getIntegrations } from "@/lib/settings";
+import { getCompanyName } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
 import { SiteConfigProvider } from "@/lib/site-config";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   // Booking-site settings drive the theme, basket hold and on-site copy.
-  const [site, integrations] = await Promise.all([getSiteSettings(), getIntegrations()]);
+  const [site, integrations, company] = await Promise.all([
+    getSiteSettings(),
+    getIntegrations(),
+    getCompanyName(),
+  ]);
 
   // Marketing scripts (Settings → Integrations) run on the customer site only,
   // and only with a validated ID — the IDs are interpolated into inline
@@ -53,7 +58,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           </>
         )}
         <div className="site-theme">
-          <Header />
+          <Header company={company} />
           <main className="container">
             {(site.introHeading || site.introText) && (
               <div className="site-intro">

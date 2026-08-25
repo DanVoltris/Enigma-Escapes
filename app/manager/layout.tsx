@@ -4,12 +4,15 @@ import ManagerNav from "@/components/manager/ManagerNav";
 import SignOutButton from "@/components/manager/SignOutButton";
 import { requireStaff } from "@/lib/auth";
 import { readableOn, shade, tint } from "@/lib/color";
+import { getCompanyName } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
 
-export const metadata: Metadata = {
-  title: "Manager — Enigma Escapes",
-  robots: { index: false, follow: false }, // staff area: keep out of search engines
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: `Manager — ${await getCompanyName()}`,
+    robots: { index: false, follow: false }, // staff area: keep out of search engines
+  };
+}
 
 export default async function ManagerLayout({ children }: { children: React.ReactNode }) {
   // Everything under /manager requires a signed-in account. Individual pages

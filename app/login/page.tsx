@@ -2,14 +2,17 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import LoginForm from "@/components/manager/LoginForm";
 import { currentStaff } from "@/lib/auth";
+import { getCompanyName } from "@/lib/settings";
 import { staffCount } from "@/lib/staff";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Staff sign in — Enigma Escapes",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: `Staff sign in — ${await getCompanyName()}`,
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
@@ -24,6 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   } catch {
     firstRun = false;
   }
+  const company = await getCompanyName();
 
   return (
     <div className="login-wrap">
@@ -32,7 +36,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="card-sub">
           {firstRun
             ? "Nobody has an account yet. Create the owner account — you'll add staff logins afterwards from Settings → Team."
-            : "Sign in to the Enigma Escapes staff portal."}
+            : `Sign in to the ${company} staff portal.`}
         </p>
         <LoginForm firstRun={firstRun} next={next && next.startsWith("/manager") ? next : "/manager"} />
       </div>
