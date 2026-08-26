@@ -4807,3 +4807,71 @@ textarea:focus {
     height: 46px; /* still 155 x 34 in proportion, so the crop is unchanged */
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Invoice builder (Bookings -> Invoices -> New invoice)
+   One row per billable line. It stays a grid down to tablet width and stacks
+   on a phone, where seven fields side by side is nobody's idea of a form.
+   --------------------------------------------------------------------------- */
+.inv-line {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(160px, 1.4fr) 150px 120px 70px 110px auto auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.inv-line:last-of-type {
+  border-bottom: 0;
+}
+.inv-line .field {
+  margin: 0;
+}
+.inv-line-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  white-space: nowrap;
+}
+.inv-line .link-button {
+  padding-bottom: 10px;
+}
+.inv-totals {
+  margin-top: 8px;
+  border-collapse: collapse;
+  min-width: 260px;
+}
+.inv-totals td {
+  padding: 6px 0;
+  color: var(--text-secondary);
+}
+.inv-totals td.num {
+  padding-left: 32px;
+  text-align: right;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.inv-totals .inv-grand td {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text);
+}
+@media (max-width: 1100px) {
+  .inv-line {
+    grid-template-columns: repeat(2, minmax(140px, 1fr)) auto;
+  }
+}
+@media (max-width: 640px) {
+  .inv-line {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .inv-line-total {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-bottom: 0;
+  }
+}

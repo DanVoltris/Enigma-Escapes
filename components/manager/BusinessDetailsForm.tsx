@@ -10,6 +10,7 @@ const EMPTY: BusinessDetails = {
   cell: "",
   email: "",
   website: "",
+  address: "",
   taxLabel: "",
   taxNumber: "",
 };
@@ -80,6 +81,20 @@ export default function BusinessDetailsForm({ initial }: { initial: BusinessDeta
           <div className="field" style={{ maxWidth: 420 }}>
             <label htmlFor="bd-web">Website</label>
             <input id="bd-web" type="text" value={d.website} onChange={set("website")} placeholder="https://…" />
+          </div>
+          <div className="field" style={{ maxWidth: 420 }}>
+            <label htmlFor="bd-addr">Business address</label>
+            <input
+              id="bd-addr"
+              type="text"
+              value={d.address}
+              onChange={set("address")}
+              placeholder="123 Main St, Winnipeg MB R3C 1A1"
+            />
+            <p className="field-hint">
+              Printed on invoices and receipts. Canadian anti-spam law expects a mailing address on
+              email you send customers, so leaving this blank is worth avoiding.
+            </p>
           </div>
         </div>
       </div>

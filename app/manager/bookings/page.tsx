@@ -1,4 +1,5 @@
 import BoardPage from "@/components/manager/BoardPage";
+import BookingsSubnav from "@/components/manager/BookingsSubnav";
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
@@ -162,6 +163,8 @@ export default async function ManagerBookings({
           + Book now
         </Link>
       </div>
+
+      <BookingsSubnav />
 
       <BookingsFilterBar />
 

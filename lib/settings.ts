@@ -19,6 +19,10 @@ export type BusinessDetails = {
   cell: string;
   email: string;
   website: string;
+  // Shown on invoices and receipts, which normally carry the business address,
+  // and required on commercial email under Canada's anti-spam law. One field
+  // rather than street/city/postcode: it is only ever printed as written.
+  address: string;
   taxLabel: string; // e.g. "GST (Goods and Services Tax)"
   taxNumber: string;
   // Everyone who should be texted the moment a booking request lands. A

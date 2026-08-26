@@ -301,6 +301,27 @@ create table if not exists feedback (
   created_at  timestamptz not null default now()
 );
 
+-- --------------------------------------------------------------------- quotes
+-- Invoices raised before a booking exists. Holds no slot and takes no money —
+-- a document for a customer's accounts department, nothing more.
+create table if not exists quotes (
+  id              uuid primary key default gen_random_uuid(),
+  number          text not null unique,
+  token           text not null unique,
+  created_at      timestamptz not null default now(),
+  created_by      text,
+  customer        jsonb not null,
+  lines           jsonb not null default '[]'::jsonb,
+  discount_cents  int not null default 0,
+  tax_percent     numeric not null default 0,
+  note            text,
+  status          text not null default 'draft',
+  sent_at         timestamptz,
+  sent_to         text,
+  expires_on      date
+);
+create index if not exists quotes_created_idx on quotes (created_at desc);
+
 -- =============================================================================
 -- Derived tables, indexes and functions
 --
@@ -641,12 +662,13 @@ alter table staff_shifts        enable row level security;
 alter table staff_notes         enable row level security;
 alter table activity_log        enable row level security;
 alter table feedback            enable row level security;
+alter table quotes              enable row level security;
 alter table booking_email_stats enable row level security;
 
 -- =============================================================================
--- Check it worked. Expect 20 tables and 7 functions.
+-- Check it worked. Expect 21 tables and 7 functions.
 -- =============================================================================
-select 'tables' as kind, count(*) as found, 20 as expected
+select 'tables' as kind, count(*) as found, 21 as expected
 from pg_tables where schemaname = 'public'
 union all
 select 'functions', count(*), 7

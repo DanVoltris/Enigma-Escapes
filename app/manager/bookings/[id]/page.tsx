@@ -2,6 +2,7 @@ import Link from "next/link";
 import { hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
+import SendReceipt from "@/components/manager/SendReceipt";
 import EditCustomer from "@/components/manager/EditCustomer";
 import BookingNotes from "@/components/manager/BookingNotes";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
@@ -12,6 +13,7 @@ import { getRewardCode, rewardForBooking } from "@/lib/reward-codes";
 import { listExperiences } from "@/lib/experiences";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import { outstandingCents, refundGoingBackCents } from "@/lib/pricing";
+import { emailConfigured } from "@/lib/email";
 import { stripeConfigured } from "@/lib/stripe";
 import { listTaxes } from "@/lib/taxes";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -34,6 +36,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
   if (!booking) notFound();
 
   const { customer, items, pricing } = booking;
+  const emailReady = emailConfigured();
   const name = `${customer.firstName} ${customer.lastName}`.trim();
   const created = new Date(booking.createdAt);
   const expMap = new Map(experiences.map((e) => [e.id, e]));
@@ -203,6 +206,14 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
             </div>
 
             <GameResultForm bookingId={booking.id} initial={booking.gameResult} />
+
+            {/* Click-only, by design: a receipt is something a customer asks
+                for, so nothing sends one automatically. */}
+            <SendReceipt
+              bookingId={booking.id}
+              defaultEmail={booking.customer.email || ""}
+              ready={emailReady}
+            />
 
             {/* Every live booking, however many rooms are on it. It used to be
                 single-session only, which left a two-room booking with no way to

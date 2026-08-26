@@ -37,6 +37,7 @@ const PK: Record<string, string> = {
   reward_codes: "code", // 20%-off codes texted after a booking
   staff_members: "id", // the people who run the games (not logins)
   staff_shifts: "id", // check in / check out records
+  quotes: "id", // invoices raised before a booking exists
 };
 
 // Query-string keys that are PostgREST directives, not column filters.
@@ -459,6 +460,7 @@ function seed(): Store {
     experiences,
     bookings: [demoBooking],
     promo_codes: [{ code: "WELCOME10", percent_off: 10, active: true }],
+    quotes: [],
     taxes: [{ id: "tax-gst", name: "GST", percent: 5, active: true, sort: 1 }],
     location_hours: [
       { location: "Downtown", hours: allWeek({ open: "09:00", close: "22:00", closed: false }) },
@@ -473,6 +475,7 @@ function seed(): Store {
           cell: "",
           email: "hello@voltris.test",
           website: "https://voltris.test",
+          address: "12 Sample Street, Winnipeg MB R3C 1A1",
           taxLabel: "GST",
           taxNumber: "123456789",
         },

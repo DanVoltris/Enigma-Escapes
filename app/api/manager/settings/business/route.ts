@@ -25,6 +25,7 @@ export async function PUT(req: NextRequest) {
     cell: str(d.cell, 40),
     email: str(d.email, 120),
     website: str(d.website, 200),
+    address: str(d.address, 300),
     taxLabel: str(d.taxLabel, 80),
     taxNumber: str(d.taxNumber, 40),
   };
