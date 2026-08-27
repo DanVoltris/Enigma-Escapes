@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { allowedLocations, apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { isEmail } from "@/lib/email";
 import { createQuote, type QuoteLine } from "@/lib/quotes";
@@ -58,6 +58,19 @@ export async function POST(req: NextRequest) {
   }
   if (lines.length === 0) {
     return NextResponse.json({ error: "Add at least one line to the invoice." }, { status: 400 });
+  }
+
+  // An account limited to certain venues can only bill for those venues. Lines
+  // with no location (catering, room hire) belong to no site and are allowed.
+  const scope = allowedLocations(guard.staff);
+  if (scope) {
+    const outside = lines.find((l) => l.location && !scope.includes(l.location));
+    if (outside) {
+      return NextResponse.json(
+        { error: `You can't invoice for ${outside.location} — your account covers ${scope.join(", ")}.` },
+        { status: 403 }
+      );
+    }
   }
 
   const discountCents = Math.max(0, Math.round(Number(b.discountCents) || 0));

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { allowedLocations, apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { documentSubject, renderDocument, type DocumentLine } from "@/lib/documents";
 import { emailConfigured, isEmail, sendEmail } from "@/lib/email";
-import { getQuote, lineTotal, markQuoteSent, quoteTotals } from "@/lib/quotes";
+import { getQuote, lineTotal, markQuoteSent, quoteTotals, visibleToScope } from "@/lib/quotes";
 import { getBusinessDetails } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -15,18 +15,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const guard = await apiGuard("bookings.create");
   if (guard.response) return guard.response;
 
-  if (!emailConfigured()) {
-    return NextResponse.json(
-      { error: "Email isn't set up yet. Add RESEND_API_KEY and EMAIL_FROM, then redeploy." },
-      { status: 400 }
-    );
-  }
-
   const { id } = await ctx.params;
   const quote = await getQuote(id);
   if (!quote) return NextResponse.json({ error: "That invoice no longer exists." }, { status: 404 });
   if (quote.status === "void") {
     return NextResponse.json({ error: "That invoice was voided. Raise a new one." }, { status: 400 });
+  }
+  // Hiding it from the list is not the boundary — the send is re-checked here.
+  if (!visibleToScope(quote, allowedLocations(guard.staff))) {
+    return NextResponse.json({ error: "That invoice is for a location you don't work at." }, { status: 403 });
+  }
+
+  if (!emailConfigured()) {
+    return NextResponse.json(
+      { error: "Email isn't set up yet. Add RESEND_API_KEY and EMAIL_FROM, then redeploy." },
+      { status: 400 }
+    );
   }
 
   // The form's address unless staff typed a different one on the send dialog.

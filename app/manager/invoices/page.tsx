@@ -2,16 +2,20 @@ import Link from "next/link";
 import BoardPage from "@/components/manager/BoardPage";
 import BookingsSubnav from "@/components/manager/BookingsSubnav";
 import SendInvoice from "@/components/manager/SendInvoice";
-import { requirePermission } from "@/lib/auth";
+import { allowedLocations, requirePermission } from "@/lib/auth";
 import { emailConfigured } from "@/lib/email";
 import { formatDateLong, formatMoney } from "@/lib/format";
-import { isExpired, listQuotes, quoteTotals } from "@/lib/quotes";
+import { isExpired, listQuotes, quoteTotals, visibleToScope } from "@/lib/quotes";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerInvoices() {
-  await requirePermission("bookings.view", "/manager/invoices");
-  const quotes = await listQuotes().catch(() => []);
+  const staff = await requirePermission("bookings.view", "/manager/invoices");
+  // An account limited to one venue sees only the invoices that touch it —
+  // the same rule the Bookings list follows.
+  const scope = allowedLocations(staff); // null = every location
+  const all = await listQuotes().catch(() => []);
+  const quotes = all.filter((q) => visibleToScope(q, scope));
   const ready = emailConfigured();
 
   return (

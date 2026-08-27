@@ -184,3 +184,22 @@ export async function voidQuote(id: string): Promise<void> {
 export function isExpired(q: Quote): boolean {
   return Boolean(q.expiresOn && q.expiresOn < todayISO());
 }
+
+// Which venues an invoice touches. A quote has no single location — a corporate
+// group can take rooms at two sites on one document — so it is the set across
+// its lines, and a hand-typed line (catering, room hire) contributes none.
+export function quoteLocations(q: Pick<Quote, "lines">): string[] {
+  return [...new Set(q.lines.map((l) => l.location.trim()).filter(Boolean))];
+}
+
+// Whether an account limited to certain venues may see this invoice.
+//
+// `scope` of null means the account sees everything. An invoice naming no venue
+// at all belongs to the business rather than to a site, so it stays visible —
+// hiding it would strand invoices for things that happen at no particular room.
+export function visibleToScope(q: Pick<Quote, "lines">, scope: string[] | null): boolean {
+  if (!scope) return true;
+  const locs = quoteLocations(q);
+  if (locs.length === 0) return true;
+  return locs.some((l) => scope.includes(l));
+}
