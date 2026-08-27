@@ -205,7 +205,10 @@ export default function NewInvoiceForm({
                   value={l.roomId}
                   onChange={(v) => pickRoom(l.key, v)}
                   options={[
-                    { value: "", label: "Type your own…" },
+                    // Leaving it unselected still allows a hand-typed line —
+                    // catering, room hire — but the dropdown shouldn't advertise
+                    // that as if it were the normal thing to do.
+                    { value: "", label: "Select room" },
                     ...experiences.map((e) => ({ value: e.id, label: `${e.name} — ${e.location}` })),
                   ]}
                 />
