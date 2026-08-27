@@ -314,6 +314,8 @@ create table if not exists quotes (
   lines           jsonb not null default '[]'::jsonb,
   discount_cents  int not null default 0,
   tax_percent     numeric not null default 0,
+  corporate       boolean not null default false,
+  flat_fee_cents  int not null default 0,   -- one event fee for the whole invoice
   note            text,
   status          text not null default 'draft',
   sent_at         timestamptz,

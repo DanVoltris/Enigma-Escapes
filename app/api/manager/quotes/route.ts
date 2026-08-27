@@ -73,6 +73,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const corporate = b.corporate === true;
+  const flatFeeCents = corporate ? Math.max(0, Math.round(Number(b.flatFeeCents) || 0)) : 0;
+  if (flatFeeCents > 100_000_00) {
+    return NextResponse.json({ error: "The event fee looks wrong — keep it under $100,000." }, { status: 400 });
+  }
   const discountCents = Math.max(0, Math.round(Number(b.discountCents) || 0));
   const taxPercent = Number(b.taxPercent);
   if (!Number.isFinite(taxPercent) || taxPercent < 0 || taxPercent > 100) {
@@ -85,6 +90,8 @@ export async function POST(req: NextRequest) {
       lines,
       discountCents,
       taxPercent,
+      corporate,
+      flatFeeCents,
       note: str(b.note, 2000),
       expiresOn: str(b.expiresOn, 10) || null,
       createdBy: guard.staff.name,

@@ -35,6 +35,12 @@ export type Quote = {
   lines: QuoteLine[];
   discountCents: number;
   taxPercent: number;
+  // A corporate event: team building away from the rooms, a host, then the
+  // games. One fee for the whole invoice however many rooms it covers — same
+  // shape as a booking's pricing.flatFeeCents, so an invoice and the booking it
+  // becomes agree on the money.
+  corporate: boolean;
+  flatFeeCents: number;
   note: string;
   status: "draft" | "sent" | "void";
   sentAt: string | null;
@@ -52,6 +58,8 @@ type Row = {
   lines: QuoteLine[];
   discount_cents: number;
   tax_percent: number;
+  corporate?: boolean | null;
+  flat_fee_cents?: number | null;
   note: string | null;
   status: Quote["status"];
   sent_at: string | null;
@@ -70,6 +78,9 @@ function toQuote(r: Row): Quote {
     lines: Array.isArray(r.lines) ? r.lines : [],
     discountCents: Number(r.discount_cents ?? 0),
     taxPercent: Number(r.tax_percent ?? 0),
+    // Both added after the first invoices were raised, so older rows read null.
+    corporate: r.corporate === true,
+    flatFeeCents: Number(r.flat_fee_cents ?? 0),
     note: r.note ?? "",
     status: r.status,
     sentAt: r.sent_at,
@@ -80,17 +91,25 @@ function toQuote(r: Row): Quote {
 
 // Money is recomputed from the stored lines every time it is shown, never read
 // back from a saved total — the same rule the booking side follows.
-export function quoteTotals(q: Pick<Quote, "lines" | "discountCents" | "taxPercent">): {
+export function quoteTotals(
+  q: Pick<Quote, "lines" | "discountCents" | "taxPercent"> & { flatFeeCents?: number }
+): {
+  roomsCents: number;
+  flatFeeCents: number;
   subtotalCents: number;
   discountCents: number;
   taxCents: number;
   totalCents: number;
 } {
-  const subtotalCents = q.lines.reduce((n, l) => n + Math.round(l.unitCents * l.quantity), 0);
+  const roomsCents = q.lines.reduce((n, l) => n + Math.round(l.unitCents * l.quantity), 0);
+  const flatFeeCents = Math.max(0, Math.round(q.flatFeeCents ?? 0));
+  // The event fee is charged once and is discountable along with everything
+  // else — the same rule computeTotals follows for a booking.
+  const subtotalCents = roomsCents + flatFeeCents;
   const discountCents = Math.min(Math.max(0, Math.round(q.discountCents)), subtotalCents);
   const taxable = subtotalCents - discountCents;
   const taxCents = Math.round((taxable * q.taxPercent) / 100);
-  return { subtotalCents, discountCents, taxCents, totalCents: taxable + taxCents };
+  return { roomsCents, flatFeeCents, subtotalCents, discountCents, taxCents, totalCents: taxable + taxCents };
 }
 
 export function lineTotal(l: QuoteLine): number {
@@ -133,6 +152,8 @@ export async function createQuote(input: {
   lines: QuoteLine[];
   discountCents: number;
   taxPercent: number;
+  corporate: boolean;
+  flatFeeCents: number;
   note: string;
   expiresOn: string | null;
   createdBy: string;
@@ -147,6 +168,8 @@ export async function createQuote(input: {
     lines: input.lines,
     discount_cents: Math.max(0, Math.round(input.discountCents)),
     tax_percent: Math.max(0, input.taxPercent),
+    corporate: input.corporate,
+    flat_fee_cents: Math.max(0, Math.round(input.flatFeeCents)),
     note: input.note,
     status: "draft" as const,
     sent_at: null,

@@ -18,5 +18,11 @@ create table if not exists quotes (
   sent_to         text,
   expires_on      date
 );
+
+-- Added after the first invoices were raised: a corporate event carries one
+-- fee for the whole invoice, however many rooms it covers.
+alter table quotes add column if not exists corporate boolean not null default false;
+alter table quotes add column if not exists flat_fee_cents int not null default 0;
+
 alter table quotes enable row level security;
 create index if not exists quotes_created_idx on quotes (created_at desc);

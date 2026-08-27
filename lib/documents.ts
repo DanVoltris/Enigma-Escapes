@@ -79,6 +79,10 @@ export function renderDocument(d: DocumentData): string {
   const b = d.business;
   const accent = d.accent || "#16212b";
 
+  // The logo is fitted inside a box rather than given a fixed height: Enigma's
+  // is square, another venue's may be a wide wordmark, and pinning one
+  // dimension while capping the other stretches whichever doesn't match. The
+  // width attribute is only there for Outlook, which ignores max-width.
   const contact = [b.address, b.phone, b.email, b.website].filter((x) => x && x.trim()).map((x) => esc(x!.trim()));
 
   const lines = d.lines
@@ -125,8 +129,8 @@ export function renderDocument(d: DocumentData): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid ${LINE};">
   <tr><td style="padding:28px 28px 0;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td style="vertical-align:top;">
-        ${d.logoUrl ? `<img src="${esc(d.logoUrl)}" alt="${esc(b.companyName)}" height="40" style="display:block;height:40px;width:auto;border:0;">` : `<div style="font-size:20px;font-weight:700;color:${INK};">${esc(b.companyName)}</div>`}
+      <td style="vertical-align:top;width:55%;">
+        ${d.logoUrl ? `<img src="${esc(d.logoUrl)}" alt="${esc(b.companyName)}" width="130" style="display:block;width:auto;height:auto;max-width:210px;max-height:130px;border:0;">` : `<div style="font-size:26px;font-weight:700;color:${INK};">${esc(b.companyName)}</div>`}
       </td>
       <td align="right" style="vertical-align:top;">
         <div style="font-size:22px;font-weight:700;color:${accent};letter-spacing:0.02em;">${esc(title.toUpperCase())}</div>

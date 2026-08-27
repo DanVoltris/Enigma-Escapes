@@ -33,6 +33,19 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ token: str
     unitCents: l.unitCents,
     lineCents: lineTotal(l),
   }));
+  // Charged once for the whole invoice, so it is its own line rather than
+  // being folded into a room's price — the same way a receipt shows it.
+  if (totals.flatFeeCents > 0) {
+    lines.push({
+      roomName: "Event fee",
+      location: null,
+      date: null,
+      time: null,
+      quantity: 1,
+      unitCents: totals.flatFeeCents,
+      lineCents: totals.flatFeeCents,
+    });
+  }
 
   const doc = {
     kind: "invoice" as const,

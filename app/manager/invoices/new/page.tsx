@@ -2,6 +2,7 @@ import BoardPage from "@/components/manager/BoardPage";
 import NewInvoiceForm from "@/components/manager/NewInvoiceForm";
 import { requirePermission } from "@/lib/auth";
 import { listExperiences } from "@/lib/experiences";
+import { CORPORATE_FEE_CENTS } from "@/lib/pricing";
 import { taxSummary } from "@/lib/taxes";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +30,13 @@ export default async function NewInvoicePage() {
           name: e.name,
           location: e.location,
           priceCents: e.priceCents,
+          // The room's own published starts, so the time dropdown offers real
+          // sessions rather than a generic clock.
+          times: e.times ?? [],
         }))}
         taxPercent={tax.percent}
         taxLabel={tax.label}
+        defaultFeeCents={CORPORATE_FEE_CENTS}
       />
     </>
   );
