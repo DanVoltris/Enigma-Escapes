@@ -1,5 +1,6 @@
 import BoardPage from "@/components/manager/BoardPage";
 import BookingsSubnav from "@/components/manager/BookingsSubnav";
+import ClickableRow from "@/components/manager/ClickableRow";
 import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
@@ -206,7 +207,7 @@ export default async function ManagerBookings({
             </thead>
             <tbody>
               {shown.map((b) => (
-                <tr key={b.id}>
+                <ClickableRow key={b.id} href={`/manager/bookings/${b.id}`}>
                   <td>
                     <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
                     {b.source === "in_person" && (
@@ -273,7 +274,7 @@ export default async function ManagerBookings({
                       "Paid in full"
                     )}
                   </td>
-                </tr>
+                </ClickableRow>
               ))}
             </tbody>
           </table>

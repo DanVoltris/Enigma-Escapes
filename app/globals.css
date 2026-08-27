@@ -4956,3 +4956,9 @@ textarea:focus {
     left: 0;
   }
 }
+
+/* A table row that opens something when clicked. The pointer is the only hint
+   it needs — the row already highlights on hover. */
+.mgr-table tbody tr.row-link {
+  cursor: pointer;
+}
