@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { usePopover } from "@/components/usePopover";
 
 // The receipt goes out only when someone presses this. Nothing in checkout,
 // nothing in the Stripe webhook, nothing on a schedule sends one — a customer
 // who didn't ask never gets email from us.
+//
+// It sits at the end of the booking's tab row, so a popover rather than an
+// expanding block: the panel drops below the button instead of shoving the
+// tabs around every time it opens.
 export default function SendReceipt({
   bookingId,
   defaultEmail,
@@ -14,7 +19,7 @@ export default function SendReceipt({
   defaultEmail: string;
   ready: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const { ref, open, setOpen } = usePopover<HTMLDivElement>();
   const [to, setTo] = useState(defaultEmail);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,54 +48,42 @@ export default function SendReceipt({
     }
   }
 
-  if (sentTo) {
-    return (
-      <p className="sub" style={{ marginTop: 12 }}>
-        Receipt emailed to {sentTo}.{" "}
-        <button type="button" className="link-button" onClick={() => setSentTo(null)}>
-          Send another
-        </button>
-      </p>
-    );
-  }
-
-  if (!open) {
-    return (
-      <div style={{ marginTop: 12 }}>
-        <button type="button" className="btn btn-outline" onClick={() => setOpen(true)} disabled={!ready}>
-          Email receipt
-        </button>
-        {!ready && (
-          <p className="field-hint" style={{ marginTop: 6 }}>
-            Email isn&apos;t set up yet — add RESEND_API_KEY and EMAIL_FROM to switch this on.
-          </p>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div style={{ marginTop: 12 }}>
-      <div className="field">
-        <label htmlFor="receipt-to">Send receipt to</label>
-        <input
-          id="receipt-to"
-          type="email"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          placeholder="name@example.com"
-        />
-        <p className="field-hint">Defaults to the address on the booking. Change it to send elsewhere.</p>
-      </div>
-      {error && <p className="field-error">{error}</p>}
-      <div className="mgr-actions-row" style={{ marginTop: 8 }}>
-        <button type="button" className="btn" onClick={send} disabled={busy || !to.trim()}>
-          {busy ? "Sending…" : "Send receipt"}
-        </button>
-        <button type="button" className="link-button" onClick={() => setOpen(false)} disabled={busy}>
-          Cancel
-        </button>
-      </div>
+    <div className="receipt-send" ref={ref}>
+      <button
+        type="button"
+        className="cust-tab receipt-trigger"
+        onClick={() => setOpen(!open)}
+        disabled={!ready}
+        title={ready ? undefined : "Email isn't set up yet — add RESEND_API_KEY and EMAIL_FROM."}
+      >
+        {sentTo ? "Receipt sent ✓" : "Email receipt"}
+      </button>
+
+      {open && (
+        <div className="receipt-panel">
+          <div className="field">
+            <label htmlFor="receipt-to">Send receipt to</label>
+            <input
+              type="email"
+              id="receipt-to"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="name@example.com"
+            />
+            <p className="field-hint">Defaults to the address on the booking. Change it to send elsewhere.</p>
+          </div>
+          {error && <p className="field-error">{error}</p>}
+          <div className="receipt-actions">
+            <button type="button" className="btn" onClick={send} disabled={busy || !to.trim()}>
+              {busy ? "Sending…" : "Send receipt"}
+            </button>
+            <button type="button" className="link-button" onClick={() => setOpen(false)} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

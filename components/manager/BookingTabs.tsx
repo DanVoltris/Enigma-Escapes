@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SendReceipt from "./SendReceipt";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
@@ -22,6 +23,7 @@ export type PurchaseLine = {
 };
 
 type Props = {
+  emailReady: boolean; // whether RESEND_API_KEY / EMAIL_FROM are set
   bookingId: string;
   reference: string;
   purchases: PurchaseLine[];
@@ -78,6 +80,12 @@ export default function BookingTabs(props: Props) {
             {t.label} <span className="n">{t.count}</span>
           </button>
         ))}
+        {/* Sits after Questions, at the far end of the row. */}
+        <SendReceipt
+          bookingId={props.bookingId}
+          defaultEmail={props.customerEmail || ""}
+          ready={props.emailReady}
+        />
       </div>
 
       <div className="cust-tabpanel">

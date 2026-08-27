@@ -4815,11 +4815,39 @@ textarea:focus {
    --------------------------------------------------------------------------- */
 .inv-line {
   display: grid;
-  grid-template-columns: minmax(160px, 1.2fr) minmax(160px, 1.4fr) 150px 120px 70px 110px auto auto;
-  gap: 12px;
-  align-items: end;
+  /* Sized for the portal's own date picker and select, which are wider than
+     the native inputs they replaced — the old columns were too narrow and the
+     controls spilled over the ones beside them. */
+  grid-template-columns:
+    minmax(150px, 1fr) minmax(150px, 1.2fr) 185px 165px 72px 110px auto auto;
+  gap: 12px 14px;
+  align-items: start;
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
+}
+/* Grid children default to min-content width, which is what let a long room
+   name push a column wider than its track. */
+.inv-line > * {
+  min-width: 0;
+}
+/* The custom controls fill their column rather than sizing to their content. */
+.inv-line .selectmenu,
+.inv-line .selectmenu-trigger,
+.inv-line .datepicker,
+.inv-line .datepicker-trigger {
+  width: 100%;
+  min-width: 0;
+}
+.inv-line .selectmenu-trigger,
+.inv-line .datepicker-trigger {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Labels sit at different heights once a field carries a "Clear" link, so the
+   inputs are aligned to a common baseline instead of to the row's bottom. */
+.inv-line .field > label {
+  min-height: 18px;
 }
 .inv-line:last-of-type {
   border-bottom: 0;
@@ -4831,11 +4859,11 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-bottom: 8px;
+  padding-top: 26px; /* clears the label row above the inputs */
   white-space: nowrap;
 }
 .inv-line .link-button {
-  padding-bottom: 10px;
+  padding-top: 26px;
 }
 .inv-totals {
   margin-top: 8px;
@@ -4873,5 +4901,58 @@ textarea:focus {
     flex-direction: row;
     justify-content: space-between;
     padding-bottom: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Email receipt — the last thing on a booking's tab row.
+   A popover so opening it drops a panel below the button rather than shoving
+   the tabs onto a second line.
+   --------------------------------------------------------------------------- */
+.receipt-send {
+  position: relative;
+  margin-left: auto;
+  align-self: center;
+}
+.cust-tab.receipt-trigger {
+  color: var(--link);
+  font-weight: 600;
+}
+.cust-tab.receipt-trigger:disabled {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+.receipt-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(22, 33, 27, 0.14);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.receipt-panel .field {
+  margin: 0;
+}
+.receipt-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+@media (max-width: 640px) {
+  .receipt-send {
+    margin-left: 0;
+    width: 100%;
+  }
+  .receipt-panel {
+    right: auto;
+    left: 0;
   }
 }

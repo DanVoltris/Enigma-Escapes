@@ -2,7 +2,6 @@ import Link from "next/link";
 import { hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
-import SendReceipt from "@/components/manager/SendReceipt";
 import EditCustomer from "@/components/manager/EditCustomer";
 import BookingNotes from "@/components/manager/BookingNotes";
 import BookingTabs, { type PurchaseLine } from "@/components/manager/BookingTabs";
@@ -207,14 +206,6 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
 
             <GameResultForm bookingId={booking.id} initial={booking.gameResult} />
 
-            {/* Click-only, by design: a receipt is something a customer asks
-                for, so nothing sends one automatically. */}
-            <SendReceipt
-              bookingId={booking.id}
-              defaultEmail={booking.customer.email || ""}
-              ready={emailReady}
-            />
-
             {/* Every live booking, however many rooms are on it. It used to be
                 single-session only, which left a two-room booking with no way to
                 change a guest count at all. */}
@@ -241,6 +232,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
         <div className="cust-main">
           <div className="mgr-card">
             <BookingTabs
+              emailReady={emailReady}
               bookingId={booking.id}
               reference={booking.reference}
               purchases={purchases}
