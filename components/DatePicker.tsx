@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { formatDateLong, localeConfig, parseISODate } from "@/lib/format";
 import { usePopover } from "./usePopover";
 
@@ -29,6 +29,24 @@ type Props = {
 // browser's native (OS-styled) date picker.
 export default function DatePicker({ value, min, max, onChange }: Props) {
   const { ref, open, setOpen } = usePopover<HTMLDivElement>();
+  // The popover is centred under its trigger, which on a phone is usually near
+  // one edge of the screen — so the box was centred half off it and the first
+  // or last days of the week couldn't be seen. Measured on open and nudged back
+  // inside the viewport.
+  const popRef = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
+  useLayoutEffect(() => {
+    if (!open) {
+      setShift(0);
+      return;
+    }
+    const box = popRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const pad = 12;
+    const width = document.documentElement.clientWidth;
+    if (box.left < pad) setShift((s) => s + (pad - box.left));
+    else if (box.right > width - pad) setShift((s) => s - (box.right - (width - pad)));
+  }, [open]);
   const selected = parseISODate(value);
   const [viewYear, setViewYear] = useState(selected.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected.getMonth()); // 0-indexed
@@ -88,7 +106,13 @@ export default function DatePicker({ value, min, max, onChange }: Props) {
       </button>
 
       {open && (
-        <div className="calendar" role="dialog" aria-label="Choose a date">
+        <div
+          className="calendar"
+          role="dialog"
+          aria-label="Choose a date"
+          ref={popRef}
+          style={shift ? { transform: `translateX(calc(-50% + ${shift}px))` } : undefined}
+        >
           <div className="calendar-header">
             <button
               type="button"
