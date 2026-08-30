@@ -2,7 +2,7 @@
 // text): reschedule to another time, or cancel. Both are refused once the
 // session is inside the cutoff — at that point staff are already prepping the
 // room, so it's a phone call instead.
-import { maxPerBooking, minPerBooking, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
+import { maxPerBooking, minPerBooking, minutesOfTime, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
 import {
   addBookingNote,
   bookedCount,
@@ -342,7 +342,10 @@ export async function changePartySize(
 
 export async function rescheduleForStaff(
   booking: Booking,
-  target: { date: string; time: string; roomId?: string },
+  // customTime: the desk deliberately chose a start off the room's published
+  // grid. Deliberate is the point — accepting any time would also swallow the
+  // mistakes the grid check exists to catch.
+  target: { date: string; time: string; roomId?: string; customTime?: boolean },
   staffName: string,
   itemIndex = 0
 ): Promise<RescheduleResult> {
@@ -352,16 +355,34 @@ export async function rescheduleForStaff(
   const exp = await getExperience(roomId);
   if (!exp || !exp.active) return { error: "That experience isn't bookable at the moment." };
 
-  // A corporate event may sit off the published grid — that's how it was booked
-  // in the first place — so moving one isn't held to the room's start times
-  // either. Everything that protects the room still runs below.
+  // Two kinds of move may sit off the published grid: a corporate event (that's
+  // how it was booked in the first place) and a custom time the desk asked for
+  // — the group that wants 12:45 rather than 12:15. Everything that protects
+  // the room still runs below, so an off-grid start takes the slots it overlaps.
+  const offGrid = booking.pricing.corporate || target.customTime === true;
   const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
-  if (!booking.pricing.corporate && !startTimesFor(exp, target.date, hours).includes(target.time)) {
+  if (!offGrid && !startTimesFor(exp, target.date, hours).includes(target.time)) {
     return { error: `${exp.name} doesn't run at ${formatTime(target.time)} on that day.` };
   }
-  const { isBlocked } = await import("./blocks");
+  const { isBlocked, blockedKeysForDate } = await import("./blocks");
   if (await isBlocked(exp.id, target.date, target.time)) {
     return { error: "That session is blocked off — unblock it first or pick another." };
+  }
+  // An off-grid start can run straight through a blocked slot without ever
+  // landing on it, so blocks are checked for the length of a game too.
+  if (offGrid) {
+    const blocked = [...(await blockedKeysForDate(target.date))]
+      .filter((key) => key.slice(0, key.indexOf("|")) === exp.id)
+      .map((key) => key.slice(key.indexOf("|") + 1))
+      .map((t) => ({ time: t, start: minutesOfTime(t), end: minutesOfTime(t) + exp.durationMinutes, guests: 0 }));
+    const blockClash = overlappedBy(blocked, target.time, exp.durationMinutes);
+    if (blockClash) {
+      return {
+        error:
+          `${exp.name} is blocked off ${formatTime(blockClash.time)}–${formatTime(minutesToTime(blockClash.end))} ` +
+          `that day, so ${formatTime(target.time)} can't be booked.`,
+      };
+    }
   }
 
   // Free for the whole game, not just at the start. Sessions belonging to this

@@ -8,6 +8,10 @@ import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
 
 type Room = { id: string; name: string; location: string };
+
+// Sentinel value for the "Custom time…" entry in the start-time dropdown.
+const CUSTOM = "__custom";
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 export type Session = { roomName: string; roomId: string; date: string; time: string; quantity: number };
 
 // Cancel or move a booking from the portal — the phone-call cases the
@@ -54,6 +58,9 @@ export default function BookingActions({
   const [roomId, setRoomId] = useState(current.roomId);
   const [date, setDate] = useState(current.date);
   const [time, setTime] = useState(current.time);
+  // The desk typed the start rather than picking it off the room's schedule —
+  // the group that wants 12:45 when the room runs 12:15 and 13:30.
+  const [customTime, setCustomTime] = useState(false);
   const [notifyMove, setNotifyMove] = useState(true);
 
   const [busy, setBusy] = useState(false);
@@ -69,6 +76,7 @@ export default function BookingActions({
     setRoomId(s.roomId);
     setDate(s.date);
     setTime(s.time);
+    setCustomTime(false);
     setError(null);
     setDone(null);
     setPanel(next);
@@ -109,13 +117,18 @@ export default function BookingActions({
   }
 
   async function move() {
+    // A typed time can be half-finished in a way a picked one can't.
+    if (customTime && !TIME_RE.test(time)) {
+      setError("Give the start time as HH:MM on a 24-hour clock, e.g. 12:45.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const res = await fetch(`/api/manager/bookings/${bookingId}/reschedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, date, time, notify: notifyMove, itemIndex: target }),
+        body: JSON.stringify({ roomId, date, time, customTime, notify: notifyMove, itemIndex: target }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not move that booking.");
@@ -310,27 +323,65 @@ export default function BookingActions({
             </div>
             <div className="field">
               <label>Start time</label>
-              {slots === null ? (
+              {customTime ? (
+                <>
+                  {/* Uncontrolled on purpose: Safari builds each two-digit
+                      segment keystroke by keystroke, and a controlled re-render
+                      between keystrokes resets that buffer (7:30 landed as
+                      7:00). Mounts fresh when custom time is switched on. */}
+                  <input
+                    type="time"
+                    defaultValue={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    aria-label="Custom start time"
+                  />
+                  <p className="field-hint">
+                    Off the grid — the room&apos;s own sessions either side of it stop being bookable
+                    while this one runs.
+                  </p>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => {
+                      setCustomTime(false);
+                      setTime(slots?.[0]?.time ?? "");
+                    }}
+                  >
+                    Pick from the list
+                  </button>
+                </>
+              ) : slots === null ? (
                 <p className="sub">Loading times…</p>
-              ) : slots.length === 0 ? (
-                <p className="sub">That room doesn&apos;t run on this date.</p>
               ) : (
-                <SingleSelect
-                  ariaLabel="Start time"
-                  value={time}
-                  onChange={setTime}
-                  options={slots.map((sl) => ({
-                    value: sl.time,
-                    label: sl.blocked
-                      ? `${formatTime(sl.time)} — blocked off`
-                      : sl.remaining <= 0
-                        ? `${formatTime(sl.time)} — full`
-                        : sl.taken > 0
-                          ? `${formatTime(sl.time)} — ${sl.remaining} left`
-                          : formatTime(sl.time),
-                    disabled: sl.blocked || sl.remaining <= 0,
-                  }))}
-                />
+                <>
+                  {slots.length === 0 && <p className="sub">That room doesn&apos;t run on this date.</p>}
+                  <SingleSelect
+                    ariaLabel="Start time"
+                    value={time}
+                    onChange={(v) => {
+                      if (v === CUSTOM) {
+                        setCustomTime(true);
+                        setTime("");
+                      } else {
+                        setTime(v);
+                      }
+                    }}
+                    options={[
+                      ...slots.map((sl) => ({
+                        value: sl.time,
+                        label: sl.blocked
+                          ? `${formatTime(sl.time)} — blocked off`
+                          : sl.remaining <= 0
+                            ? `${formatTime(sl.time)} — full`
+                            : sl.taken > 0
+                              ? `${formatTime(sl.time)} — ${sl.remaining} left`
+                              : formatTime(sl.time),
+                        disabled: sl.blocked || sl.remaining <= 0,
+                      })),
+                      { value: CUSTOM, label: "Custom time…" },
+                    ]}
+                  />
+                </>
               )}
             </div>
           </div>

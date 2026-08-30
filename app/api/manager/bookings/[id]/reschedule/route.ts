@@ -37,7 +37,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const result = await rescheduleForStaff(
       booking,
-      { date, time, roomId: typeof o.roomId === "string" && o.roomId ? o.roomId : undefined },
+      {
+        date,
+        time,
+        roomId: typeof o.roomId === "string" && o.roomId ? o.roomId : undefined,
+        // Only an explicit true lets the move sit off the room's published grid.
+        customTime: o.customTime === true,
+      },
       guard.staff.name || guard.staff.email,
       itemIndex
     );
