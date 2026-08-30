@@ -6,7 +6,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { alertRecipients } from "./request-alerts";
 import { getBusinessDetails, getCompanyName } from "./settings";
-import { formatDateLong, formatTime } from "./format";
+import { formatDateLong, formatTime, formatTimestampDate } from "./format";
 import type { Booking } from "./types";
 
 const SID = process.env.TWILIO_ACCOUNT_SID;
@@ -210,7 +210,7 @@ export async function notifyRewardCode(
   validUntil: string
 ): Promise<void> {
   if (!smsConfigured()) return;
-  const deadline = new Date(validUntil).toLocaleDateString("en-CA", { dateStyle: "medium" });
+  const deadline = formatTimestampDate(validUntil);
   try {
     await sendSms(
       booking.customer.phone,

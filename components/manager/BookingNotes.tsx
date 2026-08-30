@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatTimestamp } from "@/lib/format";
 import type { BookingNote } from "@/lib/types";
 
 function initials(name: string): string {
@@ -11,7 +12,7 @@ function initials(name: string): string {
 }
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" });
+  return formatTimestamp(iso);
 }
 
 // The Notes card on a booking: staff notes anyone can add, and edit afterwards

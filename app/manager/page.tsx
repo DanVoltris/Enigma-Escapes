@@ -14,6 +14,8 @@ import {
   formatDateLong,
   formatMoney,
   formatTime,
+  formatTimestamp,
+  formatTimestampDate,
   nowMinutesInBusinessTZ,
   parseISODate,
   isValidISODate,
@@ -321,7 +323,7 @@ async function OperationsView({
                   <span className="act">{a.action}</span>
                   <span className="det">{a.detail}</span>
                   <span className="when">
-                    {new Date(a.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                    {formatTimestamp(a.createdAt)}
                   </span>
                 </li>
               ))}
@@ -357,7 +359,7 @@ async function OperationsView({
                     <td>
                       {b.customer.firstName} {b.customer.lastName}
                     </td>
-                    <td>{new Date(b.createdAt).toLocaleDateString("en-CA", { dateStyle: "medium" })}</td>
+                    <td>{formatTimestampDate(b.createdAt)}</td>
                     <td className="num">{formatMoney(b.pricing.totalCents)}</td>
                     <td className="num">{formatMoney(b.pricing.paidCents)}</td>
                     <td className="num">

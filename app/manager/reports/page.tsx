@@ -15,6 +15,7 @@ import {
   formatDateLong,
   formatMoney,
   formatTime,
+  formatTimestamp,
   isValidISODate,
   nowMinutesInBusinessTZ,
   todayISO,
@@ -615,7 +616,7 @@ function PaymentsTab({ purchased }: { purchased: Booking[] }) {
                   .sort((a, b) => b.at.localeCompare(a.at))
                   .map((p) => (
                     <tr key={p.id}>
-                      <td>{new Date(p.at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}</td>
+                      <td>{formatTimestamp(p.at)}</td>
                       <td>
                         <Link href={`/manager/bookings/${p.bookingId}`}>{p.reference}</Link>
                       </td>

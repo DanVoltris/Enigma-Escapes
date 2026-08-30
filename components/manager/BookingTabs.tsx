@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
 import SingleSelect from "@/components/SingleSelect";
 import RefundPanel from "@/components/manager/RefundPanel";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatTimestamp } from "@/lib/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS } from "@/lib/payment-methods";
 import type { BookingPayment, Participant } from "@/lib/types";
 
@@ -49,7 +49,7 @@ type TabKey = "purchases" | "promos" | "customers" | "taxes" | "payments" | "que
 const METHOD_LABEL = PAYMENT_METHOD_LABEL;
 
 function fmtWhen(iso: string): string {
-  return new Date(iso).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" });
+  return formatTimestamp(iso);
 }
 
 export default function BookingTabs(props: Props) {

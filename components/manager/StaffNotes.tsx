@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatTimestamp } from "@/lib/format";
 import type { StaffNote } from "@/lib/types";
 
 export default function StaffNotes({ notes }: { notes: StaffNote[] }) {
@@ -80,7 +81,7 @@ export default function StaffNotes({ notes }: { notes: StaffNote[] }) {
                 {/* Timestamp formatting differs between the server (Node) and browser
                     ICU data, so suppress the harmless hydration text mismatch. */}
                 <div className="when" suppressHydrationWarning>
-                  {new Date(n.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                  {formatTimestamp(n.createdAt)}
                 </div>
               </div>
               <button type="button" className="link-button danger" onClick={() => remove(n.id)}>

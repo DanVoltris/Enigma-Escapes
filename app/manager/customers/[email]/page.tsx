@@ -6,7 +6,7 @@ import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from 
 import { getManualCustomer, isImportedBooking, itemisedLegacy } from "@/lib/customers";
 import { listBookingsForEmail } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
-import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
+import { formatDateLong, formatMoney, formatTime, formatTimestamp } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -301,7 +301,7 @@ export default async function ManagerCustomerDetail({
                           {b.noShow ? " · marked no-show" : ""}
                         </div>
                         <div className="when">
-                          {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                          {formatTimestamp(created)}
                         </div>
                       </div>
                     </li>

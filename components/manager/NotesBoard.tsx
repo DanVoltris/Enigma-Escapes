@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { EditNote } from "@/lib/edit-notes";
+import { formatTimestamp } from "@/lib/format";
 
 // Shared edit-notes board. The author name is remembered per browser so each
 // partner types it once.
@@ -115,7 +116,7 @@ export default function NotesBoard({ initialNotes }: { initialNotes: EditNote[] 
                     <strong>{n.author}</strong>: {n.text}
                   </div>
                   <div className="when" suppressHydrationWarning>
-                    {new Date(n.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                    {formatTimestamp(n.createdAt)}
                   </div>
                 </div>
                 <span style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
@@ -143,7 +144,7 @@ export default function NotesBoard({ initialNotes }: { initialNotes: EditNote[] 
                     <strong>{n.author}</strong>: {n.text}
                   </div>
                   <div className="when" suppressHydrationWarning>
-                    {new Date(n.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                    {formatTimestamp(n.createdAt)}
                   </div>
                 </div>
                 <span style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>

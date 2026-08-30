@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { formatDateLong, formatTime, minutesUntilSlot } from "@/lib/format";
+import { formatDateLong, formatTime, formatTimestampTime, minutesUntilSlot } from "@/lib/format";
 import type { BookingRequest } from "@/lib/requests";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -118,7 +118,7 @@ export default function RequestsBoard({
                   <div className="req-row">
                     <span className="req-label">Requested</span>
                     <span suppressHydrationWarning>
-                      {new Date(r.createdAt).toLocaleTimeString("en-CA", { timeStyle: "short" })}
+                      {formatTimestampTime(r.createdAt)}
                     </span>
                   </div>
                 </div>

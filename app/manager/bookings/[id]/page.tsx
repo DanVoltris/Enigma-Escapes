@@ -15,7 +15,7 @@ import { outstandingCents, refundGoingBackCents } from "@/lib/pricing";
 import { emailConfigured } from "@/lib/email";
 import { stripeConfigured } from "@/lib/stripe";
 import { listTaxes } from "@/lib/taxes";
-import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
+import { formatDateLong, formatMoney, formatTime, formatTimestamp } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +137,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                 </p>
               )}
               <p>
-                Placed {created.toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                Placed {formatTimestamp(created)}
                 <br />
                 {booking.source === "in_person" ? "In-person / walk-in" : "Booked online"}
                 <br />
@@ -328,7 +328,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                     <div className="body">
                       <div>{a.text}</div>
                       <div className="when">
-                        {new Date(a.at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                        {formatTimestamp(a.at)}
                       </div>
                     </div>
                   </li>

@@ -129,6 +129,35 @@ export function businessWeekdayOf(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: localeConfig().timezone, weekday: "long" }).format(new Date(iso));
 }
 
+// A timestamp as venue-local date and time, e.g. "Aug 30, 2026, 5:34 a.m.".
+// Never the machine's own clock: the server renders in UTC on Vercel, and
+// staff read the portal from anywhere — the venue's timezone is the one truth.
+export function formatTimestamp(iso: string | Date): string {
+  const c = localeConfig();
+  return new Date(iso).toLocaleString(c.language, {
+    timeZone: c.timezone,
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: c.timeFormat === "12",
+  });
+}
+
+// Venue-local date of a timestamp, e.g. "Aug 30, 2026".
+export function formatTimestampDate(iso: string | Date): string {
+  const c = localeConfig();
+  return new Date(iso).toLocaleDateString(c.language, { timeZone: c.timezone, dateStyle: "medium" });
+}
+
+// Venue-local time of a timestamp, e.g. "5:34 a.m.".
+export function formatTimestampTime(iso: string | Date): string {
+  const c = localeConfig();
+  return new Date(iso).toLocaleTimeString(c.language, {
+    timeZone: c.timezone,
+    timeStyle: "short",
+    hour12: c.timeFormat === "12",
+  });
+}
+
 export function addDaysISO(date: string, days: number): string {
   const d = parseISODate(date);
   d.setDate(d.getDate() + days);

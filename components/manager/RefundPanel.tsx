@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatTimestamp } from "@/lib/format";
 
 type Row = {
   id: string;
@@ -24,7 +24,7 @@ type Loaded = {
 };
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" });
+  formatTimestamp(iso);
 
 // Refund part or all of a payment, without cancelling the booking. Each payment
 // is refunded separately, because a party often pays on several cards and the

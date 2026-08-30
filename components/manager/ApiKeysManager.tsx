@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ApiKey } from "@/lib/api-keys";
+import { formatTimestampDate } from "@/lib/format";
 
 export default function ApiKeysManager({ initialKeys }: { initialKeys: ApiKey[] }) {
   const [keys, setKeys] = useState<ApiKey[]>(initialKeys);
@@ -59,7 +60,7 @@ export default function ApiKeysManager({ initialKeys }: { initialKeys: ApiKey[] 
                   <code className="key-code">{k.key}</code>
                 </div>
                 <div className="when" suppressHydrationWarning>
-                  Created {new Date(k.createdAt).toLocaleDateString("en-CA", { dateStyle: "medium" })}
+                  Created {formatTimestampDate(k.createdAt)}
                 </div>
               </div>
               <button type="button" className="link-button danger" onClick={() => revoke(k.id)}>
