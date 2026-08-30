@@ -460,10 +460,14 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         <div className="mgr-inline-form" style={{ marginBottom: 14 }}>
           <div className="field" style={{ maxWidth: 150 }}>
             <label htmlFor="corp-time">Rooms start at</label>
+            {/* Uncontrolled for the same Safari reason as the per-room custom
+                time input below: a controlled re-render mid-typing eats the
+                second digit of the minutes. Mounts fresh when corporate is
+                switched on, so defaultValue is enough. */}
             <input
               id="corp-time"
               type="time"
-              value={customTime || sessions[0]?.time || ""}
+              defaultValue={customTime || sessions[0]?.time || ""}
               onChange={(e) => {
                 setCustomTime(e.target.value);
                 applyTimeToAll(e.target.value);
@@ -525,9 +529,14 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
                   </p>
                 ) : x.timeCustom ? (
                   <>
+                    {/* Uncontrolled on purpose. Safari builds each two-digit
+                        segment keystroke by keystroke, and a controlled
+                        re-render between keystrokes resets that buffer — typing
+                        7:30 landed as 7:00. The row mounts fresh whenever
+                        custom time is switched on, so defaultValue is enough. */}
                     <input
                       type="time"
-                      value={x.time}
+                      defaultValue={x.time}
                       onChange={(e) => update(x.key, { time: e.target.value })}
                       aria-label={`Custom start time for room ${i + 1}`}
                     />
