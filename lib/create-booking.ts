@@ -101,7 +101,9 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     if (raw.promoCode != null && raw.promoCode !== "") {
       const code = cleanString(raw.promoCode, 40)?.toUpperCase();
       const promo = code ? await getPromo(code) : undefined;
-      if (promo && promo.active) {
+      // A staff-only code exists for the desk alone; typed into the website it
+      // is simply not a valid code.
+      if (promo && promo.active && (!promo.staffOnly || source === "in_person")) {
         promoCode = promo.code;
         percentOff = promo.percentOff;
       } else {

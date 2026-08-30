@@ -8,6 +8,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
+  const [staffOnly, setStaffOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCode, setConfirmCode] = useState<string | null>(null); // code pending delete confirmation
@@ -20,11 +21,12 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
       const res = await fetch("/api/manager/promos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, percentOff: Number(percent) }),
+        body: JSON.stringify({ code, percentOff: Number(percent), staffOnly }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save the code.");
       setCode("");
+      setStaffOnly(false);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save the code.");
@@ -33,13 +35,13 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
     }
   }
 
-  async function toggle(promo: Promo) {
+  async function toggle(promo: Promo, patch: { active?: boolean; staffOnly?: boolean }) {
     setError(null);
     try {
       const res = await fetch(`/api/manager/promos/${encodeURIComponent(promo.code)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !promo.active }),
+        body: JSON.stringify(patch),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not update the code.");
@@ -68,7 +70,10 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
 
       <div className="mgr-card">
         <h2>Add a code</h2>
-        <p className="card-sub">Customers type this at checkout to get the discount.</p>
+        <p className="card-sub">
+          Customers type this at checkout to get the discount — or, for a staff-only code, the desk applies it
+          when taking a booking.
+        </p>
         <form className="mgr-inline-form" onSubmit={addPromo}>
           <div className="field">
             <label htmlFor="promo-code">Code</label>
@@ -92,6 +97,10 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
               style={{ width: 100 }}
             />
           </div>
+          <label className="checkbox-row" style={{ alignSelf: "center" }}>
+            <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} />
+            <span>Staff only — works at the desk, never on the website</span>
+          </label>
           <button type="submit" className="btn" disabled={busy}>
             {busy ? "Adding…" : "Add code"}
           </button>
@@ -113,6 +122,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                 <tr>
                   <th>Code</th>
                   <th className="num">Discount</th>
+                  <th>Works</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
@@ -124,13 +134,21 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                       <strong>{p.code}</strong>
                     </td>
                     <td className="num">{p.percentOff}% off</td>
+                    <td>{p.staffOnly ? "Desk only" : "Website + desk"}</td>
                     <td>
                       <span className={`mgr-pill${p.active ? " on" : ""}`}>{p.active ? "Active" : "Off"}</span>
                     </td>
                     <td>
-                      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                        <button type="button" className="link-button" onClick={() => toggle(p)}>
+                      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                        <button type="button" className="link-button" onClick={() => toggle(p, { active: !p.active })}>
                           {p.active ? "Turn off" : "Turn on"}
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => toggle(p, { staffOnly: !p.staffOnly })}
+                        >
+                          {p.staffOnly ? "Allow on website" : "Make desk only"}
                         </button>
                         {confirmCode === p.code ? (
                           <span style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>

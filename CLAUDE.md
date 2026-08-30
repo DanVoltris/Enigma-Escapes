@@ -49,7 +49,12 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 
 - Experiences (rooms, prices, daily times, colors) live in the `experiences` table, managed
   from `/manager/experiences`. Promo codes live in `promo_codes`, managed from
-  `/manager/promos`. Both editable without deploys.
+  `/manager/promos`. Both editable without deploys. A promo code can be marked
+  **staff only** (`staff_only` column): it then works on walk-ins taken at the desk
+  and is invisible to the website. Supabase needs: `alter table promo_codes add
+  column if not exists staff_only boolean not null default false;` (the portal
+  says so if a staff-only code is saved before the column exists; local mode
+  needs nothing).
 - Availability is served by `GET /api/availability?date=YYYY-MM-DD` from real bookings only
   (the old fake "seeded" availability was removed when the portal arrived — new slots start
   fully open).

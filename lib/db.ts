@@ -606,38 +606,51 @@ export async function bookingsForDate(date: string): Promise<Booking[]> {
 
 // ---------- promo codes ----------
 
-type PromoRow = { code: string; percent_off: number; active: boolean };
+// staff_only was added after the table: rows written before it read as
+// undefined, which means the same as false.
+type PromoRow = { code: string; percent_off: number; active: boolean; staff_only?: boolean | null };
+
+function toPromo(r: PromoRow): Promo {
+  return { code: r.code, percentOff: r.percent_off, active: r.active, staffOnly: r.staff_only === true };
+}
 
 export async function getPromo(code: string): Promise<Promo | undefined> {
   const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}&select=*&limit=1`);
   if (!res.ok) throw await restError(res, "Checking the promo code");
   const rows = (await res.json()) as PromoRow[];
-  return rows[0] ? { code: rows[0].code, percentOff: rows[0].percent_off, active: rows[0].active } : undefined;
+  return rows[0] ? toPromo(rows[0]) : undefined;
 }
 
 export async function listPromos(): Promise<Promo[]> {
   const res = await rest("promo_codes?select=*&order=code.asc");
   if (!res.ok) throw await restError(res, "Loading promo codes");
-  return ((await res.json()) as PromoRow[]).map((r) => ({
-    code: r.code,
-    percentOff: r.percent_off,
-    active: r.active,
-  }));
+  return ((await res.json()) as PromoRow[]).map(toPromo);
 }
 
 export async function createPromo(promo: Promo): Promise<void> {
   const res = await rest("promo_codes", {
     method: "POST",
     headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({ code: promo.code, percent_off: promo.percentOff, active: promo.active }),
+    // The column is only sent when it matters, so ordinary codes keep working
+    // on a database that hasn't had the staff_only column added yet.
+    body: JSON.stringify({
+      code: promo.code,
+      percent_off: promo.percentOff,
+      active: promo.active,
+      ...(promo.staffOnly ? { staff_only: true } : {}),
+    }),
   });
   if (!res.ok) throw await restError(res, "Creating the promo code");
 }
 
-export async function updatePromo(code: string, patch: { percentOff?: number; active?: boolean }): Promise<void> {
+export async function updatePromo(
+  code: string,
+  patch: { percentOff?: number; active?: boolean; staffOnly?: boolean }
+): Promise<void> {
   const row: Record<string, unknown> = {};
   if (patch.percentOff !== undefined) row.percent_off = patch.percentOff;
   if (patch.active !== undefined) row.active = patch.active;
+  if (patch.staffOnly !== undefined) row.staff_only = patch.staffOnly;
   const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },

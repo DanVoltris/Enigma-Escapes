@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { deletePromo, getPromo, logActivity, updatePromo } from "@/lib/db";
+import { STAFF_ONLY_MIGRATION } from "../route";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { active?: unknown };
-  if (typeof d.active !== "boolean") {
+  const d = body as { active?: unknown; staffOnly?: unknown };
+  const active = typeof d.active === "boolean" ? d.active : undefined;
+  const staffOnly = typeof d.staffOnly === "boolean" ? d.staffOnly : undefined;
+  if (active === undefined && staffOnly === undefined) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
@@ -25,11 +28,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
     if (!(await getPromo(code))) {
       return NextResponse.json({ error: "That code no longer exists." }, { status: 404 });
     }
-    await updatePromo(code, { active: d.active });
-    await logActivity(d.active ? "Turned on promo code" : "Turned off promo code", code);
+    await updatePromo(code, { active, staffOnly });
+    if (active !== undefined) await logActivity(active ? "Turned on promo code" : "Turned off promo code", code);
+    if (staffOnly !== undefined) {
+      await logActivity(staffOnly ? "Promo code made staff-only" : "Promo code opened to the website", code);
+    }
     return NextResponse.json({ code });
   } catch (err) {
     console.error("updating promo failed:", err);
+    if (staffOnly !== undefined && err instanceof Error && err.message.includes("staff_only")) {
+      return NextResponse.json({ error: STAFF_ONLY_MIGRATION }, { status: 500 });
+    }
     return NextResponse.json(
       { error: "Could not update the code right now. Please try again shortly." },
       { status: 500 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { currentStaff } from "@/lib/auth";
 import { getPromo } from "@/lib/db";
 import { todayISO } from "@/lib/format";
 import { getRewardCode, rewardProblem } from "@/lib/reward-codes";
@@ -20,7 +21,9 @@ export async function GET(req: NextRequest) {
   }
   try {
     const promo = await getPromo(code);
-    if (promo && promo.active) {
+    // Staff-only codes answer only to a signed-in staff session (the walk-in
+    // form's Apply button); to the public they don't exist.
+    if (promo && promo.active && (!promo.staffOnly || (await currentStaff()))) {
       return NextResponse.json({ kind: "promo", code: promo.code, percentOff: promo.percentOff });
     }
 

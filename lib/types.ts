@@ -121,6 +121,8 @@ export type Promo = {
   code: string;
   percentOff: number;
   active: boolean;
+  // Only the desk can apply it — on a walk-in, never at the online checkout.
+  staffOnly: boolean;
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
