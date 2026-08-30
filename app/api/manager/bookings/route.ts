@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { buildBooking } from "@/lib/create-booking";
 import { logActivity, saveBooking } from "@/lib/db";
+import { markRewardUsed } from "@/lib/reward-codes";
 import { notifyBookingConfirmed } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not save the booking right now. Please try again." }, { status: 500 });
   }
   const b = result.booking;
+  // A 20% reward code spent at the desk is marked used, same as at the online
+  // checkout — left active it could be spent again. Best-effort: the booking
+  // is already saved. Walk-ins still don't EARN a reward code for the next
+  // visit (settleRewardsFor's other half) — that's unchanged, and a decision
+  // for the owner rather than a side effect of this route.
+  if (b.pricing.rewardCode) {
+    try {
+      await markRewardUsed(b.pricing.rewardCode, b.id);
+    } catch (err) {
+      console.error(`could not mark reward ${b.pricing.rewardCode} used on ${b.reference}:`, err);
+    }
+  }
   // Same confirmation the online customer gets — reference, session details and
   // the link to change or cancel. Best-effort: it never throws, so a texting
   // problem can't lose a booking the desk has already taken. No staff copy;

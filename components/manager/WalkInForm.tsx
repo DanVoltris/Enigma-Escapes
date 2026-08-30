@@ -12,6 +12,9 @@ import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 // Staff can book walk-ins of any size; the 4-person minimum is customer-only.
 const WALK_IN_MIN = 1;
 
+// Sentinel value for the "Custom time…" entry in the time dropdown.
+const CUSTOM = "__custom";
+
 type Exp = { id: string; name: string; location: string; priceCents: number; capacity: number; times: string[] };
 type KnownCustomer = { firstName: string; lastName: string; email: string; phone: string };
 
@@ -27,13 +30,17 @@ type Session = {
   // Set once someone gives this room a date of its own. Until then it follows
   // the first room, because a group taking two rooms is coming on one visit.
   ownDate?: boolean;
+  // The desk typed this start time rather than picking it off the room's
+  // schedule. Kept per row: one room of a booking can run off-grid while the
+  // others sit on their published times.
+  timeCustom?: boolean;
 };
 
 // Sessions left on a day that has passed move to the new today; the time is
 // cleared with them because the new day runs a different schedule. Exported so
 // the rollover can be checked without waiting for midnight.
 export function rollForward(sessions: Session[], today: string): Session[] {
-  return sessions.map((x) => (x.date < today ? { ...x, date: today, time: "" } : x));
+  return sessions.map((x) => (x.date < today ? { ...x, date: today, time: "", timeCustom: false } : x));
 }
 
 // onRoomChange lets the page react to the chosen experience — the on-shift
@@ -64,6 +71,13 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   // nobody made. Owing money that has been paid is a question at the desk;
   // being marked paid when you haven't is a loss that never gets noticed.
   const [paymentOption, setPaymentOption] = useState<"full" | "none">("none");
+  // Promo or reward code applied at the desk. Checked against /api/promo the
+  // moment it's applied, so a bad code is heard about before the customer's
+  // details are typed in; the booking endpoint re-validates it regardless.
+  const [codeInput, setCodeInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState<{ code: string; percentOff: number } | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [checkingCode, setCheckingCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [rolledOver, setRolledOver] = useState(false);
@@ -200,14 +214,16 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         const list = expByDate[x.date];
         if (!list || list.length === 0) return x;
         const room = list.find((e) => e.id === x.roomId) ?? list[0];
-        // A corporate event sets its own time and isn't held to the room's
-        // published starts, so leave it alone — snapping it back to the grid
-        // was silently undoing the time the desk had just typed.
-        const time = corporate
-          ? x.time
-          : room.times.includes(x.time)
+        // A corporate event, and any row switched to a custom time, set their
+        // own start and aren't held to the room's published times, so leave
+        // them alone — snapping them back to the grid was silently undoing the
+        // time the desk had just typed.
+        const time =
+          corporate || x.timeCustom
             ? x.time
-            : (room.times[0] ?? "");
+            : room.times.includes(x.time)
+              ? x.time
+              : (room.times[0] ?? "");
         if (room.id === x.roomId && time === x.time) return x;
         touched = true;
         return { ...x, roomId: room.id, time };
@@ -286,6 +302,10 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   }, 0);
   // The fee is charged once for the booking, however many rooms it holds.
   const subtotal = roomsTotal + (corporate ? CORPORATE_FEE_CENTS : 0);
+  // Preview only — the server reprices from the database at save time, with the
+  // same rounding. A promo's cut of the corporate fee is left out here (the
+  // preview can't tell a promo from a reward code), so it can only understate.
+  const discount = appliedCode ? Math.round((roomsTotal * appliedCode.percentOff) / 100) : 0;
 
   // Corporate events run all their rooms at one time, so a single start time
   // governs the booking — the desk picks rooms, not a time per room.
@@ -300,6 +320,36 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
     return minutesToTime(minutesOfTime(start) - mins);
   })();
 
+  async function applyCode() {
+    const code = codeInput.trim().toUpperCase();
+    if (!code) return;
+    setCheckingCode(true);
+    setCodeError(null);
+    try {
+      const qs = new URLSearchParams({ code });
+      // The phone and earliest session let a reward code — locked to one
+      // customer, valid only for a later visit — be judged now, not at save.
+      if (phone.trim()) qs.set("phone", phone.trim());
+      const start = sessions
+        .filter((x) => x.date && x.time)
+        .map((x) => `${x.date}T${x.time}:00`)
+        .sort()[0];
+      if (start) qs.set("start", start);
+      const res = await fetch(`/api/promo?${qs.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not check that code.");
+      if (data.kind !== "promo") {
+        throw new Error("That code is a gift voucher — those can't go on a walk-in yet. Promo and reward codes only.");
+      }
+      setAppliedCode({ code: data.code, percentOff: data.percentOff });
+      setCodeInput("");
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : "Could not check that code.");
+    } finally {
+      setCheckingCode(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -308,6 +358,10 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
       const exp = expFor(x);
       if (!exp) return setError("Pick an experience for every room on this booking.");
       if (!x.time) return setError(`Pick a start time for ${exp.name}.`);
+      // A typed time can be half-finished ("1:") in a way a picked one can't.
+      if (x.timeCustom && !/^([01]\d|2[0-3]):[0-5]\d$/.test(x.time)) {
+        return setError(`Give ${exp.name}'s start time as HH:MM on a 24-hour clock, e.g. 18:30.`);
+      }
       if (x.quantity > exp.capacity) return setError(`Capacity for ${exp.name} is ${exp.capacity}.`);
     }
     // The same room twice at the same time is one slot sold twice, and the
@@ -341,8 +395,17 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: sessions.map((x) => ({ roomId: x.roomId, date: x.date, time: x.time, quantity: x.quantity })),
+          items: sessions.map((x) => ({
+            roomId: x.roomId,
+            date: x.date,
+            time: x.time,
+            quantity: x.quantity,
+            // Off-grid starts are only allowed where the desk asked for one, so
+            // the server can still catch a time that shouldn't exist.
+            customTime: x.timeCustom === true,
+          })),
           ...(corporate ? { corporate: true, leadInMinutes: Number(leadIn) || 0 } : {}),
+          ...(appliedCode ? { promoCode: appliedCode.code } : {}),
           customer: { firstName, lastName, email, phone, subscribe: false },
           paymentOption,
         }),
@@ -372,8 +435,19 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
           type="checkbox"
           checked={corporate}
           onChange={(e) => {
-            setCorporate(e.target.checked);
-            if (!e.target.checked) setCustomTime("");
+            const on = e.target.checked;
+            setCorporate(on);
+            if (on) return;
+            setCustomTime("");
+            // The event's start time stays on the rooms rather than being
+            // thrown away — it just becomes each room's own custom time now
+            // that nothing holds them to one clock.
+            setSessions((prev) =>
+              prev.map((x) => {
+                const times = (expByDate[x.date] ?? []).find((r) => r.id === x.roomId)?.times ?? [];
+                return x.time && !times.includes(x.time) ? { ...x, timeCustom: true } : x;
+              })
+            );
           }}
         />
         <span>
@@ -449,12 +523,41 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
                   <p className="sub" style={{ margin: "10px 0 0" }}>
                     {x.time ? formatTime(x.time) : "—"} · set for the whole event
                   </p>
+                ) : x.timeCustom ? (
+                  <>
+                    <input
+                      type="time"
+                      value={x.time}
+                      onChange={(e) => update(x.key, { time: e.target.value })}
+                      aria-label={`Custom start time for room ${i + 1}`}
+                    />
+                    <p className="field-hint">
+                      Off the grid — the room&apos;s own sessions either side of it stop being
+                      bookable while this one runs.
+                    </p>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() =>
+                        update(x.key, { timeCustom: false, time: exp?.times[0] ?? "" })
+                      }
+                    >
+                      Pick from the list
+                    </button>
+                  </>
                 ) : (
                   <SingleSelect
                     ariaLabel={`Time for room ${i + 1}`}
                     value={x.time}
-                    onChange={(v) => update(x.key, { time: v })}
-                    options={(exp?.times ?? []).map((t) => ({ value: t, label: formatTime(t) }))}
+                    onChange={(v) =>
+                      v === CUSTOM
+                        ? update(x.key, { timeCustom: true, time: "" })
+                        : update(x.key, { time: v })
+                    }
+                    options={[
+                      ...(exp?.times ?? []).map((t) => ({ value: t, label: formatTime(t) })),
+                      { value: CUSTOM, label: "Custom time…" },
+                    ]}
                   />
                 )}
               </div>
@@ -534,6 +637,49 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
       </div>
 
       <h3>Payment</h3>
+      <div className="field" style={{ maxWidth: 360, marginBottom: 14 }}>
+        <label htmlFor="walkin-code">Promo or reward code</label>
+        {appliedCode ? (
+          <p className="sub" style={{ margin: "8px 0 0" }}>
+            <strong>{appliedCode.code}</strong> — {appliedCode.percentOff}% off{" "}
+            <button type="button" className="mgr-linklike danger" onClick={() => setAppliedCode(null)}>
+              Remove
+            </button>
+          </p>
+        ) : (
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              id="walkin-code"
+              type="text"
+              value={codeInput}
+              onChange={(e) => {
+                setCodeInput(e.target.value);
+                setCodeError(null);
+              }}
+              onKeyDown={(e) => {
+                // Enter applies the code rather than submitting the whole form.
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyCode();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={applyCode}
+              disabled={checkingCode || !codeInput.trim()}
+            >
+              {checkingCode ? "Checking…" : "Apply"}
+            </button>
+          </div>
+        )}
+        {codeError && (
+          <p className="field-hint" style={{ color: "var(--danger)" }}>
+            {codeError}
+          </p>
+        )}
+      </div>
       <div className="pay-options">
         <label className={`pay-option ${paymentOption === "full" ? "selected" : ""}`}>
           <input type="radio" checked={paymentOption === "full"} onChange={() => setPaymentOption("full")} />
@@ -554,7 +700,14 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
               </span>
             </span>
           )}
-          Subtotal <span className="amount">{formatMoney(subtotal)}</span>
+          {appliedCode && discount > 0 && (
+            <span className="walkin-when" style={{ marginTop: 0, marginBottom: 4 }}>
+              <span>
+                {appliedCode.code} takes {formatMoney(discount)} off
+              </span>
+            </span>
+          )}
+          Subtotal <span className="amount">{formatMoney(subtotal - discount)}</span>
           <span style={{ fontWeight: 400, textTransform: "none", color: "var(--text-secondary)" }}> + tax</span>
           {/* The date and time in plain sight at the moment of pressing, so a
               wrong day can't go through unread. */}

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { isBlocked } from "./blocks";
-import { maxPerBooking, minPerBooking, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
+import { blockedKeysForDate, isBlocked } from "./blocks";
+import { maxPerBooking, minPerBooking, minutesOfTime, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
 import { bookedCountsForDate, busySessionsForDate, getPromo } from "./db";
 import { getExperience } from "./experiences";
 import { addDaysISO, formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES, todayISO } from "./format";
@@ -23,6 +23,8 @@ import { getSiteSettings } from "./site-settings";
 import type { Booking, BookingSource, CartItem, Customer } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Off-grid start times are typed rather than chosen, so they are checked.
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export type BuildResult = { booking: Booking } | { error: string; status: number };
 
@@ -113,7 +115,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       }
     }
 
-    for (const rawItem of raw.items as Partial<CartItem>[]) {
+    for (const rawItem of raw.items as (Partial<CartItem> & { customTime?: unknown })[]) {
       const exp = typeof rawItem.roomId === "string" ? await getExperience(rawItem.roomId) : undefined;
       if (!exp || !exp.active) return err("One of the sessions refers to an unknown experience.");
       const date = typeof rawItem.date === "string" ? rawItem.date : "";
@@ -121,20 +123,49 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       if (!isValidISODate(date) || date < today || date > lastBookable) {
         return err(`${exp.name}: that date can no longer be booked.`);
       }
-      // Corporate events run to their own clock — a group arrives when it
-      // arrives — so they may start off the published grid. Everything that
-      // protects the room still runs below: blocked slots, overlapping games
-      // and capacity are all checked the same way.
-      if (!corporate) {
+      // Two kinds of booking run to their own clock rather than the published
+      // grid: a corporate event, and any session the desk deliberately marks as
+      // a custom time. Everything that protects the room still runs below:
+      // blocked slots, overlapping games and capacity are all checked the same
+      // way, so an off-grid start takes the slots it overlaps with it.
+      //
+      // The flag has to be deliberate. Accepting any time from the desk would
+      // also swallow the mistakes this check exists to catch — a stale room
+      // list offering times the room no longer runs.
+      const offGrid = corporate || (source === "in_person" && rawItem.customTime === true);
+      if (!offGrid) {
         const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
         if (!startTimesFor(exp, date, hours).includes(time)) {
           return err(`${exp.name}: that time slot is not available on that day.`);
         }
+      } else if (!TIME_RE.test(time)) {
+        return err(`${exp.name}: give the start time as HH:MM on a 24-hour clock, e.g. 18:30.`);
       }
       // Manager-blocked slots are out of service for everyone, walk-ins
       // included — unblock it first if the session should really run.
       if (await isBlocked(exp.id, date, time)) {
         return err(`${exp.name} at ${formatTime(time)} is blocked off and can't be booked.`);
+      }
+      // An off-grid start can run straight through a blocked slot without ever
+      // landing on it. A block takes the room out of service for the length of
+      // a game, so it is checked the same way a live session is.
+      if (offGrid) {
+        const blocked = [...(await blockedKeysForDate(date))]
+          .filter((key) => key.slice(0, key.indexOf("|")) === exp.id)
+          .map((key) => key.slice(key.indexOf("|") + 1))
+          .map((t) => ({
+            time: t,
+            start: minutesOfTime(t),
+            end: minutesOfTime(t) + exp.durationMinutes,
+            guests: 0,
+          }));
+        const blockClash = overlappedBy(blocked, time, exp.durationMinutes);
+        if (blockClash) {
+          return err(
+            `${exp.name} is blocked off ${formatTime(blockClash.time)}–` +
+              `${formatTime(minutesToTime(blockClash.end))} that day, so ${formatTime(time)} can't be booked.`
+          );
+        }
       }
       // Slots starting within the request window aren't self-serve: they need
       // an ACCEPTED request behind them (staff walk-ins are exempt — that's
@@ -168,6 +199,28 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
         return err(
           `${exp.name} is running ${formatTime(clash.time)}–${formatTime(minutesToTime(clash.end))} that day, ` +
             `so ${formatTime(time)} isn't free.`
+        );
+      }
+      // The rooms on THIS booking can clash with each other too, and the day's
+      // saved sessions don't know about them yet — they are all one unsaved
+      // submission. Same room twice at one time is one slot sold twice; a
+      // custom start that runs into another row is the same room in two places.
+      const siblings = items
+        .filter((i) => i.roomId === exp.id && i.date === date)
+        .map((i) => ({
+          time: i.time,
+          start: minutesOfTime(i.time),
+          end: minutesOfTime(i.time) + i.durationMinutes,
+          guests: i.quantity,
+        }));
+      if (siblings.some((s) => s.time === time)) {
+        return err(`${exp.name} is on this booking twice at ${formatTime(time)}.`);
+      }
+      const selfClash = overlappedBy(siblings, time, exp.durationMinutes);
+      if (selfClash) {
+        return err(
+          `${exp.name} is already on this booking ${formatTime(selfClash.time)}–` +
+            `${formatTime(minutesToTime(selfClash.end))}, so ${formatTime(time)} isn't free.`
         );
       }
       const booked = await bookedCountsForDate(date);
