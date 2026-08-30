@@ -71,11 +71,14 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
   // nobody made. Owing money that has been paid is a question at the desk;
   // being marked paid when you haven't is a loss that never gets noticed.
   const [paymentOption, setPaymentOption] = useState<"full" | "none">("none");
-  // Promo or reward code applied at the desk. Checked against /api/promo the
-  // moment it's applied, so a bad code is heard about before the customer's
-  // details are typed in; the booking endpoint re-validates it regardless.
+  // Codes applied at the desk — one promo/reward (a percentage off) and one
+  // gift voucher (a prepaid balance, spent as payment) can go on the same
+  // booking, like at the online checkout. Checked against /api/promo the
+  // moment they're applied, so a bad code is heard about before the customer's
+  // details are typed in; the booking endpoint re-validates them regardless.
   const [codeInput, setCodeInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<{ code: string; percentOff: number } | null>(null);
+  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; remainingCents: number } | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [checkingCode, setCheckingCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -338,10 +341,11 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
       const res = await fetch(`/api/promo?${qs.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not check that code.");
-      if (data.kind !== "promo") {
-        throw new Error("That code is a gift voucher — those can't go on a walk-in yet. Promo and reward codes only.");
+      if (data.kind === "voucher") {
+        setAppliedVoucher({ code: data.code, remainingCents: data.remainingCents });
+      } else {
+        setAppliedCode({ code: data.code, percentOff: data.percentOff });
       }
-      setAppliedCode({ code: data.code, percentOff: data.percentOff });
       setCodeInput("");
     } catch (err) {
       setCodeError(err instanceof Error ? err.message : "Could not check that code.");
@@ -406,6 +410,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
           })),
           ...(corporate ? { corporate: true, leadInMinutes: Number(leadIn) || 0 } : {}),
           ...(appliedCode ? { promoCode: appliedCode.code } : {}),
+          ...(appliedVoucher ? { voucherCode: appliedVoucher.code } : {}),
           customer: { firstName, lastName, email, phone, subscribe: false },
           paymentOption,
         }),
@@ -647,16 +652,27 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
 
       <h3>Payment</h3>
       <div className="field" style={{ maxWidth: 360, marginBottom: 14 }}>
-        <label htmlFor="walkin-code">Promo or reward code</label>
-        {appliedCode ? (
+        <label htmlFor="walkin-code">Promo, reward or gift voucher code</label>
+        {appliedCode && (
           <p className="sub" style={{ margin: "8px 0 0" }}>
             <strong>{appliedCode.code}</strong> — {appliedCode.percentOff}% off{" "}
             <button type="button" className="mgr-linklike danger" onClick={() => setAppliedCode(null)}>
               Remove
             </button>
           </p>
-        ) : (
-          <div style={{ display: "flex", gap: 8 }}>
+        )}
+        {appliedVoucher && (
+          <p className="sub" style={{ margin: "8px 0 0" }}>
+            <strong>{appliedVoucher.code}</strong> — gift voucher, {formatMoney(appliedVoucher.remainingCents)}{" "}
+            available{" "}
+            <button type="button" className="mgr-linklike danger" onClick={() => setAppliedVoucher(null)}>
+              Remove
+            </button>
+          </p>
+        )}
+        {/* One of each kind can stack, so the box stays until both are on. */}
+        {(!appliedCode || !appliedVoucher) && (
+          <div style={{ display: "flex", gap: 8, marginTop: appliedCode || appliedVoucher ? 8 : 0 }}>
             <input
               id="walkin-code"
               type="text"
@@ -696,7 +712,11 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         </label>
         <label className={`pay-option ${paymentOption === "none" ? "selected" : ""}`}>
           <input type="radio" checked={paymentOption === "none"} onChange={() => setPaymentOption("none")} />
-          <span>Nothing yet — the whole amount is owed</span>
+          <span>
+            {appliedVoucher
+              ? "Just the voucher today — the rest is owed"
+              : "Nothing yet — the whole amount is owed"}
+          </span>
         </label>
       </div>
 
@@ -713,6 +733,13 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
             <span className="walkin-when" style={{ marginTop: 0, marginBottom: 4 }}>
               <span>
                 {appliedCode.code} takes {formatMoney(discount)} off
+              </span>
+            </span>
+          )}
+          {appliedVoucher && (
+            <span className="walkin-when" style={{ marginTop: 0, marginBottom: 4 }}>
+              <span>
+                Voucher {appliedVoucher.code} pays up to {formatMoney(appliedVoucher.remainingCents)} of the total
               </span>
             </span>
           )}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { buildBooking } from "@/lib/create-booking";
-import { logActivity, saveBooking } from "@/lib/db";
+import { logActivity, saveBooking, takeVoucherFor } from "@/lib/db";
 import { markRewardUsed } from "@/lib/reward-codes";
 import { notifyBookingConfirmed } from "@/lib/sms";
 
@@ -28,6 +28,27 @@ export async function POST(req: NextRequest) {
   // Credit the account that took it, so Reports can say who books what. Online
   // bookings have nobody to credit and leave it unset.
   result.booking.bookedBy = guard.staff.name || guard.staff.email;
+
+  // A gift voucher handed over at the desk is money, not a discount: its
+  // balance comes off before the save, exactly as the online checkout does it,
+  // so a just-emptied code fails cleanly instead of recording payment that was
+  // never captured. Cancelling the booking puts the balance back (returnVoucher
+  // in lib/manage-booking.ts reads these same pricing fields).
+  const p = result.booking.pricing;
+  const wantCents = p.voucherCents ?? 0;
+  if (p.voucherCode && wantCents > 0) {
+    const takenCents = await takeVoucherFor(result.booking);
+    if (takenCents <= 0) {
+      return NextResponse.json(
+        { error: "That gift voucher could not be applied — its balance may have just been spent. Check it under Promo codes." },
+        { status: 409 }
+      );
+    }
+    p.voucherCents = takenCents;
+    p.voucherRedeemed = true;
+    p.paidCents = p.paidCents - wantCents + takenCents;
+    p.balanceCents = p.totalCents - p.paidCents;
+  }
 
   try {
     await saveBooking(result.booking);
