@@ -24,6 +24,12 @@ export const DRAW_DATE = "2026-09-20"; // the day the winners are drawn, venue-l
 export const WINNERS_PER_LOCATION = 4;
 export const TICKETS_PER_WINNER = 2;
 
+// What the winners actually get. Named rather than left as "movie tickets" so
+// staff ringing round know what they are offering, and so the customer notice
+// says something worth reading. The poster is a static file in public/.
+export const MOVIE_TITLE = "Heart of the Beast";
+export const MOVIE_POSTER = "/heart-of-the-beast.jpg";
+
 const DRAW_KEY = "premiere_draw";
 
 export type DrawEntry = {
@@ -42,6 +48,9 @@ export type DrawWinner = DrawEntry & { tickets: number };
 export type DrawResult = {
   drawnAt: string; // ISO
   drawnBy: string; // staff name who pressed the button
+  // Recorded with the result rather than read from the constant, so a draw
+  // stays self-describing if the constant is ever changed or deleted.
+  movie?: string;
   from: string;
   to: string;
   winnersPerLocation: number;
@@ -209,6 +218,7 @@ export async function runDraw(drawnBy: string): Promise<{ ok: true; result: Draw
   const result: DrawResult = {
     drawnAt: new Date().toISOString(),
     drawnBy,
+    movie: MOVIE_TITLE,
     from: DRAW_FROM,
     to: DRAW_TO,
     winnersPerLocation: WINNERS_PER_LOCATION,

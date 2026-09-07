@@ -4986,3 +4986,31 @@ textarea:focus {
 .mgr-table tbody tr.row-link {
   cursor: pointer;
 }
+
+/* Movie premiere draw — temporary, goes with the rest of the promotion. */
+.draw-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+/* Small enough to sit beside the text rather than dominate the page: staff open
+   this to run a draw, not to look at a poster. */
+.draw-poster {
+  width: 96px;
+  height: auto;
+  flex: none;
+  border: 1px solid var(--border);
+}
+.draw-prize {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.draw-hero .mgr-page-sub {
+  margin-top: 0;
+}
+@media (max-width: 560px) {
+  .draw-poster {
+    width: 64px;
+  }
+}

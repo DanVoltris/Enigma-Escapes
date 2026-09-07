@@ -8,6 +8,8 @@ import {
   drawIsOpen,
   getDrawResult,
   listEntries,
+  MOVIE_POSTER,
+  MOVIE_TITLE,
   TICKETS_PER_WINNER,
   WINNERS_PER_LOCATION,
   winnersCsv,
@@ -30,11 +32,21 @@ export default async function DrawPage() {
   return (
     <>
       <h1 className="mgr-page-title">Movie premiere draw</h1>
-      <p className="mgr-page-sub">
-        Every booking bought from {formatDateLong(DRAW_FROM)} to {formatDateLong(DRAW_TO)} is entered automatically —
-        one entry per booking, at each location it visits. {WINNERS_PER_LOCATION} winners per location,{" "}
-        {TICKETS_PER_WINNER} tickets each.
-      </p>
+      <div className="draw-hero">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static file in public/, same as the rest of the portal */}
+        <img src={MOVIE_POSTER} alt={`${MOVIE_TITLE} poster`} className="draw-poster" />
+        <div>
+          <p className="draw-prize">
+            {WINNERS_PER_LOCATION * locations.length} winners × {TICKETS_PER_WINNER} tickets to{" "}
+            <strong>{MOVIE_TITLE}</strong>
+          </p>
+          <p className="mgr-page-sub">
+            Every booking bought from {formatDateLong(DRAW_FROM)} to {formatDateLong(DRAW_TO)} is entered
+            automatically — one entry per booking, at each location it visits. {WINNERS_PER_LOCATION} winners per
+            location, {TICKETS_PER_WINNER} tickets each.
+          </p>
+        </div>
+      </div>
       <DrawBoard
         result={result}
         csv={result ? winnersCsv(result) : null}
