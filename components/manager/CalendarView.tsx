@@ -5,6 +5,11 @@ import Link from "next/link";
 import RoomBadge from "@/components/RoomBadge";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
+// Column sizing for the occupancy grid. Room columns share whatever width is going,
+// down to MIN_ROOM_COL_PX; below that the grid scrolls sideways instead of squashing.
+const TIME_COL_PX = 64;
+const MIN_ROOM_COL_PX = 92;
+
 // One booking's slice of a single session, as shown in the slide-over panel.
 // Money is booking-level (the whole transaction); quantity is this session's party.
 export type SessionBooking = {
@@ -78,7 +83,13 @@ export default function CalendarView({
         <>
           <p className="mgr-page-sub">Who&apos;s booked into each session. Click a session with guests to see its bookings.</p>
           <div className="mgr-cal-wrap">
-            <table className="mgr-cal">
+            {/* The grid lays out with fixed columns (see .mgr-cal in globals.css), so it
+                fills the window exactly instead of letting the longest room name push the
+                last column off the right edge. This floor is what it refuses to shrink
+                below — past it the wrapper scrolls sideways rather than squeezing the
+                columns into something unreadable. Computed here because it depends on how
+                many rooms there are. */}
+            <table className="mgr-cal" style={{ minWidth: TIME_COL_PX + experiences.length * MIN_ROOM_COL_PX }}>
               <thead>
                 <tr>
                   <th>Time</th>
