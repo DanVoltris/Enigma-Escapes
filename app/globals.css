@@ -2480,10 +2480,15 @@ a.mgr-pill.on:hover {
      controls; a day with few start times still shrinks to fit its rows. */
   overflow: auto;
   max-height: calc(100vh - 235px);
-  /* Reserve the scrollbar's width instead of letting it sit over the content.
-     With scrollbars set to "Always" the grid's own scrollbar overlays the right
-     edge, and what it covers is the last room's column. */
-  scrollbar-gutter: stable;
+  /* No visible scrollbar on either axis. A grid of rooms against a day of start
+     times reads as something you push around without being told, and on a Mac
+     set to show scrollbars always, the vertical one sat in the grid taking width
+     off the last room's column for no gain. Scrolling itself is untouched —
+     wheel, trackpad and keyboard all work as before. */
+  scrollbar-width: none; /* Firefox */
+}
+.mgr-cal-wrap::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
 }
 /* The rightmost column needs its own closing edge: collapsed borders give a
    cell its left border, so the last one in a row has nothing on its right and
@@ -5013,4 +5018,23 @@ textarea:focus {
   .draw-poster {
     width: 64px;
   }
+}
+
+/* The draw notice on the confirmation page — poster beside the copy. Temporary,
+   goes with the rest of the promotion. */
+.draw-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 14px 0;
+  text-align: left;
+}
+.draw-note-poster {
+  width: 72px;
+  height: auto;
+  flex: none;
+  border: 1px solid var(--border);
+}
+.draw-note .confirm-note {
+  margin: 0;
 }
