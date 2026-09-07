@@ -21,6 +21,8 @@ const TABS: { href: string; label: string; need?: Permission | Permission[] }[] 
   { href: "/manager/checklists", label: "Checklists", need: "checklists" },
   { href: "/manager/notes", label: "Notes", need: "notes" },
   { href: "/manager/reports", label: "Reports", need: "reports" },
+  // Temporary — remove with the rest of the premiere promotion once it is over.
+  { href: "/manager/draw", label: "Draw", need: "reports" },
   { href: "/manager/settings", label: "Settings", need: ["settings", "staff"] },
   { href: "/manager/help", label: "Help" },
 ];
