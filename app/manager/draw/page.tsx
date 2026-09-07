@@ -10,6 +10,7 @@ import {
   listEntries,
   MOVIE_POSTER,
   MOVIE_TITLE,
+  SCREENING_DATE,
   TICKETS_PER_WINNER,
   WINNERS_PER_LOCATION,
   winnersCsv,
@@ -38,7 +39,7 @@ export default async function DrawPage() {
         <div>
           <p className="draw-prize">
             {WINNERS_PER_LOCATION * locations.length} winners × {TICKETS_PER_WINNER} tickets to{" "}
-            <strong>{MOVIE_TITLE}</strong>
+            <strong>{MOVIE_TITLE}</strong> — early screening {formatDateLong(SCREENING_DATE)}
           </p>
           <p className="mgr-page-sub">
             Every booking bought from {formatDateLong(DRAW_FROM)} to {formatDateLong(DRAW_TO)} is entered

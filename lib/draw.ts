@@ -1,5 +1,5 @@
 // Movie-premiere prize draw. A one-off promotion: every booking bought between
-// DRAW_FROM and DRAW_TO is entered automatically, and on the 20th an admin
+// DRAW_FROM and DRAW_TO is entered automatically, and on DRAW_DATE an admin
 // presses a button that picks WINNERS_PER_LOCATION names at each location,
 // each winning TICKETS_PER_WINNER seats.
 //
@@ -19,8 +19,8 @@ import { getSetting, saveSetting } from "./settings";
 import type { Booking } from "./types";
 
 export const DRAW_FROM = "2026-09-04"; // inclusive, venue-local date
-export const DRAW_TO = "2026-09-19"; // inclusive, venue-local date
-export const DRAW_DATE = "2026-09-20"; // the day the winners are drawn, venue-local
+export const DRAW_TO = "2026-09-07"; // inclusive, venue-local date
+export const DRAW_DATE = "2026-09-08"; // the day the winners are drawn, venue-local
 export const WINNERS_PER_LOCATION = 4;
 export const TICKETS_PER_WINNER = 2;
 
@@ -29,6 +29,10 @@ export const TICKETS_PER_WINNER = 2;
 // says something worth reading. The poster is a static file in public/.
 export const MOVIE_TITLE = "Heart of the Beast";
 export const MOVIE_POSTER = "/heart-of-the-beast.jpg";
+// An advance screening, ahead of the film's general release on the 25th. Worth
+// naming on the confirmation: "premiere tickets" on its own doesn't tell a
+// customer they'd need that evening free.
+export const SCREENING_DATE = "2026-09-09";
 
 const DRAW_KEY = "premiere_draw";
 

@@ -4,7 +4,7 @@ import ConfirmationEffects from "@/components/ConfirmationEffects";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
-import { isInDrawWindow, MOVIE_TITLE, TICKETS_PER_WINNER } from "@/lib/draw";
+import { DRAW_DATE, isInDrawWindow, MOVIE_POSTER, MOVIE_TITLE, SCREENING_DATE, TICKETS_PER_WINNER } from "@/lib/draw";
 import { getBookingPolicies, getIntegrations } from "@/lib/settings";
 import { retrieveCheckoutSession, stripeConfigured } from "@/lib/stripe";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -98,11 +98,16 @@ export default async function ConfirmationPage({
           </p>
         )}
         {isInDrawWindow(booking.createdAt) && (
-          <p className="confirm-note">
-            You are in the draw! Every booking this month goes in automatically, and we are giving{" "}
-            {TICKETS_PER_WINNER} premiere tickets to <strong>{MOVIE_TITLE}</strong> to winners at each of our
-            locations. We will be in touch on September 20th if you win.
-          </p>
+          <div className="draw-note">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static file in public/ */}
+            <img src={MOVIE_POSTER} alt={`${MOVIE_TITLE} poster`} className="draw-note-poster" />
+            <p className="confirm-note">
+              You&apos;re in the draw! Your booking is entered automatically, and we&apos;re giving{" "}
+              {TICKETS_PER_WINNER} tickets to an early screening of <strong>{MOVIE_TITLE}</strong> on{" "}
+              {formatDateLong(SCREENING_DATE)} — ahead of its release — to winners at each of our locations. We
+              draw on {formatDateLong(DRAW_DATE)} and will be in touch if you&apos;ve won.
+            </p>
+          </div>
         )}
         <p className="confirm-note">
           Played already?{" "}
