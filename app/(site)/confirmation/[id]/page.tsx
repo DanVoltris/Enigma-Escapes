@@ -4,6 +4,7 @@ import ConfirmationEffects from "@/components/ConfirmationEffects";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
+import { isInDrawWindow, TICKETS_PER_WINNER } from "@/lib/draw";
 import { getBookingPolicies, getIntegrations } from "@/lib/settings";
 import { retrieveCheckoutSession, stripeConfigured } from "@/lib/stripe";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -94,6 +95,13 @@ export default async function ConfirmationPage({
             <a href={meetingUrl} target="_blank" rel="noreferrer">
               {meetingUrl}
             </a>
+          </p>
+        )}
+        {isInDrawWindow(booking.createdAt) && (
+          <p className="confirm-note">
+            You are in the draw! Every booking this month goes in automatically, and we are giving{" "}
+            {TICKETS_PER_WINNER} movie premiere tickets to winners at each of our locations. We will be in touch on
+            September 20th if you win.
           </p>
         )}
         <p className="confirm-note">
