@@ -104,8 +104,10 @@ export default async function ConfirmationPage({
             <p className="confirm-note">
               You&apos;re in the draw! Your booking is entered automatically, and we&apos;re giving{" "}
               {TICKETS_PER_WINNER} tickets to an early screening of <strong>{MOVIE_TITLE}</strong> on{" "}
-              {formatDateLong(SCREENING_DATE)} — ahead of its release — to winners at each of our locations. We
-              draw on {formatDateLong(DRAW_DATE)} and will be in touch if you&apos;ve won.
+              {formatDateLong(SCREENING_DATE)}{" "}
+              — ahead of its release — to winners at each of our locations. We draw on{" "}
+              {formatDateLong(DRAW_DATE)}{" "}
+              and will be in touch if you&apos;ve won.
             </p>
           </div>
         )}
