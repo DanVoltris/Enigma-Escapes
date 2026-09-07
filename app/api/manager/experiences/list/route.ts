@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
+import { blockedKeysForDate } from "@/lib/blocks";
+import { unavailableTimes } from "@/lib/capacity";
+import { bookedCountsForDate, busySessionsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { isValidISODate, todayISO } from "@/lib/format";
 import { locationHoursMap } from "@/lib/hours";
@@ -8,6 +11,11 @@ import { startTimesFor } from "@/lib/schedule";
 export const dynamic = "force-dynamic";
 
 // Fuller experience list for the walk-in form (needs times, price, capacity).
+//
+// Each room also says which of its times can't take a booking and why
+// (`unavailable`), so the picker can grey them out. Without it the dropdown
+// offered every published time, booked or not, and the desk only found out at
+// save — after typing the customer in. The check is the same one save makes.
 //
 // Start times are worked out for a specific date, through the same
 // startTimesFor() the customer site and the calendar use. Returning the raw
@@ -23,20 +31,27 @@ export async function GET(req: NextRequest) {
   const date = asked && isValidISODate(asked) ? asked : todayISO();
 
   try {
-    const [experiences, hoursMap] = await Promise.all([
+    const [experiences, hoursMap, blocked, booked, busy] = await Promise.all([
       listExperiences({ activeOnly: true }),
       locationHoursMap(),
+      blockedKeysForDate(date),
+      bookedCountsForDate(date),
+      busySessionsForDate(date),
     ]);
     return NextResponse.json({
       date,
-      experiences: experiences.map((e) => ({
-        id: e.id,
-        name: e.name,
-        location: e.location,
-        priceCents: e.priceCents,
-        capacity: e.capacity,
-        times: startTimesFor(e, date, hoursMap.get(e.location) ?? null),
-      })),
+      experiences: experiences.map((e) => {
+        const times = startTimesFor(e, date, hoursMap.get(e.location) ?? null);
+        return {
+          id: e.id,
+          name: e.name,
+          location: e.location,
+          priceCents: e.priceCents,
+          capacity: e.capacity,
+          times,
+          unavailable: unavailableTimes(e, times, blocked, booked, busy.get(e.id)),
+        };
+      }),
     });
   } catch (err) {
     console.error("manager experiences list failed:", err);

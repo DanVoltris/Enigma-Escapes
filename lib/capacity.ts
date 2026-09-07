@@ -1,3 +1,4 @@
+import { formatTime } from "./format";
 import type { BookingSource, Experience } from "./types";
 
 // Spots left in a slot, honoring private experiences (one booking per slot).
@@ -54,4 +55,39 @@ export function overlappedBy(
     if (s.start < end && start < s.end) return s;
   }
   return null;
+}
+
+// Why a published start time can't take a new booking right now, keyed by time
+// and worded for a dropdown label — "booked", "blocked off", "in use until
+// 3:30 PM". Free times are simply absent. These are the same three checks
+// create-booking makes at save, run ahead of time so the desk sees them in the
+// picker rather than after a customer's details have been typed in. `blocked`
+// and `booked` are keyed "roomId|time", as blockedKeysForDate and
+// bookedCountsForDate produce them.
+export function unavailableTimes(
+  exp: Experience,
+  times: string[],
+  blocked: Set<string>,
+  booked: Map<string, number>,
+  busy: BusySession[] | undefined
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const time of times) {
+    const key = `${exp.id}|${time}`;
+    if (blocked.has(key)) {
+      out[time] = "blocked off";
+      continue;
+    }
+    // A game that started off-grid and runs through this time takes the room,
+    // whatever this slot's own count says.
+    const clash = overlappedBy(busy, time, exp.durationMinutes);
+    if (clash) {
+      out[time] = `in use until ${formatTime(minutesToTime(clash.end))}`;
+      continue;
+    }
+    if (remainingSpots(exp, booked.get(key) ?? 0) === 0) {
+      out[time] = exp.isPrivate ? "booked" : "full";
+    }
+  }
+  return out;
 }

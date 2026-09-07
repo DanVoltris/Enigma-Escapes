@@ -15,7 +15,23 @@ const WALK_IN_MIN = 1;
 // Sentinel value for the "Custom time…" entry in the time dropdown.
 const CUSTOM = "__custom";
 
-type Exp = { id: string; name: string; location: string; priceCents: number; capacity: number; times: string[] };
+type Exp = {
+  id: string;
+  name: string;
+  location: string;
+  priceCents: number;
+  capacity: number;
+  times: string[];
+  // Published times that can't take a booking right now, with why — "booked",
+  // "blocked off" — so the picker can say so instead of the save failing.
+  unavailable?: Record<string, string>;
+};
+
+// The first start time on the day that a booking could actually go into. What
+// a fresh row and a room switch default to: defaulting to times[0] put the
+// desk on a booked slot whenever the day's first session had gone.
+const firstFreeTime = (exp: Exp | undefined): string =>
+  exp?.times.find((t) => !exp.unavailable?.[t]) ?? "";
 type KnownCustomer = { firstName: string; lastName: string; email: string; phone: string };
 
 // One room on the booking. A group often takes two — same reference, one total,
@@ -224,9 +240,9 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         const time =
           corporate || x.timeCustom
             ? x.time
-            : room.times.includes(x.time)
+            : room.times.includes(x.time) && !room.unavailable?.[x.time]
               ? x.time
-              : (room.times[0] ?? "");
+              : firstFreeTime(room);
         if (room.id === x.roomId && time === x.time) return x;
         touched = true;
         return { ...x, roomId: room.id, time };
@@ -291,7 +307,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
         roomId: room?.id ?? "",
         date,
         // Every room of a corporate event runs at the one time the event does.
-        time: corporate ? (last?.time ?? "") : (room?.times[0] ?? ""),
+        time: corporate ? (last?.time ?? "") : firstFreeTime(room),
         quantity: last?.quantity ?? 2,
       },
     ]);
@@ -553,7 +569,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
                       type="button"
                       className="link-button"
                       onClick={() =>
-                        update(x.key, { timeCustom: false, time: exp?.times[0] ?? "" })
+                        update(x.key, { timeCustom: false, time: firstFreeTime(exp) })
                       }
                     >
                       Pick from the list
@@ -569,7 +585,12 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
                         : update(x.key, { time: v })
                     }
                     options={[
-                      ...(exp?.times ?? []).map((t) => ({ value: t, label: formatTime(t) })),
+                      ...(exp?.times ?? []).map((t) => {
+                        const why = exp?.unavailable?.[t];
+                        return why
+                          ? { value: t, label: `${formatTime(t)} — ${why}`, disabled: true }
+                          : { value: t, label: formatTime(t) };
+                      }),
                       { value: CUSTOM, label: "Custom time…" },
                     ]}
                   />
