@@ -2522,6 +2522,26 @@ a.mgr-pill.on:hover {
   border-collapse: collapse;
   width: 100%;
   font-size: 13px;
+  /* Fixed layout, so the columns divide the width available rather than the
+     longest room name deciding it. With automatic layout a name like "What
+     Happened in Raven Woods?" pushed its column to 109px, thirteen of those
+     ran past the window, and the last room was left half-drawn at the right
+     edge. Now the grid ends exactly where the window does; the table's inline
+     min-width (CalendarView) is the floor it won't shrink past, and below that
+     the wrapper scrolls as it always did. */
+  table-layout: fixed;
+}
+/* The hour column is the one column that shouldn't share equally — it holds a
+   time, not a room. Fixed layout takes its widths from the first row, so this
+   is what sets it. */
+.mgr-cal thead th:first-child,
+.mgr-cal tbody th {
+  width: 64px;
+}
+/* A room name longer than its column now wraps inside it instead of widening
+   it. Only bites on the very longest names. */
+.mgr-cal thead th {
+  overflow-wrap: break-word;
 }
 /* The room names follow you down the grid — by the 9pm row there's no other way
    to tell which column is which. Collapsed borders belong to whichever cell
@@ -2550,9 +2570,12 @@ a.mgr-pill.on:hover {
   z-index: 3; /* the corner sits over both */
 }
 .mgr-cal th {
-  font-size: 11px;
+  /* A shade smaller and tighter than the portal's other table headers: at the
+     column width thirteen rooms leave, 11px/0.04em put "Blackbeard's Brig" one
+     pixel over and it wrapped mid-word as "BLACKBEARD'/S BRIG". */
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--text-secondary);
   padding: 8px;
@@ -4623,9 +4646,10 @@ textarea:focus {
   font-size: 10px;
   font-weight: 600;
   color: var(--text-secondary);
-  /* One line, cut cleanly. A hard cap rather than a percentage: the table sizes
-     columns to their content, so "Aleksandra Kowalczyk-Smith" would otherwise
-     stretch its whole column and knock the grid out of alignment. */
+  /* One line, cut cleanly, so "Aleksandra Kowalczyk-Smith" doesn't wrap to three
+     rows and make its row taller than every other. (This used to also stop the
+     name widening its column, back when the grid sized columns to their
+     content; it lays out with fixed columns now, so that part is handled.) */
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
