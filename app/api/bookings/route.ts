@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ATTRIBUTION_COOKIE, attributionFromCookie } from "@/lib/attribution";
 import { buildBooking } from "@/lib/create-booking";
 import { saveBooking, takeVoucherFor } from "@/lib/db";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
@@ -15,7 +16,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  const result = await buildBooking(body as Record<string, unknown>, "online");
+  // Where they came from rides in on the first-touch cookie, not the body: the
+  // page never sees it, so it can't be forged as part of the request.
+  const attribution = attributionFromCookie(req.cookies.get(ATTRIBUTION_COOKIE)?.value);
+  const result = await buildBooking({ ...(body as Record<string, unknown>), attribution }, "online");
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
   // Nothing goes through Stripe on this path, so the booking counts as paid the

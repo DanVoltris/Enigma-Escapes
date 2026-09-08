@@ -27,6 +27,7 @@ type BookingRow = {
   notes?: BookingNote[] | null;
   // Added later, so rows written before the column existed read as undefined.
   booked_by?: string | null;
+  attribution?: Booking["attribution"];
 };
 
 function toBooking(row: BookingRow): Booking {
@@ -52,6 +53,7 @@ function toBooking(row: BookingRow): Booking {
     gameResult: row.game_result ?? null,
     notes: row.notes ?? [],
     bookedBy: row.booked_by ?? null,
+    attribution: row.attribution ?? null,
   };
 }
 
@@ -171,6 +173,7 @@ export async function saveBooking(booking: Booking): Promise<void> {
     // Same reason: only written when there is something to write, so the column
     // being absent can't break an online booking.
     ...(booking.bookedBy ? { booked_by: booking.bookedBy } : {}),
+    ...(booking.attribution ? { attribution: booking.attribution } : {}),
   };
   const res = await rest("bookings", {
     method: "POST",

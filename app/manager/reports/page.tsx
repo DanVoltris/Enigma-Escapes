@@ -3,9 +3,11 @@ import { allowedLocations, requirePermission } from "@/lib/auth";
 import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
 import DemandTab from "@/components/manager/reports/DemandTab";
+import FunnelTab from "@/components/manager/reports/FunnelTab";
 import NoShowsTab from "@/components/manager/reports/NoShowsTab";
 import TimingTab from "@/components/manager/reports/TimingTab";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
+import { attributionBreakdown } from "@/lib/attribution";
 import { channelByWeek, optIn, promoLift, rate } from "@/lib/behaviour";
 import { listBlocks } from "@/lib/blocks";
 import { listBookings, listBookingsInWindow } from "@/lib/db";
@@ -54,6 +56,7 @@ const TABS = [
   { section: "Misc", key: "timing", label: "Timing" },
   { section: "Misc", key: "noshows", label: "No-shows" },
   { section: "Misc", key: "demand", label: "Demand" },
+  { section: "Misc", key: "funnel", label: "Funnel" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -224,6 +227,7 @@ export default async function ManagerReports({
           {tab === "timing" && <TimingTab bookings={bookings} from={from} to={to} />}
           {tab === "noshows" && <NoShowsTab from={from} to={to} today={today} scope={scope} />}
           {tab === "demand" && <DemandTab from={from} to={to} today={today} scope={scope} />}
+          {tab === "funnel" && <FunnelTab from={from} to={to} today={today} />}
           {tab === "discounts" && <DiscountsTab purchased={purchased} />}
         </div>
       </div>
@@ -449,6 +453,56 @@ function SalesTab({
                 </tbody>
               </table>
             </div>
+          );
+        })()}
+      </div>
+
+      <div className="mgr-card">
+        <h2>Where website bookings came from</h2>
+        <p className="card-sub">
+          The post, ad or site that first brought each customer here, read from a cookie set on their first visit.
+          Direct means no trace — a typed address, a bookmark, or a browser that dropped the cookie. Walk-ins have
+          no web origin and sit on their own line. Only bookings made since this was switched on carry it.
+        </p>
+        {(() => {
+          const a = attributionBreakdown(purchased);
+          const Rows = ({ rows }: { rows: { label: string; bookings: number; totalCents: number }[] }) => (
+            <div className="mgr-table-wrap">
+              <table className="mgr-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th className="num">Bookings</th>
+                    <th className="num">Billed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.label}>
+                      <td>{r.label}</td>
+                      <td className="num">{r.bookings}</td>
+                      <td className="num">{formatMoney(r.totalCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+          return a.online + a.walkIns === 0 ? (
+            <p className="cust-empty">Nothing in this period.</p>
+          ) : (
+            <>
+              <p className="mgr-page-sub" style={{ marginTop: 0 }}>
+                {a.attributed} of {a.online} website booking{a.online === 1 ? "" : "s"} carried an origin.
+              </p>
+              <Rows rows={a.bySource} />
+              {a.byCampaign.length > 0 && (
+                <>
+                  <h3 style={{ marginTop: 16 }}>By campaign</h3>
+                  <Rows rows={a.byCampaign} />
+                </>
+              )}
+            </>
           );
         })()}
       </div>
