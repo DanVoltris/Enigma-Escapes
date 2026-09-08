@@ -5094,3 +5094,16 @@ textarea:focus {
   margin: 0;
   line-height: 1.55;
 }
+
+/* Reports → Opportunities: the suggestion list. Reads as prose, not a table —
+   each one is an argument with its evidence under it. */
+.opp-list { display: grid; gap: 20px; }
+.opp { border-left: 3px solid var(--accent); padding-left: 14px; }
+.opp h3 { margin: 0 0 4px; font-size: 15px; }
+.opp p { margin: 0 0 6px; line-height: 1.5; }
+.opp-impact { font-size: 15px; }
+.opp-impact strong { font-size: 18px; }
+.opp-assumption { color: var(--text-secondary); font-size: 13px; font-weight: 400; }
+.opp-action { color: var(--text-secondary); }
+.opp-evidence { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--text-secondary); }
+.opp-evidence li { margin-bottom: 2px; }
