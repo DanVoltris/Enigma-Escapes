@@ -106,6 +106,15 @@ function usableContact(email: string, phone: string): { email: string; phone: st
   return real ? { email, phone } : { email: "", phone: "" };
 }
 
+// Can we actually tell this entrant they've won? Desk walk-ins filed under a
+// placeholder account have neither an email nor a number of their own (see
+// usableContact), so a win would be undeliverable. They stay in the pool and in
+// the counts — they were told they're entered, and they are — but the pick
+// passes over them, the way a raffle skips a ticket with no name on it.
+export function isContactable(entry: DrawEntry): boolean {
+  return Boolean(entry.email || entry.phone);
+}
+
 // How we decide two entries are the same person, so nobody wins twice. Email
 // first, then phone; a walk-in with neither is treated as its own person rather
 // than being merged with every other contactless walk-in.
@@ -174,9 +183,9 @@ function shuffled<T>(list: T[]): T[] {
   return out;
 }
 
-// Picks the winners without saving. Locations are drawn in their listed order,
-// and anyone who has already won is skipped so a customer who booked at two
-// venues can't take two prizes.
+// Picks the winners without saving. Locations are drawn in their listed order;
+// anyone who has already won is skipped so a customer who booked at two venues
+// can't take two prizes, and so is anyone we'd have no way of contacting.
 export function pickWinners(entries: DrawEntry[], locations: string[]): DrawWinner[] {
   const winners: DrawWinner[] = [];
   const alreadyWon = new Set<string>();
@@ -185,6 +194,7 @@ export function pickWinners(entries: DrawEntry[], locations: string[]): DrawWinn
     let taken = 0;
     for (const entry of pool) {
       if (taken >= WINNERS_PER_LOCATION) break;
+      if (!isContactable(entry)) continue; // entered, but a prize has to reach someone
       const identity = identityOf(entry);
       if (alreadyWon.has(identity)) continue;
       alreadyWon.add(identity);
