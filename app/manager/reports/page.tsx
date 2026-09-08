@@ -2,7 +2,10 @@ import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
+import NoShowsTab from "@/components/manager/reports/NoShowsTab";
+import TimingTab from "@/components/manager/reports/TimingTab";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
+import { channelByWeek, optIn, promoLift, rate } from "@/lib/behaviour";
 import { listBlocks } from "@/lib/blocks";
 import { listBookings, listBookingsInWindow } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
@@ -47,6 +50,8 @@ const TABS = [
   { section: "Misc", key: "discounts", label: "Discounts" },
   { section: "Misc", key: "games", label: "Games" },
   { section: "Misc", key: "surveys", label: "Surveys" },
+  { section: "Misc", key: "timing", label: "Timing" },
+  { section: "Misc", key: "noshows", label: "No-shows" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -214,6 +219,8 @@ export default async function ManagerReports({
           {tab === "capacity" && <CapacityTab bookings={bookings} from={from} to={to} today={today} />}
           {tab === "games" && <GamesTab bookings={bookings} from={from} to={to} />}
           {tab === "surveys" && <SurveysTab from={from} to={to} />}
+          {tab === "timing" && <TimingTab bookings={bookings} from={from} to={to} />}
+          {tab === "noshows" && <NoShowsTab from={from} to={to} today={today} scope={scope} />}
           {tab === "discounts" && <DiscountsTab purchased={purchased} />}
         </div>
       </div>
@@ -404,6 +411,43 @@ function SalesTab({
             />
           )}
         </div>
+      </div>
+
+      <div className="mgr-card">
+        <h2>Online vs desk, week by week</h2>
+        <p className="card-sub">
+          Bookings made each week, by where they were taken. Is the website picking up what the phone used to? The
+          owner&apos;s test bookings are left out here (the cards above still include them).
+        </p>
+        {(() => {
+          const weeks = channelByWeek(purchased);
+          return weeks.length === 0 ? (
+            <p className="cust-empty">Nothing in this period.</p>
+          ) : (
+            <div className="mgr-table-wrap">
+              <table className="mgr-table">
+                <thead>
+                  <tr>
+                    <th>Week of</th>
+                    <th className="num">Booking site</th>
+                    <th className="num">Walk-in</th>
+                    <th className="num">Online share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeks.map((w) => (
+                    <tr key={w.week}>
+                      <td>{formatDateLong(w.week)}</td>
+                      <td className="num">{w.online}</td>
+                      <td className="num">{w.inPerson}</td>
+                      <td className="num">{(rate(w.online, w.online + w.inPerson) * 100).toFixed(0)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="rpt-cards">
@@ -719,6 +763,56 @@ function GuestsTab({ purchased }: { purchased: Booking[] }) {
           <BarChart bars={bars} ariaLabel="Bookings by party size" />
         )}
       </div>
+
+      <div className="mgr-card">
+        <h2>Marketing opt-in</h2>
+        <p className="card-sub">
+          Who ticked the box. Bookings made on this system only — the imported history has no opt-in field. The
+          owner&apos;s test bookings are left out here.
+        </p>
+        {(() => {
+          const o = optIn(purchased);
+          const pct = (part: number, whole: number) => (whole ? `${(rate(part, whole) * 100).toFixed(0)}%` : "—");
+          return o.total === 0 ? (
+            <p className="cust-empty">No bookings made on this system in this period.</p>
+          ) : (
+            <>
+              <div className="rpt-tiles">
+                <div className="rpt-tile">
+                  <div className="label">Opted in</div>
+                  <div className="value">{pct(o.optedIn, o.total)}</div>
+                </div>
+                <div className="rpt-tile">
+                  <div className="label">Of bookings</div>
+                  <div className="value">{o.total}</div>
+                </div>
+              </div>
+              <div className="mgr-table-wrap">
+                <table className="mgr-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th className="num">Bookings</th>
+                      <th className="num">Opted in</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...o.bySource, ...o.byRoom].map((r) => (
+                      <tr key={r.label}>
+                        <td>{r.label}</td>
+                        <td className="num">{r.total}</td>
+                        <td className="num">
+                          {r.optedIn} <span className="rpt-delta">({pct(r.optedIn, r.total)})</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+      </div>
     </>
   );
 }
@@ -924,6 +1018,48 @@ function DiscountsTab({ purchased }: { purchased: Booking[] }) {
           <div className="value">{formatMoney(withPromo.reduce((s, b) => s + b.pricing.discountCents, 0))}</div>
         </div>
       </div>
+      <div className="mgr-card">
+        <h2>Does a code bring a bigger party?</h2>
+        <p className="card-sub">
+          Bookings with a promo code against those without, in this period. Spend is what was billed after the
+          discount. The owner&apos;s test bookings are left out here.
+        </p>
+        {(() => {
+          const lift = promoLift(purchased);
+          const rows = [
+            { label: "With a code", ...lift.withCode },
+            { label: "Without", ...lift.withoutCode },
+            ...lift.byCode.map((c) => ({ label: c.code, ...c })),
+          ];
+          return lift.withCode.bookings + lift.withoutCode.bookings === 0 ? (
+            <p className="cust-empty">Nothing in this period.</p>
+          ) : (
+            <div className="mgr-table-wrap">
+              <table className="mgr-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th className="num">Bookings</th>
+                    <th className="num">Avg party</th>
+                    <th className="num">Avg spend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.label} style={i === 2 ? { borderTop: "2px solid var(--border)" } : undefined}>
+                      <td>{i >= 2 ? <span className="mgr-pill">{r.label}</span> : r.label}</td>
+                      <td className="num">{r.bookings}</td>
+                      <td className="num">{r.bookings ? r.avgGuests.toFixed(1) : "—"}</td>
+                      <td className="num">{r.bookings ? formatMoney(r.avgSpendCents) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
+      </div>
+
       <div className="mgr-card">
         <h2>By promo code</h2>
         {byCode.size === 0 ? (

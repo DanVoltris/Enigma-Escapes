@@ -5038,3 +5038,37 @@ textarea:focus {
 .draw-note .confirm-note {
   margin: 0;
 }
+
+/* Reports → Timing: sessions sold by weekday × hour. Five shades of the
+   accent, so "busier" reads at a glance without a legend. */
+.rpt-heat {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.rpt-heat th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  text-align: center;
+}
+.rpt-heat tbody th {
+  text-align: left;
+}
+.rpt-heat td {
+  width: 52px;
+  height: 34px;
+  text-align: center;
+  border: 1px solid var(--border);
+  font-weight: 600;
+}
+.rpt-heat .heat-0 {
+  color: var(--text-secondary);
+}
+.rpt-heat .heat-1 { background: color-mix(in srgb, var(--accent) 18%, white); }
+.rpt-heat .heat-2 { background: color-mix(in srgb, var(--accent) 36%, white); }
+.rpt-heat .heat-3 { background: color-mix(in srgb, var(--accent) 54%, white); }
+.rpt-heat .heat-4 { background: color-mix(in srgb, var(--accent) 72%, white); }
+.rpt-heat .heat-5 { background: color-mix(in srgb, var(--accent) 90%, white); }
