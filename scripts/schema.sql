@@ -72,7 +72,8 @@ create table if not exists bookings (
   pending_expires_at  timestamptz,
   game_result         jsonb,
   notes               jsonb,
-  booked_by           text                             -- staff member, for desk sales
+  booked_by           text,                            -- staff member, for desk sales
+  attribution         jsonb                            -- utm params + referrer host, stamped at checkout
 );
 
 -- ------------------------------------------------------------------ customers
@@ -87,6 +88,11 @@ create table if not exists customers (
   created_at  timestamptz not null default now(),
   imported    jsonb
 );
+-- `imported` arrived after this table did, so a database created before it has
+-- the table but not the column — and `create table if not exists` above would
+-- have skipped straight past. The generated columns below reference it, so it
+-- has to be here or the whole script fails on that ALTER.
+alter table customers add column if not exists imported jsonb;
 alter table customers
   add column if not exists legacy_bookings int
     generated always as (coalesce((imported->>'bookings')::int, 0)) stored,
@@ -94,10 +100,13 @@ alter table customers
     generated always as (coalesce((imported->>'paidCents')::bigint, 0)) stored;
 
 -- --------------------------------------------------------------- promo_codes
+-- staff_only codes work on walk-ins taken at the desk and never appear on the
+-- website.
 create table if not exists promo_codes (
   code         text primary key,
   percent_off  numeric not null,
-  active       boolean not null default true
+  active       boolean not null default true,
+  staff_only   boolean not null default false
 );
 
 -- ------------------------------------------------------------- gift_vouchers
@@ -323,6 +332,50 @@ create table if not exists quotes (
   expires_on      date
 );
 create index if not exists quotes_created_idx on quotes (created_at desc);
+
+-- --------------------------------------------------------------- site_events
+-- First-party analytics: what visitors looked for on the booking site and where
+-- they stopped. No personal data — `visitor` is a random cookie id and `props`
+-- carries only what each event kind is allowed to (see lib/events.ts). Rows
+-- older than 180 days are pruned by the Demand report on its way past.
+create table if not exists site_events (
+  id       uuid primary key default gen_random_uuid(),
+  at       timestamptz not null default now(),
+  kind     text not null,
+  visitor  text,
+  path     text,
+  props    jsonb not null default '{}'::jsonb
+);
+create index if not exists site_events_kind_at on site_events (kind, at desc);
+
+-- =============================================================================
+-- Columns that arrived after their table
+--
+-- `create table if not exists` above does nothing to a table that already
+-- exists, so on a database that was built before these columns shipped the
+-- CREATEs pass and the app then fails at runtime against the old shape. These
+-- ALTERs are the backstop that makes re-running this file actually bring an
+-- existing database up to date, which is what the header promises. On a fresh
+-- database every one is a no-op.
+-- =============================================================================
+alter table bookings
+  add column if not exists status              text,
+  add column if not exists pending_expires_at  timestamptz,
+  add column if not exists game_result         jsonb,
+  add column if not exists notes               jsonb,
+  add column if not exists booked_by           text,
+  add column if not exists attribution         jsonb;
+alter table promo_codes      add column if not exists staff_only     boolean not null default false;
+alter table experiences      add column if not exists date_times     jsonb;
+alter table slot_blocks      add column if not exists blocked_by     text;
+alter table booking_requests add column if not exists reminded_at    timestamptz;
+alter table staff_accounts   add column if not exists phone          text;
+alter table staff_members
+  add column if not exists phone           text,
+  add column if not exists request_alerts  boolean not null default false;
+alter table quotes
+  add column if not exists corporate       boolean not null default false,
+  add column if not exists flat_fee_cents  int not null default 0;
 
 -- =============================================================================
 -- Derived tables, indexes and functions
@@ -666,11 +719,12 @@ alter table activity_log        enable row level security;
 alter table feedback            enable row level security;
 alter table quotes              enable row level security;
 alter table booking_email_stats enable row level security;
+alter table site_events         enable row level security;
 
 -- =============================================================================
--- Check it worked. Expect 21 tables and 7 functions.
+-- Check it worked. Expect 22 tables and 7 functions.
 -- =============================================================================
-select 'tables' as kind, count(*) as found, 21 as expected
+select 'tables' as kind, count(*) as found, 22 as expected
 from pg_tables where schemaname = 'public'
 union all
 select 'functions', count(*), 7
