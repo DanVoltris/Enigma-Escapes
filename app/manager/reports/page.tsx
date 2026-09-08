@@ -5,6 +5,7 @@ import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
 import DemandTab from "@/components/manager/reports/DemandTab";
 import FunnelTab from "@/components/manager/reports/FunnelTab";
 import NoShowsTab from "@/components/manager/reports/NoShowsTab";
+import OpportunitiesTab from "@/components/manager/reports/OpportunitiesTab";
 import TimingTab from "@/components/manager/reports/TimingTab";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
 import { attributionBreakdown } from "@/lib/attribution";
@@ -57,6 +58,7 @@ const TABS = [
   { section: "Misc", key: "noshows", label: "No-shows" },
   { section: "Misc", key: "demand", label: "Demand" },
   { section: "Misc", key: "funnel", label: "Funnel" },
+  { section: "Looking ahead", key: "opportunities", label: "Opportunities" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -228,6 +230,7 @@ export default async function ManagerReports({
           {tab === "noshows" && <NoShowsTab from={from} to={to} today={today} scope={scope} />}
           {tab === "demand" && <DemandTab from={from} to={to} today={today} scope={scope} />}
           {tab === "funnel" && <FunnelTab from={from} to={to} today={today} />}
+          {tab === "opportunities" && <OpportunitiesTab from={from} to={to} today={today} scope={scope} />}
           {tab === "discounts" && <DiscountsTab purchased={purchased} />}
         </div>
       </div>
