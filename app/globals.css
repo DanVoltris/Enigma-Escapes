@@ -2288,6 +2288,10 @@ a:hover {
   padding: 22px 24px 34px;
   display: flex;
   justify-content: center;
+  /* Two things in it now — the privacy link and the powered-by mark. */
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 /* "Powered by VoltrisBooking" — the wordmark is set in type rather than an
    image file so it stays crisp at any size and needs no asset. */
@@ -5072,3 +5076,21 @@ textarea:focus {
 .rpt-heat .heat-3 { background: color-mix(in srgb, var(--accent) 54%, white); }
 .rpt-heat .heat-4 { background: color-mix(in srgb, var(--accent) 72%, white); }
 .rpt-heat .heat-5 { background: color-mix(in srgb, var(--accent) 90%, white); }
+
+/* Footer link to the privacy policy, beside the powered-by mark. */
+.site-footer-link {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+/* The policy page reads as a document: headings with room, paragraphs measured. */
+.policy-page h3 {
+  margin: 18px 0 6px;
+}
+.policy-page h3:first-child {
+  margin-top: 0;
+}
+.policy-page p {
+  margin: 0;
+  line-height: 1.55;
+}
