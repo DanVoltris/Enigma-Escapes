@@ -30,7 +30,10 @@ export default async function ManageBookingPage({ params }: { params: Promise<{ 
         Reference <strong>{booking.reference}</strong>
       </p>
 
-      <DrawNotice createdAt={booking.createdAt} />
+      {/* Same cap as the card below, so the two read as one column. */}
+      <div style={{ maxWidth: 640 }}>
+        <DrawNotice createdAt={booking.createdAt} />
+      </div>
       <div className="form-card" style={{ maxWidth: 640 }}>
         {booking.status === "cancelled" ? (
           <div className="manage-cancelled">
