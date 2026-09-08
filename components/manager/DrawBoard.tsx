@@ -19,6 +19,7 @@ export default function DrawBoard({
   winnersPerLocation,
   ticketsPerWinner,
   cancelledIds,
+  uncontactable,
 }: {
   result: DrawResult | null;
   csv: string | null;
@@ -32,6 +33,8 @@ export default function DrawBoard({
   ticketsPerWinner: number;
   // Winners whose booking was cancelled after the draw — shown, not removed.
   cancelledIds: string[];
+  // Entries with no email or phone: counted, shown, never drawn.
+  uncontactable: number;
 }) {
   const cancelled = new Set(cancelledIds);
   const router = useRouter();
@@ -119,12 +122,6 @@ export default function DrawBoard({
                   tickets still go to them, or to someone else, is your call.
                 </p>
               )}
-              {winners.some((w) => !w.email && !w.phone) && (
-                <p className="mgr-page-sub">
-                  A winner here has no contact details — it was taken at the desk. Look the booking reference up on the
-                  Bookings tab to find them.
-                </p>
-              )}
             </div>
           );
         })}
@@ -137,6 +134,13 @@ export default function DrawBoard({
       {error && <div className="error-banner">{error}</div>}
       <div className="form-card" style={{ marginBottom: 16 }}>
         <h3>Entries so far — {totalEntries} total</h3>
+        {uncontactable > 0 && (
+          <p className="mgr-page-sub">
+            {uncontactable} of them {uncontactable === 1 ? "is a desk booking" : "are desk bookings"} with no email or
+            phone. {uncontactable === 1 ? "It stays" : "They stay"} in the count but can&apos;t be drawn — there&apos;d be
+            no way to tell them.
+          </p>
+        )}
         <div className="mgr-table-wrap">
           <table className="mgr-table">
             <thead>

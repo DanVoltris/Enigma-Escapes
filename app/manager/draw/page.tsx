@@ -8,6 +8,7 @@ import {
   DRAW_TO,
   drawIsOpen,
   getDrawResult,
+  isContactable,
   listEntries,
   MOVIE_POSTER,
   MOVIE_TITLE,
@@ -60,6 +61,7 @@ export default async function DrawPage() {
         locations={locations}
         entriesByLocation={countByLocation(entries)}
         totalEntries={entries.filter((e) => locations.includes(e.location)).length}
+        uncontactable={entries.filter((e) => locations.includes(e.location) && !isContactable(e)).length}
         canRun={staff.role === "admin"}
         open={drawIsOpen()}
         drawDate={formatDateLong(DRAW_DATE)}
