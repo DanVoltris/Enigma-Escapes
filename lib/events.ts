@@ -11,7 +11,34 @@ import { VISITOR_COOKIE } from "./visitor";
 export { VISITOR_COOKIE };
 export const RETENTION_DAYS = 180;
 
-export type EventKind = "availability_look";
+// availability_look is written server-side; the rest arrive from the browser
+// through /api/events and are held to the allowlist below.
+export type EventKind =
+  | "availability_look"
+  | "add_to_cart"
+  | "begin_checkout"
+  | "checkout_details"
+  | "payment_started"
+  | "purchase";
+
+// What each browser-sent event may carry, and nothing else. Unknown kinds are
+// refused, unknown fields dropped, strings cut, numbers coerced — the browser
+// is not a trusted source of anything, least of all analytics.
+const CLIENT_EVENTS: Record<string, (p: Record<string, unknown>) => Record<string, unknown>> = {
+  add_to_cart: (p) => ({ room: str(p.room, 80), cents: int(p.cents) }),
+  begin_checkout: (p) => ({ cents: int(p.cents), items: int(p.items) }),
+  checkout_details: () => ({}),
+  payment_started: (p) => ({ method: p.method === "stripe" ? "stripe" : "simulated" }),
+  purchase: (p) => ({ cents: int(p.cents), reference: str(p.reference, 20) }),
+};
+const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+const int = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0);
+
+export function cleanClientEvent(kind: unknown, props: unknown): { kind: EventKind; props: Record<string, unknown> } | null {
+  if (typeof kind !== "string" || !(kind in CLIENT_EVENTS)) return null;
+  const o = props && typeof props === "object" ? (props as Record<string, unknown>) : {};
+  return { kind: kind as EventKind, props: CLIENT_EVENTS[kind](o) };
+}
 
 export type SiteEvent = {
   id: string;
@@ -50,6 +77,18 @@ export async function recordEvent(
 export async function listEvents(kind: EventKind, from: string, to: string): Promise<SiteEvent[] | null> {
   const rows = await restAllPages<SiteEvent>(
     `site_events?select=*&kind=eq.${kind}&at=gte.${addDaysISO(from, -1)}&at=lt.${addDaysISO(to, 2)}&order=at.desc`,
+    "Loading site events"
+  );
+  if (rows === null) return null;
+  return rows.filter((e) => {
+    const d = businessDateOf(e.at);
+    return d >= from && d <= to;
+  });
+}
+
+export async function listEventsOfKinds(kinds: EventKind[], from: string, to: string): Promise<SiteEvent[] | null> {
+  const rows = await restAllPages<SiteEvent>(
+    `site_events?select=*&kind=in.(${kinds.join(",")})&at=gte.${addDaysISO(from, -1)}&at=lt.${addDaysISO(to, 2)}&order=at.desc`,
     "Loading site events"
   );
   if (rows === null) return null;
@@ -143,4 +182,57 @@ export function unmetDemand(events: SiteEvent[], scope: string[] | null): Demand
       .sort((a, b) => b.nothingBookable - a.nothingBookable || b.looks - a.looks)
       .slice(0, 10),
   };
+}
+
+// --- Funnel -------------------------------------------------------------------
+
+export const FUNNEL_STEPS: { kind: EventKind; label: string }[] = [
+  { kind: "availability_look", label: "Looked at a date" },
+  { kind: "add_to_cart", label: "Added a session" },
+  { kind: "begin_checkout", label: "Started checkout" },
+  { kind: "checkout_details", label: "Entered their details" },
+  { kind: "payment_started", label: "Went to pay" },
+  { kind: "purchase", label: "Booked" },
+];
+
+export type FunnelStep = {
+  kind: EventKind;
+  label: string;
+  count: number; // unique visitors when ids exist, else raw events
+  ofPrevious: number | null; // share of the step before, 0–1
+  ofFirst: number | null; // share of the top of the funnel, 0–1
+};
+export type Funnel = { steps: FunnelStep[]; byVisitor: boolean; abandonedCarts: number | null };
+
+// Where people stop. Counted as unique visitors per step once the cookie is
+// in the data; before that, as events, and labelled so. Abandoned carts are
+// visitors who added a session and never booked — only knowable per visitor.
+export function funnel(events: SiteEvent[]): Funnel {
+  const byVisitor = events.some((e) => e.visitor);
+  const perStep = new Map<EventKind, Set<string> | number>();
+  for (const step of FUNNEL_STEPS) perStep.set(step.kind, byVisitor ? new Set<string>() : 0);
+  for (const e of events) {
+    const cur = perStep.get(e.kind);
+    if (cur === undefined) continue;
+    if (cur instanceof Set) {
+      if (e.visitor) cur.add(e.visitor);
+    } else perStep.set(e.kind, cur + 1);
+  }
+  const counts = FUNNEL_STEPS.map((s) => {
+    const v = perStep.get(s.kind)!;
+    return v instanceof Set ? v.size : v;
+  });
+  const steps: FunnelStep[] = FUNNEL_STEPS.map((s, i) => ({
+    ...s,
+    count: counts[i],
+    ofPrevious: i === 0 ? null : counts[i - 1] ? counts[i] / counts[i - 1] : null,
+    ofFirst: i === 0 ? null : counts[0] ? counts[i] / counts[0] : null,
+  }));
+  let abandonedCarts: number | null = null;
+  if (byVisitor) {
+    const added = perStep.get("add_to_cart") as Set<string>;
+    const bought = perStep.get("purchase") as Set<string>;
+    abandonedCarts = Array.from(added).filter((v) => !bought.has(v)).length;
+  }
+  return { steps, byVisitor, abandonedCarts };
 }

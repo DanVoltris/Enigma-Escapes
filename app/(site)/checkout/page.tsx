@@ -8,7 +8,7 @@ import HoldBanner from "@/components/HoldBanner";
 import ProgressSteps from "@/components/ProgressSteps";
 import PromoField from "@/components/PromoField";
 import { useCart } from "@/lib/cart";
-import { trackInitiateCheckout } from "@/lib/tracking";
+import { trackCheckoutDetails, trackInitiateCheckout } from "@/lib/tracking";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\s()+-]{7,}$/;
@@ -57,6 +57,7 @@ export default function CheckoutDetailsPage() {
     });
     // carry the request token forward when it is only on the URL (storage-less browsers)
     const rt = new URLSearchParams(window.location.search).get("rt");
+    trackCheckoutDetails();
     router.push(rt ? `/checkout/payment?rt=${encodeURIComponent(rt)}` : "/checkout/payment");
   }
 
