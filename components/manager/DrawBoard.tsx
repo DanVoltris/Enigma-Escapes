@@ -18,6 +18,7 @@ export default function DrawBoard({
   drawDate,
   winnersPerLocation,
   ticketsPerWinner,
+  cancelledIds,
 }: {
   result: DrawResult | null;
   csv: string | null;
@@ -29,7 +30,10 @@ export default function DrawBoard({
   drawDate: string;
   winnersPerLocation: number;
   ticketsPerWinner: number;
+  // Winners whose booking was cancelled after the draw — shown, not removed.
+  cancelledIds: string[];
 }) {
+  const cancelled = new Set(cancelledIds);
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -101,6 +105,7 @@ export default function DrawBoard({
                         <td>
                           {w.reference}
                           {w.walkIn && " (desk)"}
+                          {cancelled.has(w.bookingId) && <strong> — cancelled since the draw</strong>}
                         </td>
                         <td>{w.tickets}</td>
                       </tr>
@@ -108,6 +113,12 @@ export default function DrawBoard({
                   </tbody>
                 </table>
               </div>
+              {winners.some((w) => cancelled.has(w.bookingId)) && (
+                <p className="mgr-page-sub">
+                  A winner here cancelled their booking after the draw. The result stands as drawn — whether the
+                  tickets still go to them, or to someone else, is your call.
+                </p>
+              )}
               {winners.some((w) => !w.email && !w.phone) && (
                 <p className="mgr-page-sub">
                   A winner here has no contact details — it was taken at the desk. Look the booking reference up on the

@@ -12,7 +12,7 @@
 // /manager/draw route, the API route and the nav tab, and the confirmation
 // notice. Nothing else depends on it.
 import { randomInt } from "crypto";
-import { listBookings } from "./db";
+import { getBookingsByIds, listBookings } from "./db";
 import { listLocations } from "./experiences";
 import { addDaysISO, businessDateOf, todayISO } from "./format";
 import { getSetting, saveSetting } from "./settings";
@@ -241,9 +241,26 @@ function csvCell(value: string | number): string {
 }
 
 // Winners as a spreadsheet, for working through the phone calls.
-export function winnersCsv(result: DrawResult): string {
+// Winners whose booking has been cancelled since the draw was saved. Entries
+// are live bookings only, so cancelling BEFORE the draw simply drops the entry;
+// this covers the other case. The saved result is a frozen snapshot on purpose
+// and stays that way — this is read fresh each time the page loads rather than
+// written back, so a later cancellation flags the row for staff to pass the
+// prize on without rewriting what was drawn. A booking that no longer exists at
+// all counts as cancelled.
+export async function cancelledSinceDraw(result: DrawResult): Promise<Set<string>> {
+  const bookings = await getBookingsByIds(result.winners.map((w) => w.bookingId));
+  const out = new Set<string>();
+  for (const w of result.winners) {
+    const booking = bookings.get(w.bookingId);
+    if (!booking || booking.status === "cancelled") out.add(w.bookingId);
+  }
+  return out;
+}
+
+export function winnersCsv(result: DrawResult, cancelled: Set<string> = new Set()): string {
   const rows = [
-    ["Location", "Name", "Email", "Phone", "Booking reference", "Tickets", "Booked at desk"],
+    ["Location", "Name", "Email", "Phone", "Booking reference", "Tickets", "Booked at desk", "Cancelled since draw"],
     ...result.winners.map((w) => [
       w.location,
       w.name,
@@ -252,6 +269,7 @@ export function winnersCsv(result: DrawResult): string {
       w.reference,
       w.tickets,
       w.walkIn ? "yes" : "no",
+      cancelled.has(w.bookingId) ? "yes" : "no",
     ]),
   ];
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");
