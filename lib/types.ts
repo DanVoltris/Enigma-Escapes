@@ -227,6 +227,21 @@ export type Booking = {
   // Which staff account took this booking. Only set for bookings made at the
   // desk — a customer booking themselves has nobody to credit.
   bookedBy?: string | null;
+  // Where a website booking came from (utm parameters, referrer host, landing
+  // path), read from the first-touch cookie at checkout. Null for walk-ins and
+  // for bookings made before this existed. See lib/attribution.ts.
+  attribution?: Attribution | null;
+};
+
+export type Attribution = {
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+  term?: string;
+  referrer?: string; // hostname only
+  landing?: string; // path of the first page seen
+  at?: string; // ISO, when first captured
 };
 
 // How a session actually went — recorded by staff after the game and fed into

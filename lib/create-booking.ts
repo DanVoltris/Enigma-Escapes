@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { parseAttribution } from "./attribution";
 import { blockedKeysForDate, isBlocked } from "./blocks";
 import { maxPerBooking, minPerBooking, minutesOfTime, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
 import { bookedCountsForDate, busySessionsForDate, getPromo } from "./db";
@@ -44,6 +45,7 @@ type RawInput = {
   requestToken?: unknown; // accepted booking-request token (sub-4h completions)
   corporate?: unknown; // staff-only: a corporate event (flat fee + team building)
   leadInMinutes?: unknown; // how early the group arrives, when corporate
+  attribution?: unknown; // first-touch cookie contents, added by the route — never trusted as-is
 };
 
 // Validates input against live catalog + availability and builds a Booking.
@@ -324,6 +326,9 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     items,
     promoCode,
     paymentOption,
+    // Desk bookings have no web origin; the cookie is the customer's, not the
+    // clerk's, so it is only read for the customer's own checkout.
+    attribution: source === "online" ? parseAttribution(raw.attribution) : null,
     pricing: {
       subtotalCents: totals.subtotalCents,
       discountCents: totals.discountCents,

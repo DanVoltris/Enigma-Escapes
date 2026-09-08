@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CartProvider } from "@/lib/cart";
 import Header from "@/components/Header";
+import VisitorId from "@/components/VisitorId";
 import { readableOn, shade, tint } from "@/lib/color";
 import { activeTrackers, fbPixelScript, gtmScript } from "@/lib/integrations";
 import { getIntegrations } from "@/lib/settings";
@@ -28,6 +29,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   return (
     <SiteConfigProvider value={site}>
       <CartProvider holdMinutes={site.holdMinutes}>
+        <VisitorId />
         <style>{themeVars}</style>
         {trackers.gtm && (
           <>

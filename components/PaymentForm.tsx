@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { trackPaymentStarted } from "@/lib/tracking";
 import { useRouter } from "next/navigation";
 import CartSummary from "@/components/CartSummary";
 import HoldBanner from "@/components/HoldBanner";
@@ -134,6 +135,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
   // Stripe path: server revalidates the cart, holds the spots and returns the
   // hosted checkout URL. The cart is kept — it clears on the confirmation page.
   async function payWithStripe() {
+    trackPaymentStarted("stripe");
     setServerError(null);
     setSubmitting(true);
     try {
@@ -159,6 +161,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
   }
 
   async function completeBooking(e: React.FormEvent) {
+    trackPaymentStarted("simulated");
     e.preventDefault();
     setServerError(null);
 

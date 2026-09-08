@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ATTRIBUTION_COOKIE, attributionFromCookie } from "@/lib/attribution";
 import { buildBooking } from "@/lib/create-booking";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
 import { finalizeBookingPayment, logActivity, saveBooking } from "@/lib/db";
@@ -43,7 +44,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  const result = await buildBooking(body as Record<string, unknown>, "online");
+  // Same first-touch cookie the simulated checkout reads — a booking paid
+  // through Stripe should be credited to its source just the same.
+  const attribution = attributionFromCookie(req.cookies.get(ATTRIBUTION_COOKIE)?.value);
+  const result = await buildBooking({ ...(body as Record<string, unknown>), attribution }, "online");
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
   // buildBooking assumes immediate payment; hold the spots unpaid instead.
