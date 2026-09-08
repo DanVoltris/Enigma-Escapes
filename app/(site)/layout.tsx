@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CartProvider } from "@/lib/cart";
 import Header from "@/components/Header";
 import { readableOn, shade, tint } from "@/lib/color";
@@ -70,6 +71,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             {site.supportText && <p className="site-support">{site.supportText}</p>}
           </main>
           <footer className="site-footer">
+            <Link href="/privacy" className="site-footer-link">
+              Privacy policy
+            </Link>
             <a href="https://voltrisbooking.com" target="_blank" rel="noreferrer" className="powered-by">
               Powered by{" "}
               <span className="vb-mark">
