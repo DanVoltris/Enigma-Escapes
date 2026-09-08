@@ -1,6 +1,7 @@
 import DrawBoard from "@/components/manager/DrawBoard";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import {
+  cancelledSinceDraw,
   countByLocation,
   DRAW_DATE,
   DRAW_FROM,
@@ -27,6 +28,10 @@ export default async function DrawPage() {
   // A manager scoped to one venue sees only their own rows. Admins — the only
   // people who can press the button — are never scoped, so the draw itself
   // always runs across every location.
+  // Read live, not stored: a winner who cancels after the draw is flagged, not
+  // erased from a result that is meant to stay as drawn.
+  const cancelled = result ? await cancelledSinceDraw(result) : new Set<string>();
+
   const scope = allowedLocations(staff);
   const locations = scope ? allLocations.filter((l) => scope.includes(l)) : allLocations;
 
@@ -50,7 +55,8 @@ export default async function DrawPage() {
       </div>
       <DrawBoard
         result={result}
-        csv={result ? winnersCsv(result) : null}
+        csv={result ? winnersCsv(result, cancelled) : null}
+        cancelledIds={[...cancelled]}
         locations={locations}
         entriesByLocation={countByLocation(entries)}
         totalEntries={entries.filter((e) => locations.includes(e.location)).length}
