@@ -2,6 +2,7 @@ import Link from "next/link";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
+import DemandTab from "@/components/manager/reports/DemandTab";
 import NoShowsTab from "@/components/manager/reports/NoShowsTab";
 import TimingTab from "@/components/manager/reports/TimingTab";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
@@ -52,6 +53,7 @@ const TABS = [
   { section: "Misc", key: "surveys", label: "Surveys" },
   { section: "Misc", key: "timing", label: "Timing" },
   { section: "Misc", key: "noshows", label: "No-shows" },
+  { section: "Misc", key: "demand", label: "Demand" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -221,6 +223,7 @@ export default async function ManagerReports({
           {tab === "surveys" && <SurveysTab from={from} to={to} />}
           {tab === "timing" && <TimingTab bookings={bookings} from={from} to={to} />}
           {tab === "noshows" && <NoShowsTab from={from} to={to} today={today} scope={scope} />}
+          {tab === "demand" && <DemandTab from={from} to={to} today={today} scope={scope} />}
           {tab === "discounts" && <DiscountsTab purchased={purchased} />}
         </div>
       </div>
