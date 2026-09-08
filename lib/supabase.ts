@@ -1,8 +1,17 @@
 // Server-only Supabase access via the PostgREST API. Uses the service_role key,
 // which bypasses row level security — it must never be exposed to the browser
 // (only ever read here, inside server code, from environment variables).
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Supabase's API-keys page shows example URLs that already carry /rest/v1, so
+// that is what gets pasted into the variable about half the time. Appending our
+// own then asks for /rest/v1/rest/v1/… and PostgREST answers 404 PGRST125,
+// "Invalid path specified in request URL" — an error that names neither the
+// variable nor the cause. Accept the project root with or without the suffix.
+function normalizeUrl(raw: string | undefined): string | undefined {
+  return raw?.trim().replace(/\/+$/, "").replace(/\/rest\/v1$/, "").replace(/\/+$/, "");
+}
+
+const SUPABASE_URL = normalizeUrl(process.env.SUPABASE_URL);
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
 // When true, all data access is served by a local file-backed store instead of
 // Supabase (see lib/local-db.ts) — for development with no database. Set
