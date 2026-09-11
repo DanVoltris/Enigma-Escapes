@@ -26,7 +26,7 @@
         "5": { "first": "11:00", "last": "22:15", "closed": false },
         "6": { "first": "11:00", "last": "22:15", "closed": false }
       },
-      "badgeBg": "#163e5c",
+      "badgeBg": "#1e2e42",
       "badgeFg": "#FFFFFF",
       "sort": 1
     },
@@ -54,8 +54,8 @@
         "5": { "first": "11:00", "last": "22:15", "closed": false },
         "6": { "first": "11:00", "last": "22:15", "closed": false }
       },
-      "badgeBg": "#61e336",
-      "badgeFg": "#1d1536",
+      "badgeBg": "#7a5c3a",
+      "badgeFg": "#FFFFFF",
       "sort": 2
     }
   ],
@@ -100,9 +100,10 @@
     "pricing_mode": { "taxInclusive": false, "depositFlatCents": 3389, "corporateFeeCents": 45000 },
     "booking_site": {
       "windowDays": 360,
-      "brandColor": "#163e5c",
-      "buttonBg": "#61e336",
-      "buttonText": "#1d1536",
+      "brandColor": "#1e2e42",
+      "buttonBg": "#5a95cf",
+      "buttonText": "#0e1a26",
+      "logoUrl": "https://cprzhlvuqfnusbnostzq.supabase.co/storage/v1/object/public/experience-images/eb298394-aaf3-4ede-9ac5-c37c65797d80.png",
       "introHeading": "Welcome to Time Zone Escapes",
       "introText": "Two immersive escape rooms on the lobby floor of Toronto's Chelsea Hotel. Every clue matters, every second counts, and teamwork is the key to success: you have 60 minutes. Every game is private, and a dedicated gamemaster watches over your adventure.",
       "supportText": "Questions? Call 416-585-4760 or email info@timezoneescapes.com. Please arrive 15 minutes before your game."
