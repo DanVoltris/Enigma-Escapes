@@ -15,9 +15,23 @@ export type PricingMode = {
   taxInclusive: boolean;
   // When set, every booking takes this flat deposit instead of a percentage.
   depositFlatCents: number | null;
+  // The corporate event fee (see CORPORATE_FEE_CENTS) — per venue, because a
+  // team-building host costs what it costs where they work.
+  corporateFeeCents: number;
 };
 
-export const DEFAULT_PRICING_MODE: PricingMode = { taxInclusive: false, depositFlatCents: null };
+// A corporate event: half an hour of team building away from the rooms, a host,
+// then the games. One fee for the booking however many rooms it takes; the
+// rooms themselves are charged at their usual per-person price. This is the
+// default — each venue sets its own in Settings → Taxes & fees.
+export const CORPORATE_FEE_CENTS = 35_000;
+export const CORPORATE_LEAD_IN_MINUTES = 30;
+
+export const DEFAULT_PRICING_MODE: PricingMode = {
+  taxInclusive: false,
+  depositFlatCents: null,
+  corporateFeeCents: CORPORATE_FEE_CENTS,
+};
 
 export type Totals = {
   subtotalCents: number;
@@ -48,11 +62,6 @@ function blendedDepositPercent(items: CartItem[]): number {
 // is exactly price x guests, and the tax is EXTRACTED from it. That keeps the
 // total on a round number for every group size, which repeatedly rounding a
 // tax-exclusive price cannot do (4 x $28.57 + 5% lands on $119.99, not $120).
-// A corporate event: half an hour of team building away from the rooms, a host,
-// then the games. One fee for the booking however many rooms it takes; the
-// rooms themselves are charged at their usual per-person price.
-export const CORPORATE_FEE_CENTS = 35_000;
-export const CORPORATE_LEAD_IN_MINUTES = 30;
 
 export function computeTotals(
   items: CartItem[],

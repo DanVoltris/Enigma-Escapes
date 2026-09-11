@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
-import { CORPORATE_FEE_CENTS, CORPORATE_LEAD_IN_MINUTES } from "@/lib/pricing";
+import { CORPORATE_LEAD_IN_MINUTES } from "@/lib/pricing";
 import { minutesOfTime, minutesToTime } from "@/lib/capacity";
 import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 
@@ -61,7 +61,13 @@ export function rollForward(sessions: Session[], today: string): Session[] {
 
 // onRoomChange lets the page react to the chosen experience — the on-shift
 // panel above the form uses it to highlight who can run that room.
-export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: string) => void } = {}) {
+export default function WalkInForm({
+  onRoomChange,
+  corporateFeeCents,
+}: {
+  onRoomChange?: (roomId: string) => void;
+  corporateFeeCents: number; // this venue's, from Settings → Taxes & fees
+}) {
   const router = useRouter();
   // Live, not frozen at page load. The desk leaves this form open, and a form
   // opened at 11:55 PM was still offering yesterday when submitted at 12:05 AM —
@@ -320,7 +326,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
     return sum + (exp ? exp.priceCents * x.quantity : 0);
   }, 0);
   // The fee is charged once for the booking, however many rooms it holds.
-  const subtotal = roomsTotal + (corporate ? CORPORATE_FEE_CENTS : 0);
+  const subtotal = roomsTotal + (corporate ? corporateFeeCents : 0);
   // Preview only — the server reprices from the database at save time, with the
   // same rounding. A promo's cut of the corporate fee is left out here (the
   // preview can't tell a promo from a reward code), so it can only understate.
@@ -472,7 +478,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
           }}
         />
         <span>
-          Corporate event — {formatMoney(CORPORATE_FEE_CENTS)} plus the rooms, with team building
+          Corporate event — {formatMoney(corporateFeeCents)} plus the rooms, with team building
           first
         </span>
       </label>
@@ -746,7 +752,7 @@ export default function WalkInForm({ onRoomChange }: { onRoomChange?: (roomId: s
           {corporate && (
             <span className="walkin-when" style={{ marginTop: 0, marginBottom: 4 }}>
               <span>
-                Rooms {formatMoney(roomsTotal)} + corporate fee {formatMoney(CORPORATE_FEE_CENTS)}
+                Rooms {formatMoney(roomsTotal)} + corporate fee {formatMoney(corporateFeeCents)}
               </span>
             </span>
           )}

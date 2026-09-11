@@ -21,6 +21,9 @@ export async function PUT(req: NextRequest) {
   if (o.depositFlatCents != null && o.depositFlatCents !== "" && !Number.isInteger(o.depositFlatCents)) {
     return NextResponse.json({ error: "Enter the deposit as a whole dollar amount." }, { status: 400 });
   }
+  if (o.corporateFeeCents != null && (!Number.isInteger(o.corporateFeeCents) || (o.corporateFeeCents as number) < 0)) {
+    return NextResponse.json({ error: "Enter the corporate event fee as a dollar amount, or 0 for none." }, { status: 400 });
+  }
   const mode = normalizePricingMode(o);
   try {
     await savePricingMode(mode);
@@ -28,7 +31,7 @@ export async function PUT(req: NextRequest) {
       "Pricing rules updated",
       `${mode.taxInclusive ? "Prices include tax" : "Tax added at checkout"}; deposit ${
         mode.depositFlatCents != null ? `$${(mode.depositFlatCents / 100).toFixed(2)} flat` : "by percentage"
-      }`
+      }; corporate fee $${(mode.corporateFeeCents / 100).toFixed(2)}`
     );
     return NextResponse.json({ ok: true, mode });
   } catch (err) {

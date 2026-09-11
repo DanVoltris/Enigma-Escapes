@@ -11,7 +11,6 @@ import { getRewardCode, rewardProblem } from "./reward-codes";
 import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
 import {
-  CORPORATE_FEE_CENTS,
   CORPORATE_LEAD_IN_MINUTES,
   cardDueCents,
   computeTotals,
@@ -273,12 +272,13 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     if (problem) return err(problem);
   }
 
-  const flatFeeCents = corporate ? CORPORATE_FEE_CENTS : 0;
+  const pricingMode = await getPricingMode();
+  const flatFeeCents = corporate ? pricingMode.corporateFeeCents : 0;
   const totals = computeTotals(
     items,
     percentOff,
     await activeTaxPercent(),
-    await getPricingMode(),
+    pricingMode,
     flatFeeCents,
     !rewardCode // a promo reaches the fee; the 20% loyalty code doesn't
   );

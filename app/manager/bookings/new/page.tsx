@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import WalkInWithShift, { type ShiftPerson } from "@/components/manager/WalkInWithShift";
 import { listExperiences } from "@/lib/experiences";
+import { getPricingMode } from "@/lib/pricing-settings";
 import { listStaffMembers, openShifts } from "@/lib/staff-members";
 import { shiftMinutes } from "@/lib/staff-types";
 
@@ -12,10 +13,11 @@ export default async function NewWalkInPage() {
 
   // Who's on, with the rooms they can run — the form highlights them against
   // whichever experience is chosen.
-  const [members, open, experiences] = await Promise.all([
+  const [members, open, experiences, pricingMode] = await Promise.all([
     listStaffMembers(),
     openShifts(),
     listExperiences(),
+    getPricingMode(),
   ]);
   const roomName = new Map(experiences.map((e) => [e.id, e.name]));
   const now = new Date();
@@ -42,7 +44,7 @@ export default async function NewWalkInPage() {
         Record a booking taken in person or over the phone. It&apos;s tagged as in-person so you can see the
         split against online bookings on the dashboard.
       </p>
-      <WalkInWithShift people={people} />
+      <WalkInWithShift people={people} corporateFeeCents={pricingMode.corporateFeeCents} />
     </>
   );
 }
