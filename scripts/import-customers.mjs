@@ -22,7 +22,14 @@ const LOCAL_FILE = join(process.cwd(), ".local-data.json");
 // The old system files walk-ins under placeholder accounts. They aren't people
 // and would show up as customers nobody can contact, so they're left out — but
 // listed at the end so nothing disappears quietly.
-const PLACEHOLDER_EMAILS = [/^info@gamemasterescapes\.com$/i, /^walkinn@resova\.com/i];
+const PLACEHOLDER_EMAILS = [
+  /^info@gamemasterescapes\.com$/i,
+  /^walkinn@resova\.com/i,
+  // Time Zone's desk: "no" (numbered when one is already taken), "n/a", a@b.
+  /^no\d*@(gmail|hotmail|yahoo)\.com$/i,
+  /^n\/a@/i,
+  /^a@b\.com$/i,
+];
 
 // --- CSV -------------------------------------------------------------------
 
@@ -64,12 +71,50 @@ function count(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// "14/02/2026 - 8:32am" -> "2026-02-14T08:32:00.000Z". Day-first: the export is
-// UK-ordered (13/08 appears, so it can't be month-first).
+
+// Resova writes dates in the account's own order: Enigma's exports are
+// day-first (13/08/2026), Time Zone's month-first (08/13/2026). A file shows
+// which as soon as either part passes 12. One that never does (every date on
+// the 1st–12th) can't be told apart and keeps the day-first order these imports
+// were built on; --dates=mdy or --dates=dmy settles it either way.
+let dateOrder = "dmy";
+function detectDateOrder(values) {
+  let dayFirst = false;
+  let monthFirst = false;
+  for (const v of values) {
+    const m = String(v).trim().match(/^(\d{2})\/(\d{2})\/\d{4}/);
+    if (!m) continue;
+    if (Number(m[1]) > 12) dayFirst = true;
+    if (Number(m[2]) > 12) monthFirst = true;
+  }
+  if (dayFirst && monthFirst) return "mixed";
+  return dayFirst ? "dmy" : monthFirst ? "mdy" : null;
+}
+function chooseDateOrder(file, values, forced) {
+  const seen = detectDateOrder(values);
+  if (seen === "mixed") {
+    console.error(`${file} has dates that only work day-first and others that only work month-first — check the export.`);
+    process.exit(1);
+  }
+  if (forced && seen && forced !== seen) {
+    console.error(`${file}: --dates=${forced} was given, but its dates are plainly ${seen === "mdy" ? "month" : "day"}-first.`);
+    process.exit(1);
+  }
+  dateOrder = forced || seen || "dmy";
+  console.log(
+    `${file}: dates read ${dateOrder === "mdy" ? "month-first" : "day-first"}` +
+      (forced || seen ? "" : " (nothing past the 12th to tell — pass --dates=mdy if that's wrong)")
+  );
+}
+
+// "14/02/2026 - 8:32am" (or "02/14/2026 - 8:32am" month-first) ->
+// "2026-02-14T08:32:00.000Z".
 function joinedAt(v) {
   const m = text(v).match(/^(\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{1,2}):(\d{2})(am|pm)$/i);
   if (!m) return null;
-  const [, d, mo, y, rawH, min, ampm] = m;
+  const [, a, b, y, rawH, min, ampm] = m;
+  const [d, mo] = dateOrder === "mdy" ? [b, a] : [a, b];
+  if (Number(mo) < 1 || Number(mo) > 12) return null;
   let h = Number.parseInt(rawH, 10) % 12;
   if (ampm.toLowerCase() === "pm") h += 12;
   return `${y}-${mo}-${d}T${String(h).padStart(2, "0")}:${min}:00.000Z`;
@@ -188,6 +233,12 @@ function mergeImported(older, newer) {
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const files = args.filter((a) => !a.startsWith("--"));
+const forcedDates = (args.find((a) => a.startsWith("--dates=")) || "").slice(8);
+if (forcedDates && forcedDates !== "mdy" && forcedDates !== "dmy") {
+  console.error("--dates takes mdy (month first, 08/13/2026) or dmy (day first, 13/08/2026).");
+  process.exit(1);
+}
+
 
 if (!files.length) {
   console.error("Usage: npm run import:customers -- <file.csv> [more.csv ...] [--dry-run]");
@@ -227,6 +278,10 @@ for (const file of files) {
       console.error(`${file} has no "${required}" column — is it a customers export?`);
       process.exit(1);
     }
+  }
+
+  if (index.has("Joined Date/Time")) {
+    chooseDateOrder(basename(file), body.map((r) => r[index.get("Joined Date/Time")] ?? ""), forcedDates);
   }
 
   const stamp = exportedAt(file);
