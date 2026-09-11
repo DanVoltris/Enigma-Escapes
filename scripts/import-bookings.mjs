@@ -21,7 +21,10 @@ const BASE = process.env.SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const LOCAL = process.env.USE_LOCAL_DATA === "true" || process.env.USE_LOCAL_DATA === "1";
 const LOCAL_FILE = join(process.cwd(), ".local-data.json");
-const TIMEZONE = "America/Winnipeg"; // lib/format.ts DEFAULT_LOCALE.timezone
+// The venue's clock, for purchase times and "today": VENUE_TIMEZONE, the same
+// variable its Vercel project sets (Time Zone runs on America/Toronto). Unset,
+// Winnipeg, as the app itself falls back to.
+const TIMEZONE = process.env.VENUE_TIMEZONE?.trim() || "America/Winnipeg";
 
 // The old system's room names carry the venue ("Dark Hedges" doesn't, the rest
 // do), so matching is on the leading part. Only where the name itself was
@@ -70,10 +73,48 @@ function count(v) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-// "14/02/2026" -> "2026-02-14". Day-first, like the customers export.
+
+// Resova writes dates in the account's own order: Enigma's exports are
+// day-first (13/08/2026), Time Zone's month-first (08/13/2026). A file shows
+// which as soon as either part passes 12. One that never does (every date on
+// the 1st–12th) can't be told apart and keeps the day-first order these imports
+// were built on; --dates=mdy or --dates=dmy settles it either way.
+let dateOrder = "dmy";
+function detectDateOrder(values) {
+  let dayFirst = false;
+  let monthFirst = false;
+  for (const v of values) {
+    const m = String(v).trim().match(/^(\d{2})\/(\d{2})\/\d{4}/);
+    if (!m) continue;
+    if (Number(m[1]) > 12) dayFirst = true;
+    if (Number(m[2]) > 12) monthFirst = true;
+  }
+  if (dayFirst && monthFirst) return "mixed";
+  return dayFirst ? "dmy" : monthFirst ? "mdy" : null;
+}
+function chooseDateOrder(file, values, forced) {
+  const seen = detectDateOrder(values);
+  if (seen === "mixed") {
+    console.error(`${file} has dates that only work day-first and others that only work month-first — check the export.`);
+    process.exit(1);
+  }
+  if (forced && seen && forced !== seen) {
+    console.error(`${file}: --dates=${forced} was given, but its dates are plainly ${seen === "mdy" ? "month" : "day"}-first.`);
+    process.exit(1);
+  }
+  dateOrder = forced || seen || "dmy";
+  console.log(
+    `${file}: dates read ${dateOrder === "mdy" ? "month-first" : "day-first"}` +
+      (forced || seen ? "" : " (nothing past the 12th to tell — pass --dates=mdy if that's wrong)")
+  );
+}
+
+// "14/02/2026" (or "02/14/2026" month-first) -> "2026-02-14".
 function isoDate(v) {
   const m = text(v).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+  if (!m) return null;
+  const [day, month] = dateOrder === "mdy" ? [m[2], m[1]] : [m[1], m[2]];
+  return Number(month) >= 1 && Number(month) <= 12 ? `${m[3]}-${month}-${day}` : null;
 }
 
 // "5:00pm" -> "17:00"
@@ -97,7 +138,7 @@ function tzOffsetMs(utcMs, tz) {
 }
 
 // A wall-clock date+time at the venue -> the ISO instant it happened. The
-// export has no zone, so "8:32am" means 8:32 in Winnipeg — stamping it as UTC
+// export has no zone, so "8:32am" means 8:32 at the venue — stamping it as UTC
 // (what a naive `${date}T${time}Z` does) would land bookings hours early and,
 // for anything before 6am, on the day before.
 function instantISO(date, time) {
@@ -135,6 +176,10 @@ const PLACEHOLDER_EMAILS = [
   /^info@gamemasterescapes\.com$/i,
   /^walk-?in/i,
   /^gmail123@gmail\.com$/i,
+  // Time Zone's desk: "no" (numbered when one is already taken), "n/a", a@b.
+  /^no\d*@(gmail|hotmail|yahoo)\.com$/i,
+  /^n\/a@/i,
+  /^a@b\.com$/i,
 ];
 const PLACEHOLDER_NAMES = /^(n\/a|walk-?\s*in|walkin|-)$/i;
 
@@ -250,6 +295,12 @@ function toItem(get, resolve) {
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const files = args.filter((a) => !a.startsWith("--"));
+const forcedDates = (args.find((a) => a.startsWith("--dates=")) || "").slice(8);
+if (forcedDates && forcedDates !== "mdy" && forcedDates !== "dmy") {
+  console.error("--dates takes mdy (month first, 08/13/2026) or dmy (day first, 13/08/2026).");
+  process.exit(1);
+}
+
 
 // When exports disagree, the newest one is right — a booking unpaid in the
 // morning's export and paid in the afternoon's has been paid. Exports carry a
@@ -352,6 +403,8 @@ for (const file of files) {
     process.exit(1);
   }
   const index = new Map(header.map((h, i) => [h.trim(), i]));
+  const dateCols = ["Booking Start Date", "Transaction Date"].filter((c) => index.has(c)).map((c) => index.get(c));
+  chooseDateOrder(basename(file), body.flatMap((r) => dateCols.map((i) => r[i] ?? "")), forcedDates);
 
   // A transactions export: no per-session rows, but it knows what was paid.
   if (index.has("Total Paid") && !index.has("Booking Item")) {

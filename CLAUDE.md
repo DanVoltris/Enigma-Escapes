@@ -224,6 +224,14 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   a live room. Re-runnable; photos and one-off dates added in the portal are never touched, and it
   refuses to overwrite any field staff changed in the portal since its last load (it records what it
   wrote in the `seed_snapshot` setting) — copy the portal's value into the file, or pass `--overwrite`.
+- Importing a venue's old-system exports: never through `npm run import:*` — those load
+  `.env.local`, which is Enigma. Run the scripts directly against the venue's own env file,
+  e.g. `node --env-file=.env.timezone scripts/import-bookings.mjs <files…>` (its
+  `VENUE_TIMEZONE` sets the clock purchase times are read on). Dates are read day-first or
+  month-first as each file shows — Enigma's exports are day-first, Time Zone's month-first —
+  with `--dates=mdy|dmy` to force an undatable one. Time Zone was imported this way on
+  2026-09-11: 167 customers, 186 bookings, 19 promo codes (INFLUENCER2026 and BOGOGUEST33,
+  both 100% off, are staff-only).
 
 ## Design rules
 
