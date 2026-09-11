@@ -221,7 +221,9 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   run; add `--apply` to write. `.env.<venue>` holds that venue's two Supabase variables
   (gitignored). The script refuses a database holding rooms the file doesn't list — Enigma
   and Time Zone both have a `blackbeards-brig`, so a wrong env file would otherwise overwrite
-  a live room. Re-runnable; photos and one-off dates added in the portal are never touched.
+  a live room. Re-runnable; photos and one-off dates added in the portal are never touched, and it
+  refuses to overwrite any field staff changed in the portal since its last load (it records what it
+  wrote in the `seed_snapshot` setting) — copy the portal's value into the file, or pass `--overwrite`.
 
 ## Design rules
 

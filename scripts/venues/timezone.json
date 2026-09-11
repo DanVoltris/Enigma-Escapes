@@ -107,6 +107,7 @@
       "introText": "Two immersive escape rooms on the lobby floor of Toronto's Chelsea Hotel. Every clue matters, every second counts, and teamwork is the key to success: you have 60 minutes. Every game is private, and a dedicated gamemaster watches over your adventure.",
       "supportText": "Questions? Call 416-585-4760 or email info@timezoneescapes.com. Please arrive 15 minutes before your game."
     },
+    "dashboard": { "hoursFromSchedule": true },
     "booking_policies": {
       "reschedule": {
         "show": true,

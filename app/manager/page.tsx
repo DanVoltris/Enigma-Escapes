@@ -8,7 +8,10 @@ import StaffNotes from "@/components/manager/StaffNotes";
 import RoomBadge from "@/components/RoomBadge";
 import { listActivity, listBookings, listBookingsInWindow, listStaffNotes } from "@/lib/db";
 import { allowedLocations, hasPermission, requireStaff } from "@/lib/auth";
-import { listAllLocations } from "@/lib/hours";
+import { listExperiences } from "@/lib/experiences";
+import { listAllLocations, locationHoursMap } from "@/lib/hours";
+import { startTimesFor } from "@/lib/schedule";
+import { getSetting } from "@/lib/settings";
 import {
   addDaysISO,
   formatDateLong,
@@ -152,7 +155,17 @@ async function OperationsView({
   // the day; what the venue earns is not part of that job.
   canSeeRevenue: boolean;
 }) {
-  const [staffNotes, activity] = await Promise.all([listStaffNotes(), listActivity(8)]);
+  const [staffNotes, activity, dashboardSetting] = await Promise.all([
+    listStaffNotes(),
+    listActivity(8),
+    getSetting<{ hoursFromSchedule?: boolean }>("dashboard").catch(() => null),
+  ]);
+  // Per venue, off unless the venue's own "dashboard" setting turns it on (Time
+  // Zone's venue file does). Off, the chart keeps its fixed 9am–9pm hours.
+  const hoursFromSchedule = dashboardSetting?.value?.hoursFromSchedule === true;
+  const [experiences, hoursMap] = hoursFromSchedule
+    ? await Promise.all([listExperiences({ activeOnly: true }).catch(() => []), locationHoursMap().catch(() => new Map())])
+    : [[], new Map()];
   const isToday = today === todayISO();
 
   const todayItems: TodayItem[] = [];
@@ -166,7 +179,23 @@ async function OperationsView({
   const expectedRevenueToday = todayItems.reduce((sum, t) => sum + t.item.priceCents * t.item.quantity, 0);
   const newBookingsToday = bookings.filter((b) => b.createdAt.slice(0, 10) === today).length;
 
-  const hours = Array.from({ length: 13 }, (_, i) => i + 9);
+  // With hoursFromSchedule the chart's hours are the day's own: every hour a
+  // session starts at the rooms in view (the calendar's schedule), plus any
+  // booked custom time. The fixed 9am–9pm drops any game starting at 10pm or
+  // later — Time Zone's weekend 22:15 — and shows it two empty hours before it
+  // opens. (Enigma's weekend 22:00/22:15/22:45 games are dropped the same way;
+  // the owner chose to leave Enigma's dashboard as it is.)
+  const startHours = new Set<number>();
+  if (hoursFromSchedule) {
+    for (const e of experiences) {
+      if (loc ? e.location !== loc : !locations.includes(e.location)) continue;
+      for (const t of startTimesFor(e, today, hoursMap.get(e.location) ?? null)) startHours.add(Number(t.slice(0, 2)));
+    }
+    for (const t of todayItems) startHours.add(Number(t.item.time.split(":")[0]));
+  }
+  const firstHour = startHours.size ? Math.min(...startHours) : 9;
+  const lastHour = startHours.size ? Math.max(...startHours) : 21;
+  const hours = Array.from({ length: lastHour - firstHour + 1 }, (_, i) => i + firstHour);
   const guestsByHour = new Map<number, number>(hours.map((h) => [h, 0]));
   for (const t of todayItems) {
     const hour = Number(t.item.time.split(":")[0]);
@@ -174,7 +203,7 @@ async function OperationsView({
   }
   const hourBars = hours.map((h) => {
     const value = guestsByHour.get(h) ?? 0;
-    const label = h === 12 ? "12pm" : h > 12 ? `${h - 12}pm` : `${h}am`;
+    const label = `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`;
     return { label, value, displayValue: `${value} guest${value === 1 ? "" : "s"}` };
   });
 
