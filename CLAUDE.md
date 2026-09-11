@@ -204,6 +204,25 @@ Verify with Stripe test cards: `4242 4242 4242 4242`, any future expiry, any
 CVC. Check Stripe Dashboard → Payments, and the Webhooks page for delivery
 attempts if a booking doesn't finalize.
 
+## Running another venue
+
+One codebase, one deployment per venue: the same repo and `main` branch, but its own Vercel
+project and its own Supabase project (built with `scripts/schema.sql`). Time Zone Escapes
+(Toronto) runs this way alongside Enigma. Anything that differs between venues lives in that
+venue's database — rooms, prices, taxes, hours, copy, deposit and the corporate event fee
+(Settings → Taxes & fees) — never in a branch.
+
+- `VENUE_TIMEZONE` (e.g. `America/Toronto`) must be set on every venue's Vercel project
+  outside Winnipeg. API routes never see the locale the root layout primes, so without it they
+  tell the time in Winnipeg (the default) and sell sessions after they've started. When set,
+  it overrides the portal's timezone setting, which then shows as fixed.
+- Load a venue's rooms and settings from a JSON file:
+  `node --env-file=.env.<venue> scripts/seed-venue.mjs scripts/venues/<venue>.json` is a dry
+  run; add `--apply` to write. `.env.<venue>` holds that venue's two Supabase variables
+  (gitignored). The script refuses a database holding rooms the file doesn't list — Enigma
+  and Time Zone both have a `blackbeards-brig`, so a wrong env file would otherwise overwrite
+  a live room. Re-runnable; photos and one-off dates added in the portal are never touched.
+
 ## Design rules
 
 - White background, sharp corners (no border-radius anywhere), light sky blue accent

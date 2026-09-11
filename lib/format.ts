@@ -16,11 +16,30 @@ export type LocaleConfig = {
   firstDay: 0 | 1; // 0 = Sunday, 1 = Monday
 };
 
+// A venue's timezone is a fact about the building, so each deployment sets it
+// (VENUE_TIMEZONE on its Vercel project) and it beats the portal setting. This
+// is not tidiness: primeLocale() below is only ever called by the root layout,
+// and API routes run in module instances that never see it — they run on
+// DEFAULT_LOCALE. Before this, every booking API at a venue outside Winnipeg
+// told the time in Winnipeg, and sold sessions for an hour after they started.
+// Null in the browser, which gets the primed locale from the layout instead.
+export function deploymentTimezone(): string | null {
+  const tz = typeof process !== "undefined" ? process.env.VENUE_TIMEZONE?.trim() : undefined;
+  if (!tz) return null;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: tz });
+    return tz;
+  } catch {
+    console.error(`VENUE_TIMEZONE "${tz}" is not an IANA timezone (e.g. America/Toronto) — falling back to America/Winnipeg.`);
+    return null;
+  }
+}
+
 export const DEFAULT_LOCALE: LocaleConfig = {
   language: "en-CA",
   currencyCode: "CAD",
   currencySymbol: "$",
-  timezone: "America/Winnipeg",
+  timezone: deploymentTimezone() ?? "America/Winnipeg",
   dateStyle: "medium",
   timeFormat: "12",
   firstDay: 0,

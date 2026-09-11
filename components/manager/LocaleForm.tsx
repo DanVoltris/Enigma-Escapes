@@ -15,7 +15,16 @@ import {
   timezoneOptions,
 } from "@/lib/locale-options";
 
-export default function LocaleForm({ initial }: { initial: LocaleConfig }) {
+export default function LocaleForm({
+  initial,
+  fixedTimezone,
+}: {
+  initial: LocaleConfig;
+  // Set when the deployment pins the timezone (VENUE_TIMEZONE). The server runs
+  // on it regardless, so offering a picker here would be offering a setting that
+  // doesn't take effect.
+  fixedTimezone: string | null;
+}) {
   const router = useRouter();
   const [c, setC] = useState<LocaleConfig>(initial);
   const [busy, setBusy] = useState(false);
@@ -82,7 +91,14 @@ export default function LocaleForm({ initial }: { initial: LocaleConfig }) {
             </div>
             <div className="field">
               <label>Timezone</label>
-              <Combobox value={c.timezone} onChange={(v) => patch({ timezone: v })} ariaLabel="Timezone" options={timezones} />
+              {fixedTimezone ? (
+                <>
+                  <input value={fixedTimezone.replace(/_/g, " ")} readOnly aria-readonly="true" />
+                  <p className="field-hint">Fixed for this venue&apos;s deployment — bookings always run on it.</p>
+                </>
+              ) : (
+                <Combobox value={c.timezone} onChange={(v) => patch({ timezone: v })} ariaLabel="Timezone" options={timezones} />
+              )}
             </div>
           </div>
         </div>

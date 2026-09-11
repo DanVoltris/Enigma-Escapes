@@ -13,6 +13,7 @@ export default function PricingRules({ initial, taxPercent }: { initial: Pricing
   const [flatDeposit, setFlatDeposit] = useState(
     initial.depositFlatCents != null ? (initial.depositFlatCents / 100).toString() : ""
   );
+  const [corporateFee, setCorporateFee] = useState((initial.corporateFeeCents / 100).toString());
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,11 +34,19 @@ export default function PricingRules({ initial, taxPercent }: { initial: Pricing
       setBusy(false);
       return;
     }
+    const feeCents = Math.round(Number(corporateFee.trim() || "0") * 100);
+    if (!Number.isFinite(feeCents) || feeCents < 0) {
+      setError("Enter the corporate event fee as a dollar amount, or 0 for none.");
+      setBusy(false);
+      return;
+    }
     try {
       const res = await fetch("/api/manager/settings/pricing", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taxInclusive, depositFlatCents: cents }),
+        // The fee rides along on every save: the API stores the whole pricing
+        // mode, so leaving it out would reset it to the default.
+        body: JSON.stringify({ taxInclusive, depositFlatCents: cents, corporateFeeCents: feeCents }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not save. Try again.");
@@ -90,6 +99,24 @@ export default function PricingRules({ initial, taxPercent }: { initial: Pricing
           <p className="field-hint">
             One flat deposit per booking, whatever the group size. Leave blank to use each room&apos;s deposit
             percentage instead. A booking smaller than the deposit just pays its total.
+          </p>
+        </div>
+
+        <div className="field" style={{ maxWidth: 220 }}>
+          <label htmlFor="corporate-fee">Corporate event fee</label>
+          <input
+            id="corporate-fee"
+            type="number"
+            min="0"
+            step="0.01"
+            value={corporateFee}
+            onChange={(e) => {
+              setCorporateFee(e.target.value);
+              setSaved(false);
+            }}
+          />
+          <p className="field-hint">
+            Charged once on a corporate booking or invoice, on top of the rooms at their usual per-person price.
           </p>
         </div>
 

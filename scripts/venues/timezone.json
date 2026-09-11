@@ -1,0 +1,127 @@
+{
+  "_source": "timezoneescapes.com and timezoneescapes.resova.us, read 2026-09-10. Load with scripts/seed-venue.mjs.",
+
+  "experiences": [
+    {
+      "id": "blackbeards-brig",
+      "name": "Blackbeard's Brig",
+      "location": "Chelsea Hotel",
+      "tagline": "Held hostage in a pirate's brig, with 60 minutes before he returns. Our more advanced room.",
+      "description": "You've been taken hostage by the most feared pirate on the high seas — Blackbeard. He's gone ashore to pillage and plunder, leaving you to face a terrifying fate. You have exactly 60 minutes to break free before his return. Can you escape the brig?\n\nRecommended for 6–8 players. Difficulty: moderate to advanced. Groups of 2 are welcome, with a minimum charge of 3 guests.",
+      "durationMinutes": 60,
+      "capacity": 10,
+      "minParty": 3,
+      "maxParty": 10,
+      "isPrivate": true,
+      "priceCents": 2999,
+      "depositPercent": 25,
+      "scheduleMode": "window",
+      "intervalMinutes": 75,
+      "windows": {
+        "0": { "first": "11:00", "last": "18:30", "closed": false },
+        "1": { "first": "11:00", "last": "21:00", "closed": false },
+        "2": { "first": "11:00", "last": "21:00", "closed": false },
+        "3": { "first": "11:00", "last": "21:00", "closed": false },
+        "4": { "first": "11:00", "last": "21:00", "closed": false },
+        "5": { "first": "11:00", "last": "22:15", "closed": false },
+        "6": { "first": "11:00", "last": "22:15", "closed": false }
+      },
+      "badgeBg": "#163e5c",
+      "badgeFg": "#FFFFFF",
+      "sort": 1
+    },
+    {
+      "id": "the-curse-of-the-evil-genie",
+      "name": "The Curse of the Evil Genie",
+      "location": "Chelsea Hotel",
+      "tagline": "Trapped in a genie's lamp: find his ten favourite tales to break the curse. A great first room.",
+      "description": "You are under the curse of the evil genie Asmodeus, imprisoned inside his magic lamp. Your only hope of breaking the curse and escaping the lamp is to identify which ten of the Tales of the Thousand and One Nights are Asmodeus's favourites. The clock is ticking.\n\nRecommended for 4–8 players. Difficulty: intro to moderate. Groups of 2 are welcome, with a minimum charge of 3 guests.",
+      "durationMinutes": 60,
+      "capacity": 10,
+      "minParty": 3,
+      "maxParty": 10,
+      "isPrivate": true,
+      "priceCents": 2999,
+      "depositPercent": 25,
+      "scheduleMode": "window",
+      "intervalMinutes": 75,
+      "windows": {
+        "0": { "first": "11:00", "last": "18:30", "closed": false },
+        "1": { "first": "11:00", "last": "21:00", "closed": false },
+        "2": { "first": "11:00", "last": "21:00", "closed": false },
+        "3": { "first": "11:00", "last": "21:00", "closed": false },
+        "4": { "first": "11:00", "last": "21:00", "closed": false },
+        "5": { "first": "11:00", "last": "22:15", "closed": false },
+        "6": { "first": "11:00", "last": "22:15", "closed": false }
+      },
+      "badgeBg": "#61e336",
+      "badgeFg": "#1d1536",
+      "sort": 2
+    }
+  ],
+
+  "taxes": [{ "id": "tax-hst", "name": "HST", "percent": 13, "active": true, "sort": 1 }],
+
+  "locationHours": [
+    {
+      "location": "Chelsea Hotel",
+      "hours": {
+        "0": { "open": "11:00", "close": "20:00", "closed": false },
+        "1": { "open": "11:00", "close": "22:00", "closed": false },
+        "2": { "open": "11:00", "close": "22:00", "closed": false },
+        "3": { "open": "11:00", "close": "22:00", "closed": false },
+        "4": { "open": "11:00", "close": "22:00", "closed": false },
+        "5": { "open": "11:00", "close": "23:00", "closed": false },
+        "6": { "open": "11:00", "close": "23:00", "closed": false }
+      }
+    }
+  ],
+
+  "settings": {
+    "business_details": {
+      "companyName": "Time Zone Escapes",
+      "phone": "416-585-4760",
+      "cell": "",
+      "email": "info@timezoneescapes.com",
+      "website": "https://www.timezoneescapes.com",
+      "address": "Lobby Floor, Chelsea Hotel, 33 Gerrard Street W, Toronto, ON M5G 1Z4",
+      "taxLabel": "HST (Harmonized Sales Tax)",
+      "taxNumber": ""
+    },
+    "locale": {
+      "language": "en-CA",
+      "currencyCode": "CAD",
+      "currencySymbol": "$",
+      "timezone": "America/Toronto",
+      "dateStyle": "medium",
+      "timeFormat": "12",
+      "firstDay": 0
+    },
+    "pricing_mode": { "taxInclusive": false, "depositFlatCents": 3389, "corporateFeeCents": 45000 },
+    "booking_site": {
+      "windowDays": 360,
+      "brandColor": "#163e5c",
+      "buttonBg": "#61e336",
+      "buttonText": "#1d1536",
+      "introHeading": "Welcome to Time Zone Escapes",
+      "introText": "Two immersive escape rooms on the lobby floor of Toronto's Chelsea Hotel. Every clue matters, every second counts, and teamwork is the key to success: you have 60 minutes. Every game is private, and a dedicated gamemaster watches over your adventure.",
+      "supportText": "Questions? Call 416-585-4760 or email info@timezoneescapes.com. Please arrive 15 minutes before your game."
+    },
+    "booking_policies": {
+      "reschedule": {
+        "show": true,
+        "cutoffValue": 1,
+        "cutoffUnit": "days",
+        "title": "Changing your booking",
+        "content": "Need a different time? Change your booking online, or call us at 416-585-4760, up to 24 hours before your game."
+      },
+      "cancellation": {
+        "show": true,
+        "cutoffValue": 1,
+        "cutoffUnit": "days",
+        "title": "Cancelling your booking",
+        "content": "Your deposit is refundable if you cancel at least 24 hours before your game."
+      }
+    }
+  }
+}

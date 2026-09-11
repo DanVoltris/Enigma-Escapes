@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
+import { deploymentTimezone } from "@/lib/format";
 import { normalizeLocale } from "@/lib/locale-options";
 import { saveSetting } from "@/lib/settings";
 
@@ -17,8 +18,10 @@ export async function PUT(req: NextRequest) {
   }
 
   // normalizeLocale drops anything not in the allowed option lists, so we only
-  // ever store valid values.
-  const locale = normalizeLocale(body);
+  // ever store valid values. A deployment-fixed timezone is stored as-is, so the
+  // setting can never disagree with the clock the server actually runs on.
+  const fixed = deploymentTimezone();
+  const locale = fixed ? { ...normalizeLocale(body), timezone: fixed } : normalizeLocale(body);
 
   try {
     await saveSetting("locale", locale);

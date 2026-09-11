@@ -16,7 +16,13 @@ export type ShiftPerson = {
 // The on-shift panel and the booking form share one piece of state: the
 // experience being booked. Picking a room bolds the people who can run it, so
 // the desk can see at a glance whether anyone on site is signed off for it.
-export default function WalkInWithShift({ people }: { people: ShiftPerson[] }) {
+export default function WalkInWithShift({
+  people,
+  corporateFeeCents,
+}: {
+  people: ShiftPerson[];
+  corporateFeeCents: number;
+}) {
   const [roomId, setRoomId] = useState("");
 
   const byLocation = people.reduce<Record<string, ShiftPerson[]>>((acc, p) => {
@@ -76,7 +82,7 @@ export default function WalkInWithShift({ people }: { people: ShiftPerson[] }) {
         )}
       </div>
 
-      <WalkInForm onRoomChange={setRoomId} />
+      <WalkInForm onRoomChange={setRoomId} corporateFeeCents={corporateFeeCents} />
     </>
   );
 }

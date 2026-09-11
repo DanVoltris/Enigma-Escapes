@@ -2,7 +2,7 @@ import BoardPage from "@/components/manager/BoardPage";
 import NewInvoiceForm from "@/components/manager/NewInvoiceForm";
 import { requirePermission } from "@/lib/auth";
 import { listExperiences } from "@/lib/experiences";
-import { CORPORATE_FEE_CENTS } from "@/lib/pricing";
+import { getPricingMode } from "@/lib/pricing-settings";
 import { taxSummary } from "@/lib/taxes";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +11,10 @@ export default async function NewInvoicePage() {
   await requirePermission("bookings.create", "/manager/invoices/new");
   // The invoice quotes one combined rate — the same summary the booking side
   // uses, so an invoice and the booking it becomes agree on the tax.
-  const [experiences, tax] = await Promise.all([
+  const [experiences, tax, pricingMode] = await Promise.all([
     listExperiences().catch(() => []),
     taxSummary().catch(() => ({ percent: 0, label: "Tax" })),
+    getPricingMode(),
   ]);
 
   return (
@@ -36,7 +37,7 @@ export default async function NewInvoicePage() {
         }))}
         taxPercent={tax.percent}
         taxLabel={tax.label}
-        defaultFeeCents={CORPORATE_FEE_CENTS}
+        defaultFeeCents={pricingMode.corporateFeeCents}
       />
     </>
   );
