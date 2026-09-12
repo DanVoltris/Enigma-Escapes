@@ -5107,3 +5107,79 @@ textarea:focus {
 .opp-action { color: var(--text-secondary); }
 .opp-evidence { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--text-secondary); }
 .opp-evidence li { margin-bottom: 2px; }
+
+/* ---------- cookie consent ---------- */
+/* Only ever on screen when a tracker is switched on (see lib/consent.ts).
+   Pinned to the bottom rather than centred over the page: people are trying to
+   book, and a dialog across the middle of a checkout is a choice made under
+   duress. Sharp corners and the site accent, like everything else here. */
+.consent-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  background: var(--bg);
+  border-top: 2px solid var(--accent);
+  box-shadow: 0 -2px 12px rgba(22, 33, 43, 0.12);
+}
+.consent-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.consent-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.consent-link {
+  color: var(--link);
+  white-space: nowrap;
+}
+.consent-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+/* Smaller than a page's primary action: this is a question about cookies, not
+   the thing the page is for. Equal weight on both answers — a decline styled as
+   the quiet option is the dark pattern this exists to avoid. */
+.consent-btn {
+  padding: 10px 22px;
+  font-size: 13px;
+  min-width: 120px;
+}
+.consent-btn:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+/* A button that reads as the footer's other links. */
+.consent-reopen {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+@media (max-width: 620px) {
+  .consent-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px;
+  }
+  .consent-actions {
+    justify-content: stretch;
+  }
+  .consent-btn {
+    flex: 1;
+    min-width: 0;
+  }
+}
