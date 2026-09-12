@@ -5,6 +5,7 @@ import DrawNotice from "@/components/DrawNotice";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
+import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { getBookingPolicies, getIntegrations } from "@/lib/settings";
 import { retrieveCheckoutSession, stripeConfigured } from "@/lib/stripe";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -22,7 +23,8 @@ export default async function ConfirmationPage({
 }) {
   const { id } = await params;
   let booking = await getBooking(id);
-  if (!booking) notFound();
+  // Imported bookings' ids are derivable, not secret (lib/legacy-booking-id.ts).
+  if (!booking || hasGuessableId(booking)) notFound();
 
   // Stripe flow: the customer lands here straight from Stripe with the session
   // id. Verify payment server-side and finalize — the webhook does the same

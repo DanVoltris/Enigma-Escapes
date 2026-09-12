@@ -5,6 +5,7 @@ import ManageBooking from "@/components/ManageBooking";
 import { smsConfigured } from "@/lib/sms";
 import { getBooking } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
+import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
 import { minutesUntilFirstSession, selfServiceBlock } from "@/lib/manage-booking";
 import { getBusinessDetails } from "@/lib/settings";
@@ -15,7 +16,9 @@ export const dynamic = "force-dynamic";
 export default async function ManageBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const booking = await getBooking(id);
-  if (!booking) notFound();
+  // An imported booking's id can be rebuilt from its reference, so it is no
+  // secret — see lib/legacy-booking-id.ts.
+  if (!booking || hasGuessableId(booking)) notFound();
 
   const block = selfServiceBlock(booking);
   const business = await getBusinessDetails().then((r) => r.value).catch(() => null);

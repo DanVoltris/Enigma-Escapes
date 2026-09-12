@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
+import { currentStaff } from "@/lib/auth";
 import { getBooking } from "@/lib/db";
+import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { renderDocument, type DocumentLine } from "@/lib/documents";
 import { getBusinessDetails } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -12,6 +14,11 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   const booking = await getBooking(id).catch(() => null);
   if (!booking) return new Response(notFoundPage(), { status: 404, headers: html() });
+  // An imported booking's id is derivable, so it only opens for a signed-in
+  // member of staff, who reaches it from the portal (lib/legacy-booking-id.ts).
+  if (hasGuessableId(booking) && !(await currentStaff())) {
+    return new Response(notFoundPage(), { status: 404, headers: html() });
+  }
 
   const [business, site] = await Promise.all([getBusinessDetails(), getSiteSettings()]);
   const b = business.value;

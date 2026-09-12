@@ -4,6 +4,7 @@
 // Twilio number texts come from). Without them every send is a silent no-op,
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { hasGuessableId } from "./legacy-booking-id";
 import { REPLY_DEADLINE_MINUTES, REPLY_REMINDER_MINUTES } from "./requests";
 import { alertRecipients } from "./request-alerts";
 import { getBusinessDetails, getCompanyName } from "./settings";
@@ -120,7 +121,10 @@ export async function notifyBookingRescheduled(
   try {
     await sendSms(
       booking.customer.phone,
-      `Booking updated! ${item.roomName} is now ${when}. Ref ${booking.reference}. Details: ${origin}/booking/${booking.id}`
+      `Booking updated! ${item.roomName} is now ${when}. Ref ${booking.reference}.` +
+        // No link for an imported booking: its manage page is closed while its id
+        // is derivable (lib/legacy-booking-id.ts).
+        (hasGuessableId(booking) ? "" : ` Details: ${origin}/booking/${booking.id}`)
     );
   } catch (err) {
     console.error("reschedule SMS failed:", err);
