@@ -30,13 +30,18 @@ const minutesSince = (iso: string | null): number =>
 
 // Customer said yes. The booking already exists and already holds the slot —
 // this only records that they answered and tells them what happens next.
-export async function confirmRequest(request: BookingRequest): Promise<void> {
+// `by` is set when a member of staff confirms on the customer's behalf —
+// someone who rings the venue instead of texting back has still confirmed, and
+// before this existed the hold lapsed underneath them and cancelled a booking
+// they had just been told was fine.
+export async function confirmRequest(request: BookingRequest, by?: string): Promise<void> {
   await setRequestStatus(request.id, "confirmed", request.bookingId ?? undefined);
   const booking = request.bookingId ? await getBooking(request.bookingId) : undefined;
   await notifyRequestConfirmed(request, booking?.reference ?? "—");
   await logActivity(
     "Booking request confirmed",
-    `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} replied Y`
+    `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} ` +
+      (by ? `— confirmed at the desk by ${by}` : "replied Y")
   );
 }
 

@@ -40,7 +40,7 @@ export default function RequestsBoard({
   const [declining, setDeclining] = useState<BookingRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function decide(r: BookingRequest, action: "accept" | "decline") {
+  async function decide(r: BookingRequest, action: "accept" | "decline" | "confirm") {
     setBusyId(r.id);
     setError(null);
     try {
@@ -51,9 +51,8 @@ export default function RequestsBoard({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not update the request.");
-      setRequests((rs) =>
-        rs.map((x) => (x.id === r.id ? { ...x, status: action === "accept" ? "accepted" : "declined" } : x))
-      );
+      const next = action === "accept" ? "accepted" : action === "confirm" ? "confirmed" : "declined";
+      setRequests((rs) => rs.map((x) => (x.id === r.id ? { ...x, status: next } : x)));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the request.");
@@ -64,7 +63,11 @@ export default function RequestsBoard({
   }
 
   const pending = requests.filter((r) => r.status === "pending");
-  const decided = requests.filter((r) => r.status !== "pending").slice(0, 20);
+  // Accepted but not yet confirmed: the hold is running down and staff can end
+  // it either way, so these keep their own section rather than scrolling past
+  // in the history.
+  const held = requests.filter((r) => r.status === "accepted");
+  const decided = requests.filter((r) => r.status !== "pending" && r.status !== "accepted").slice(0, 20);
 
   return (
     <>
@@ -141,6 +144,41 @@ export default function RequestsBoard({
         </div>
       )}
       </div>
+
+      {held.length > 0 && (
+        <div className="mgr-card">
+          <h2>Held — waiting for their reply</h2>
+          <p className="card-sub">
+            Each of these is booked and holding its slot, and is released automatically if the customer doesn&apos;t
+            reply Y in time. If they confirm another way — they ring, or they&apos;re standing at the desk — confirm it
+            here, or the hold will lapse and cancel the booking.
+          </p>
+          <ul className="mgr-notes">
+            {held.map((r) => (
+              <li key={r.id}>
+                <div>
+                  <div>
+                    <strong>
+                      {r.roomName} — {formatTime(r.time)}
+                    </strong>{" "}
+                    · {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"}
+                  </div>
+                  <div className="sub">{r.phone}</div>
+                </div>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ flexShrink: 0 }}
+                  onClick={() => decide(r, "confirm")}
+                  disabled={busyId === r.id}
+                >
+                  {busyId === r.id ? "Working…" : "They confirmed"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {decided.length > 0 && (
         <div className="mgr-card">
