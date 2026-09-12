@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { primeLocale } from "@/lib/format";
@@ -23,11 +24,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // client formatters match (no hydration mismatch).
   const locale = await getLocale();
   primeLocale(locale);
+  // Set per request by proxy.ts; the Content-Security-Policy only lets an
+  // inline script run if it carries this exact value.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `window.__LOCALE__=${JSON.stringify(locale)}` }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: `window.__LOCALE__=${JSON.stringify(locale)}` }} />
       </head>
       <body className={sourceSans.className}>{children}</body>
     </html>

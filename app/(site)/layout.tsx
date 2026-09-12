@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { CartProvider } from "@/lib/cart";
 import Header from "@/components/Header";
 import VisitorId from "@/components/VisitorId";
@@ -22,6 +23,11 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   // scripts, so nothing unvalidated may reach them.
   const trackers = activeTrackers(integrations);
 
+  // Marketing snippets are inline scripts, so the CSP only runs them with this
+  // request's nonce (proxy.ts). GTM then loads its own tags under
+  // 'strict-dynamic'.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   // Brand colours override the design tokens for the customer site. Hover/tint/
   // text-on-accent are derived from the brand colour so contrast stays readable.
   const themeVars = `.site-theme{--accent:${site.brandColor};--accent-hover:${shade(site.brandColor, 0.85)};--accent-tint:${tint(site.brandColor, 0.92)};--accent-dark:${readableOn(site.brandColor)};--btn-bg:${site.buttonBg};--btn-fg:${site.buttonText};}`;
@@ -33,7 +39,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <style>{themeVars}</style>
         {trackers.gtm && (
           <>
-            <script dangerouslySetInnerHTML={{ __html: gtmScript(integrations.gtmId) }} />
+            <script nonce={nonce} dangerouslySetInnerHTML={{ __html: gtmScript(integrations.gtmId) }} />
             <noscript>
               <iframe
                 src={`https://www.googletagmanager.com/ns.html?id=${integrations.gtmId}`}
@@ -47,7 +53,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         )}
         {trackers.fb && (
           <>
-            <script dangerouslySetInnerHTML={{ __html: fbPixelScript(integrations.fbPixelId) }} />
+            <script nonce={nonce} dangerouslySetInnerHTML={{ __html: fbPixelScript(integrations.fbPixelId) }} />
             <noscript>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
