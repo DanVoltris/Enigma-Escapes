@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBooking } from "@/lib/db";
 import { isValidISODate } from "@/lib/format";
+import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { cancelForCustomer, rescheduleForCustomer, selfServiceBlock } from "@/lib/manage-booking";
 import { notifyBookingCancelled, notifyBookingRescheduled } from "@/lib/sms";
 
@@ -13,7 +14,11 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const booking = await getBooking(id);
-  if (!booking) return NextResponse.json({ error: "We couldn't find that booking." }, { status: 404 });
+  // An imported booking's id is derivable from its reference, so holding it
+  // proves nothing — it must not cancel or move anything (lib/legacy-booking-id.ts).
+  if (!booking || hasGuessableId(booking)) {
+    return NextResponse.json({ error: "We couldn't find that booking." }, { status: 404 });
+  }
 
   const o = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const action = o.action === "cancel" || o.action === "reschedule" ? o.action : null;

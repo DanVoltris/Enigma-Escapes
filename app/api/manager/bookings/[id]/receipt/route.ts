@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { apiGuard } from "@/lib/auth";
 import { getBooking, logActivity } from "@/lib/db";
 import { documentSubject, renderDocument, type DocumentLine } from "@/lib/documents";
@@ -94,7 +95,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       balanceCents: p.balanceCents,
     },
     note: null,
-    viewUrl: `${req.nextUrl.origin}/receipt/${booking.id}`,
+    // Left out for an imported booking: its online receipt only opens for staff
+    // (lib/legacy-booking-id.ts). The receipt itself is in the email either way.
+    viewUrl: hasGuessableId(booking) ? null : `${req.nextUrl.origin}/receipt/${booking.id}`,
     business: b,
     logoUrl: site.logoUrl || null,
     accent: site.brandColor || null,

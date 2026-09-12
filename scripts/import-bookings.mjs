@@ -154,6 +154,9 @@ function instantISO(date, time) {
 // Stable id for a legacy transaction, so re-importing updates its booking
 // instead of making a second one. Shaped as a v5 UUID because the bookings
 // table (and every id check in the app) wants that form.
+//
+// Derivable ids are not secret: lib/legacy-booking-id.ts recognises them and
+// keeps their public pages closed. Change this formula and that file together.
 function legacyId(transactionId) {
   const h = createHash("sha1").update(`voltris-legacy-booking:${transactionId}`).digest("hex");
   const variant = ((Number.parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
