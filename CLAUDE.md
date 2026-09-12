@@ -120,10 +120,14 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   (`--dry-run`, `--show=<transaction id>`). Sessions sold over there then hold their slot here —
   every room is private, so one live booking makes the slot read "Sold out" — and hang off the
   customer's account by email. The export files one row per session; rows sharing a transaction
-  id were one purchase, so they become one booking with several items. Ids and references are
-  derived from the transaction id (`VB-L<transaction>`; the app only mints hex after `VB-`, so
-  the L can't collide), which makes a re-run an update rather than a duplicate and is what marks
-  a booking as imported. Rooms are matched by name — the old names carry the venue, e.g.
+  id were one purchase, so they become one booking with several items. References are derived
+  from the transaction id (`VB-L<transaction>`; the app only mints hex after `VB-`, so the L
+  can't collide) and a re-run matches on them, which makes it an update rather than a duplicate
+  and is what marks a booking as imported. Ids are NOT derived: a booking's id is the secret on
+  its public pages (`/booking/<id>`, `/confirmation/<id>`, `/receipt/<id>`), so the database gives
+  it a random one. Imported bookings once had ids derived from a formula in this (public) repo;
+  `migrations/0002` re-issued them and `lib/legacy-booking-id.ts` keeps any derivable id's public
+  pages closed. Rooms are matched by name — the old names carry the venue, e.g.
   "Shady Grove Sanatorium -Grant Park Shopping Centre" — and anything with no experience here
   (Hollywood Pizza, the party room) is skipped and listed at the end. Desk bookings filed under
   the old system's placeholder accounts keep the name typed at the desk but no email, so they
