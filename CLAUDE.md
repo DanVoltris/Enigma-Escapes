@@ -216,6 +216,15 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   outside Winnipeg. API routes never see the locale the root layout primes, so without it they
   tell the time in Winnipeg (the default) and sell sessions after they've started. When set,
   it overrides the portal's timezone setting, which then shows as fixed.
+- Schema changes go in `migrations/` (numbered, idempotent .sql files) and are applied to each
+  venue with `node --env-file=.env.<venue> scripts/migrate.mjs` (dry run; `--apply` to write,
+  `--status` to see what a venue has had). This replaces pasting SQL into each project's
+  dashboard by hand — with a database per venue, a change applied to one and forgotten in
+  another is how venues drift apart. `scripts/schema.sql` stays the baseline (recorded as
+  `0000`); the loose `scripts/*.sql` are history and shouldn't be added to. See
+  `migrations/README.md`. The runner reaches DDL through a `_migrate_exec` function called
+  over PostgREST with the service key; a database that predates it needs that function pasted
+  in once (the script prints the SQL), and new venues get it from `schema.sql`.
 - Load a venue's rooms and settings from a JSON file:
   `node --env-file=.env.<venue> scripts/seed-venue.mjs scripts/venues/<venue>.json` is a dry
   run; add `--apply` to write. `.env.<venue>` holds that venue's two Supabase variables

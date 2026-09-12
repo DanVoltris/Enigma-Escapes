@@ -16,7 +16,11 @@
 -- brings it up to date without touching data.
 --
 -- The other scripts/*.sql files are the historical record of how production
--- got here, applied in order over time. THIS file is the current truth: it was
+-- got here, applied by hand in order over time. New schema changes do NOT go
+-- there and do not go in this file: they go in migrations/, applied to every
+-- venue by scripts/migrate.mjs. See migrations/README.md.
+--
+-- THIS file is the current truth: it was
 -- generated from the live database's own schema (via PostgREST's OpenAPI
 -- description) on 2026-08-22, so it describes what is actually running.
 --
@@ -697,6 +701,28 @@ revoke execute on function public.voucher_product_stats() from public, anon, aut
 -- (Production also carries an `rls_auto_enable()` function that predates this
 -- file and whose source is not in the repo. The explicit statements below do
 -- the same job for a fresh database, so it is not needed here.)
+
+-- ------------------------------------------------------------ schema_migrations
+-- Bookkeeping for scripts/migrate.mjs: which migrations this database has had.
+-- _migrate_exec is how the runner reaches DDL at all — PostgREST serves rows,
+-- not schema changes — so it runs the SQL over RPC with the service key. It is
+-- security definer, which is only safe because it is revoked from anon and
+-- authenticated: the service_role key is the only way in, and that key already
+-- bypasses row level security everywhere else.
+create table if not exists schema_migrations (
+  version    text primary key,          -- 0000 is this file; 0001+ are migrations/
+  name       text not null,
+  checksum   text not null,
+  applied_at timestamptz not null default now()
+);
+
+create or replace function _migrate_exec(sql text) returns void
+language plpgsql security definer set search_path = public as $fn$
+begin execute sql; end;
+$fn$;
+revoke all on function _migrate_exec(text) from public;
+revoke all on function _migrate_exec(text) from anon, authenticated;
+
 -- =============================================================================
 alter table experiences         enable row level security;
 alter table bookings            enable row level security;
@@ -720,19 +746,20 @@ alter table feedback            enable row level security;
 alter table quotes              enable row level security;
 alter table booking_email_stats enable row level security;
 alter table site_events         enable row level security;
+alter table schema_migrations   enable row level security;
 
 -- =============================================================================
--- Check it worked. Expect 22 tables and 7 functions.
+-- Check it worked. Expect 23 tables and 8 functions.
 -- =============================================================================
-select 'tables' as kind, count(*) as found, 22 as expected
+select 'tables' as kind, count(*) as found, 23 as expected
 from pg_tables where schemaname = 'public'
 union all
-select 'functions', count(*), 7
+select 'functions', count(*), 8
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in ('bookings_in_window','refresh_booking_email_stats',
                     'booking_email_stats_sync','customer_roster','bookings_roster',
-                    'voucher_totals','voucher_product_stats')
+                    'voucher_totals','voucher_product_stats','_migrate_exec')
 union all
 select 'tables without RLS (must be 0)', count(*), 0
 from pg_tables t where t.schemaname = 'public'
