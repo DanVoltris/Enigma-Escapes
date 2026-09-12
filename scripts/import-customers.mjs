@@ -11,7 +11,9 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-const BASE = process.env.SUPABASE_URL;
+// Same tolerance as lib/supabase.ts: Supabase's API page shows the URL with
+// /rest/v1 on the end, so that is how it often gets pasted.
+const BASE = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "").replace(/\/rest\/v1$/, "").replace(/\/+$/, "");
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // With USE_LOCAL_DATA set the app runs off .local-data.json instead of
 // Supabase (lib/local-db.ts), so import there too — it's the way to see a real
