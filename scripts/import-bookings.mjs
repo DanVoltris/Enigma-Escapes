@@ -17,7 +17,9 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-const BASE = process.env.SUPABASE_URL;
+// Same tolerance as lib/supabase.ts: Supabase's API page shows the URL with
+// /rest/v1 on the end, so that is how it often gets pasted.
+const BASE = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "").replace(/\/rest\/v1$/, "").replace(/\/+$/, "");
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const LOCAL = process.env.USE_LOCAL_DATA === "true" || process.env.USE_LOCAL_DATA === "1";
 const LOCAL_FILE = join(process.cwd(), ".local-data.json");
