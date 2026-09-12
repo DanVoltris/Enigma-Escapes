@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
+import { confirmRequest } from "@/lib/request-flow";
 import { minutesToTime, overlappedBy, remainingSpots } from "@/lib/capacity";
 import { bookedCount, busySessionsForDate, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
@@ -11,7 +12,7 @@ import { notifyRequestDecision } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
-// Manager decides a request: accept or decline.
+// Manager decides a request: accept, decline, or confirm one already accepted.
 //
 // Accepting BOOKS it — unpaid, payable in store — rather than sending the
 // customer off to pay online. The slot was already held by the request; the
@@ -22,8 +23,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (guard.response) return guard.response;
   const { id } = await params;
   const o = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const action = o.action === "accept" || o.action === "decline" ? o.action : null;
-  if (!action) return NextResponse.json({ error: "Send an action: accept or decline." }, { status: 400 });
+  const action =
+    o.action === "accept" || o.action === "decline" || o.action === "confirm" ? o.action : null;
+  if (!action) {
+    return NextResponse.json({ error: "Send an action: accept, decline or confirm." }, { status: 400 });
+  }
 
   const request = await getRequestById(id);
   if (!request) return NextResponse.json({ error: "That request no longer exists." }, { status: 404 });
@@ -33,6 +37,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (request.status === "expired") {
     return NextResponse.json({ error: "That request's session time has passed." }, { status: 400 });
   }
+  // Confirming is the one action that applies AFTER acceptance: it is what a
+  // customer's "Y" does, reached by staff for the customer who rings instead.
+  if (action === "confirm") {
+    if (request.status === "confirmed") {
+      return NextResponse.json({ ok: true, bookingId: request.bookingId ?? null }); // already done; nothing to undo
+    }
+    if (request.status !== "accepted") {
+      return NextResponse.json(
+        { error: `Only a request that is held awaiting a reply can be confirmed — this one is ${request.status}.` },
+        { status: 400 }
+      );
+    }
+    try {
+      await confirmRequest(request, guard.staff.name);
+      return NextResponse.json({ ok: true, bookingId: request.bookingId ?? null });
+    } catch (err) {
+      console.error("confirming request failed:", err);
+      return NextResponse.json({ error: "Could not confirm the request right now. Please try again." }, { status: 500 });
+    }
+  }
+
   if (request.status !== "pending") {
     return NextResponse.json({ error: `Already ${request.status}.` }, { status: 400 });
   }

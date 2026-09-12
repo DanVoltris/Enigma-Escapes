@@ -4,6 +4,7 @@
 // Twilio number texts come from). Without them every send is a silent no-op,
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { REPLY_DEADLINE_MINUTES, REPLY_REMINDER_MINUTES } from "./requests";
 import { alertRecipients } from "./request-alerts";
 import { getBusinessDetails, getCompanyName } from "./settings";
 import { formatDateLong, formatTime, formatTimestampDate } from "./format";
@@ -99,7 +100,7 @@ export async function notifyRequestDecision(
     await sendSms(
       r.phone,
       accepted
-        ? `Good news ${r.firstName} — we can fit you in for ${r.roomName} at ${formatTime(r.time)}. Reply Y to confirm your spot or N to release it. We'll hold it 30 minutes. Pay when you arrive.`
+        ? `Good news ${r.firstName} — we can fit you in for ${r.roomName} at ${formatTime(r.time)}. Reply Y within ${REPLY_DEADLINE_MINUTES} minutes to confirm, or the spot goes back on sale. Reply N to release it now. Pay when you arrive.`
         : `Hi ${r.firstName} — sorry, we can't fit ${r.roomName} at ${formatTime(r.time)} today. See other times: ${origin}`
     );
   } catch (err) {
@@ -281,7 +282,7 @@ export async function notifyReplyReminder(r: {
   try {
     await sendSms(
       r.phone,
-      `${r.firstName}, still want ${r.roomName} at ${formatTime(r.time)}? Reply Y to confirm — we'll release the spot in 15 minutes if we don't hear back.`
+      `${r.firstName}, still want ${r.roomName} at ${formatTime(r.time)}? Reply Y to confirm. Without a reply the spot goes back on sale in ${REPLY_DEADLINE_MINUTES - REPLY_REMINDER_MINUTES} minutes.`
     );
   } catch (err) {
     console.error("reply reminder SMS failed:", err);
