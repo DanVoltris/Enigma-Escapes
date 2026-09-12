@@ -253,12 +253,20 @@ for (const [key, value] of Object.entries(venue.settings ?? {})) {
 await upsert("settings", "key", [{ key: "seed_snapshot", value: planned, updated_at: new Date().toISOString() }]);
 
 // ------------------------------------------------------------------ verify
-const rooms = await rest(`experiences?select=id,name,price_cents,min_party,max_party,windows&order=sort.asc`);
+const rooms = await rest(`experiences?select=id,name,price_cents,min_party,max_party,schedule_mode,times,windows&order=sort.asc`);
 const taxes = await rest("taxes?select=name,percent,active");
 const hours = await rest("location_hours?select=location");
 const keys = await rest(`settings?select=key&key=in.(${Object.keys(venue.settings ?? {}).join(",")})`);
 console.log("\nWritten. Read back from the database:");
-for (const r of rooms) console.log(`  room  ${r.name} — ${money(r.price_cents)}, ${r.min_party}–${r.max_party} guests, ${Object.keys(r.windows ?? {}).length} weekdays scheduled`);
+// Described by its own schedule mode: counting window days alone read a
+// fixed-times room back as "0 weekdays scheduled" when its times were saved.
+const scheduleOf = (r) =>
+  r.schedule_mode === "times"
+    ? `${(r.times ?? []).length} fixed start times daily`
+    : r.schedule_mode === "window"
+      ? `${Object.keys(r.windows ?? {}).length} weekdays scheduled`
+      : `${r.schedule_mode} mode`;
+for (const r of rooms) console.log(`  room  ${r.name} — ${money(r.price_cents)}, ${r.min_party}–${r.max_party} guests, ${scheduleOf(r)}`);
 console.log(`  taxes ${taxes.map((t) => `${t.name} ${t.percent}%${t.active ? "" : " (off)"}`).join(", ")}`);
 console.log(`  hours ${hours.map((h) => h.location).join(", ")}`);
 console.log(`  settings ${keys.map((k) => k.key).join(", ")}`);
