@@ -92,8 +92,17 @@ function roomRow(e) {
   };
 }
 
-// The start times a window produces — the same series lib/schedule.ts builds.
+// The start times a room produces on one weekday — the same series
+// lib/schedule.ts builds. Mirrors its schedule modes: a room on fixed times
+// publishes the same list every day, and only window mode varies by weekday.
+// Without the "times" branch such a room previewed as closed all week, so the
+// dry run understated what it was about to write — on the one screen that
+// exists to be read before writing.
 function startsFor(e, day) {
+  if (e.scheduleMode === "times") return [...(e.times ?? [])].sort();
+  // "store" takes its hours from the location rather than the room, which this
+  // preview doesn't have to hand. Say so instead of printing "closed".
+  if (e.scheduleMode !== "window") return [`(${e.scheduleMode} mode — follows the location's opening hours)`];
   const w = e.windows?.[day];
   if (!w || w.closed) return [];
   const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));

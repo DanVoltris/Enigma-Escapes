@@ -1,0 +1,130 @@
+{
+  "_source": "Not a real venue. A throwaway venue used to rehearse migrations and deploys before they reach Time Zone or Enigma. Deploy order is always staging -> Time Zone -> Enigma. Load with scripts/seed-venue.mjs against .env.staging.",
+  "experiences": [
+    {
+      "id": "staging-room-times",
+      "name": "STAGING Room A (fixed times)",
+      "location": "Staging Site",
+      "tagline": "Not a real room. Exercises the fixed-times schedule mode.",
+      "description": "This room exists so migrations and deploys can be rehearsed against a real database before they reach a venue that takes money. It uses the 'times' schedule mode, so anything that touches published start times is exercised here first.\n\nIf you are reading this on a customer-facing site, something is pointed at the wrong database.",
+      "durationMinutes": 60,
+      "capacity": 8,
+      "minParty": 3,
+      "maxParty": 8,
+      "isPrivate": true,
+      "priceCents": 1000,
+      "depositPercent": 25,
+      "scheduleMode": "times",
+      "times": ["10:00", "12:00", "14:00", "16:00", "18:00"],
+      "intervalMinutes": 75,
+      "badgeBg": "#b5179e",
+      "badgeFg": "#FFFFFF",
+      "sort": 1
+    },
+    {
+      "id": "staging-room-window",
+      "name": "STAGING Room B (rolling window)",
+      "location": "Staging Site",
+      "tagline": "Not a real room. Exercises the rolling-window schedule mode.",
+      "description": "The second staging room deliberately uses a different schedule mode from the first, so both availability code paths are covered by the rehearsal rather than only the one this venue happens to use.\n\nTwo rooms also means multi-room behaviour — the calendar, the grid, per-room reports — is exercised, which a single-room staging venue would miss.",
+      "durationMinutes": 60,
+      "capacity": 10,
+      "minParty": 3,
+      "maxParty": 10,
+      "isPrivate": true,
+      "priceCents": 1000,
+      "depositPercent": 25,
+      "scheduleMode": "window",
+      "intervalMinutes": 75,
+      "windows": {
+        "0": { "first": "11:00", "last": "18:00", "closed": false },
+        "1": { "first": "11:00", "last": "20:00", "closed": false },
+        "2": { "first": "11:00", "last": "20:00", "closed": false },
+        "3": { "first": "11:00", "last": "20:00", "closed": false },
+        "4": { "first": "11:00", "last": "20:00", "closed": false },
+        "5": { "first": "11:00", "last": "21:00", "closed": false },
+        "6": { "first": "11:00", "last": "21:00", "closed": false }
+      },
+      "badgeBg": "#7209b7",
+      "badgeFg": "#FFFFFF",
+      "sort": 2
+    }
+  ],
+  "taxes": [
+    {
+      "id": "tax-gst",
+      "name": "GST",
+      "percent": 5,
+      "active": true,
+      "sort": 1
+    }
+  ],
+  "locationHours": [
+    {
+      "location": "Staging Site",
+      "hours": {
+        "0": { "open": "10:00", "close": "20:00", "closed": false },
+        "1": { "open": "10:00", "close": "22:00", "closed": false },
+        "2": { "open": "10:00", "close": "22:00", "closed": false },
+        "3": { "open": "10:00", "close": "22:00", "closed": false },
+        "4": { "open": "10:00", "close": "22:00", "closed": false },
+        "5": { "open": "10:00", "close": "23:00", "closed": false },
+        "6": { "open": "10:00", "close": "23:00", "closed": false }
+      }
+    }
+  ],
+  "settings": {
+    "business_details": {
+      "companyName": "STAGING — do not book",
+      "phone": "000-000-0000",
+      "cell": "",
+      "email": "staging@example.invalid",
+      "website": "https://example.invalid",
+      "address": "No address — staging venue",
+      "taxLabel": "GST (Goods and Services Tax)",
+      "taxNumber": ""
+    },
+    "locale": {
+      "language": "en-CA",
+      "currencyCode": "CAD",
+      "currencySymbol": "$",
+      "timezone": "America/Winnipeg",
+      "dateStyle": "medium",
+      "timeFormat": "12",
+      "firstDay": 0
+    },
+    "pricing_mode": {
+      "taxInclusive": false,
+      "depositFlatCents": 0,
+      "corporateFeeCents": 0
+    },
+    "booking_site": {
+      "windowDays": 360,
+      "brandColor": "#b5179e",
+      "buttonBg": "#f72585",
+      "buttonText": "#1a0011",
+      "introHeading": "STAGING — this is not a real booking site",
+      "introText": "This site exists to rehearse changes before they reach a venue that takes money. Nothing booked here is real, and the data behind it can be wiped at any time. The colours are deliberately wrong so that nobody mistakes this for production at a glance.",
+      "supportText": "Staging environment. If you reached this by accident, close the tab — no booking made here is real."
+    },
+    "dashboard": {
+      "hoursFromSchedule": true
+    },
+    "booking_policies": {
+      "reschedule": {
+        "show": true,
+        "cutoffValue": 1,
+        "cutoffUnit": "days",
+        "title": "Changing your booking",
+        "content": "Staging venue — this text exists so the policy block renders somewhere before it renders for a real customer."
+      },
+      "cancellation": {
+        "show": true,
+        "cutoffValue": 1,
+        "cutoffUnit": "days",
+        "title": "Cancelling your booking",
+        "content": "Staging venue — nothing booked here is real and nothing is charged."
+      }
+    }
+  }
+}
