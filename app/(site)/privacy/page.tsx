@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getBusinessDetails, getCompanyName } from "@/lib/settings";
+import { activeTrackers } from "@/lib/integrations";
+import { getBusinessDetails, getCompanyName, getIntegrations } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +13,20 @@ export async function generateMetadata(): Promise<Metadata> {
 // changes — the Pixel goes live, card payments move online, the events table
 // starts holding something new — this page changes with it, and the date at
 // the bottom moves.
-const UPDATED = "September 8, 2026";
+const UPDATED = "September 12, 2026";
 
 export default async function PrivacyPage() {
-  const [company, business] = await Promise.all([
+  const [company, business, integrations] = await Promise.all([
     getCompanyName(),
     getBusinessDetails().then((r) => r.value).catch(() => null),
+    getIntegrations(),
   ]);
+  // This section used to be a flat "we don't use any of these". That stops
+  // being true the moment someone ticks a box in Settings, and a privacy policy
+  // that is wrong about tracking is worse than none — so it reads the same
+  // switches the layout does.
+  const trackers = activeTrackers(integrations);
+  const named = [trackers.fb && "the Meta Pixel", trackers.gtm && "Google Tag Manager"].filter(Boolean) as string[];
   const email = business?.email || "info@enigmaescapes.com";
   const phone = business?.phone || business?.cell || "";
   const address = business?.address?.trim() || "";
@@ -64,16 +72,30 @@ export default async function PrivacyPage() {
         </p>
 
         <h3>Advertising tools</h3>
-        <p>
-          We do not currently use any third-party advertising or analytics tools such as the Meta Pixel or Google
-          Tag Manager on this site. If that changes, this policy will say so and you&apos;ll be able to decline
-          them.
-        </p>
+        {named.length === 0 ? (
+          <p>
+            We do not currently use any third-party advertising or analytics tools such as the Meta Pixel or Google
+            Tag Manager on this site. If that changes, this policy will say so and you&apos;ll be able to decline
+            them.
+          </p>
+        ) : (
+          <p>
+            We use {named.length === 2 ? `${named[0]} and ${named[1]}` : named[0]} to measure which promotions bring
+            people to this site. {named.length === 2 ? "These send" : "This sends"} information about the pages you
+            view and the bookings you make to {named.length === 2 ? "Meta and Google" : trackers.fb ? "Meta" : "Google"}.{" "}
+            <strong>We only load {named.length === 2 ? "them" : "it"} if you accept.</strong> We ask the first time
+            you visit, and you can change your answer whenever you like using the &ldquo;Cookie choices&rdquo; link at
+            the bottom of any page. Declining doesn&apos;t affect booking in any way.
+          </p>
+        )}
 
         <h3>Cookies and storage</h3>
         <p>
           Your browser holds your cart while you book, the random identifier above, and — if you&apos;re staff —
-          your login. That&apos;s all.
+          your login.
+          {named.length > 0
+            ? " We also store your answer to the cookie question, so we don't ask again for six months. That's all."
+            : " That's all."}
         </p>
 
         <h3>How long we keep bookings</h3>
