@@ -297,9 +297,17 @@ export async function notifyRequestLapsed(
 ): Promise<void> {
   if (!smsConfigured()) return;
   try {
+    // Offers a way back rather than a dead end. Someone who confirmed by phone
+    // instead of by text used to get a flat contradiction of what staff had
+    // just told them, with nothing to do about it but book again from scratch.
+    const phone = await getBusinessDetails()
+      .then((b) => b.value?.phone || b.value?.cell || "")
+      .catch(() => "");
     await sendSms(
       r.phone,
-      `${r.firstName} — we didn't hear back, so ${r.roomName} at ${formatTime(r.time)} has been released. Book any time: ${origin}`
+      `${r.firstName} — we didn't hear back by text, so ${r.roomName} at ${formatTime(r.time)} has gone back on sale. ` +
+        (phone ? `Already spoken to us? Call ${phone}. Otherwise book` : `Book`) +
+        ` any time: ${origin}`
     );
   } catch (err) {
     console.error("lapsed request SMS failed:", err);
