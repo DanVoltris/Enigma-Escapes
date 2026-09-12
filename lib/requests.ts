@@ -27,6 +27,38 @@ export const HOLDING_STATUSES: RequestStatus[] = ["pending", "accepted", "confir
 // How long the customer has to reply Y, and when they get nudged.
 export const REPLY_REMINDER_MINUTES = 15;
 export const REPLY_DEADLINE_MINUTES = 30;
+// How close to the session the hold stops being managed automatically. Inside
+// this, staff are dealing with the group in person and the software should keep
+// its hands off.
+export const REPLY_GRACE_MINUTES = 10;
+
+// How long a held request actually gets to reply, and whether it may be
+// released at all. A null deadline means never release it automatically.
+//
+// The flat thirty minutes took no account of when the game starts. A request
+// accepted seven minutes before its session was released twenty-three minutes
+// INTO it — cancelling a booking for a group that may well have been in the
+// room, and freeing a slot nobody could have bought anyway. Five of the ten
+// bookings lost this way in a month were accepted with under 45 minutes to go.
+//
+// So the window is capped to end REPLY_GRACE_MINUTES before the session, and
+// once the session is that close, or has started, nothing is released at all —
+// it goes to staff instead, who can see it in the Requests tab.
+export function replyWindow(
+  minutesUntilSession: number,
+  minutesWaited: number
+): { deadline: number | null; reminderAt: number | null } {
+  // Measured against the session as it stands NOW, not against how far away it
+  // was when staff accepted. The sweep rides on site traffic, so on a quiet
+  // afternoon it can run well after a window expired — and releasing then, with
+  // the game about to start, is the very thing this is here to stop.
+  if (minutesUntilSession < REPLY_GRACE_MINUTES) return { deadline: null, reminderAt: null };
+  // Minutes from the moment staff accepted to the session start — fixed, so it
+  // is the same however long the reply has been outstanding.
+  const runway = minutesUntilSession + minutesWaited;
+  const deadline = Math.min(REPLY_DEADLINE_MINUTES, runway - REPLY_GRACE_MINUTES);
+  return { deadline, reminderAt: Math.max(1, Math.min(REPLY_REMINDER_MINUTES, Math.round(deadline / 2))) };
+}
 
 export type BookingRequest = {
   id: string;

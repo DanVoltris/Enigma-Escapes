@@ -9,10 +9,9 @@
 // bookkeeping they would drift apart.
 import { cancelBooking, getBooking, logActivity } from "./db";
 import { getSetting, saveSetting } from "./settings";
-import { formatTime } from "./format";
+import { formatTime, minutesUntilSlot } from "./format";
 import {
-  REPLY_DEADLINE_MINUTES,
-  REPLY_REMINDER_MINUTES,
+  replyWindow,
   markReminded,
   requestsAwaitingReply,
   setRequestStatus,
@@ -80,10 +79,14 @@ export async function sweepAwaitingReplies(origin: string): Promise<{ reminded: 
 
   for (const request of waiting) {
     const waited = minutesSince(request.decidedAt);
-    if (waited >= REPLY_DEADLINE_MINUTES) {
+    // The window is capped by the session itself: nothing is released once the
+    // game is within minutes of starting, or has started. Those go to staff.
+    const { deadline, reminderAt } = replyWindow(minutesUntilSlot(request.date, request.time), waited);
+    if (deadline === null) continue;
+    if (waited >= deadline) {
       await releaseRequest(request, "no-reply", origin);
       released++;
-    } else if (waited >= REPLY_REMINDER_MINUTES && !request.remindedAt) {
+    } else if (reminderAt !== null && waited >= reminderAt && !request.remindedAt) {
       // Stamp first, text second: if we can't record that we reminded them, we
       // don't remind them, or every sweep would send it again.
       if (await markReminded(request.id)) {
