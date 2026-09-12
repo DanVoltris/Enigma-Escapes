@@ -5,15 +5,18 @@
 //
 //   npm run import:bookings -- <file.csv> [more.csv ...] [--dry-run]
 //
-// Re-runnable: a booking's id and reference are derived from the old system's
-// transaction id, so the same file twice refreshes rather than duplicates, and
-// a later export just adds what's new. References are "VB-L<transaction>" —
-// the app only ever mints hex after "VB-", so the L can never collide with a
-// booking made here, and it's what marks a row as imported everywhere else.
+// Re-runnable: a booking's reference is derived from the old system's
+// transaction id and a re-import matches on it, so the same file twice
+// refreshes rather than duplicates, and a later export just adds what's new.
+// References are "VB-L<transaction>" — the app only ever mints hex after "VB-",
+// so the L can never collide with a booking made here, and it's what marks a
+// row as imported everywhere else. The booking's id is left to the database
+// (random): it is the secret on the booking's public pages, so it must not be
+// derivable — see legacyId() below.
 //
 // The old system files one row per session; several rows sharing a transaction
 // id were one purchase, so they become one booking with several items.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
@@ -153,12 +156,15 @@ function instantISO(date, time) {
   return new Date(wall - tzOffsetMs(once, TIMEZONE)).toISOString();
 }
 
-// Stable id for a legacy transaction, so re-importing updates its booking
-// instead of making a second one. Shaped as a v5 UUID because the bookings
-// table (and every id check in the app) wants that form.
+// Stable ids for rows nothing public ever names — a booking's imported note, a
+// blocked slot — so a re-import updates them rather than adding copies.
 //
-// Derivable ids are not secret: lib/legacy-booking-id.ts recognises them and
-// keeps their public pages closed. Change this formula and that file together.
+// NOT for a booking's own id. That id is the secret on the booking's public
+// pages, and this formula is readable by anyone who can read this file, so a
+// derived booking id can be rebuilt from its reference. Bookings used to get
+// one; migrations/0002 re-issued them all at random and lib/legacy-booking-id.ts
+// still refuses any that turn up. A re-import now finds its booking by
+// reference (VB-L<transaction>) and leaves the id to the database.
 function legacyId(transactionId) {
   const h = createHash("sha1").update(`voltris-legacy-booking:${transactionId}`).digest("hex");
   const variant = ((Number.parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
@@ -517,7 +523,8 @@ for (const tx of transactions.values()) {
   for (const r of rows) for (const k of Object.keys(tx.money)) tx.money[k] += r.money[k];
   tx.legacyBookingIds = [...tx.rows.keys()];
   bookings.push({
-    id: legacyId(tx.id),
+    // No id: the database gives a new booking a random one, and a re-import
+    // matches on reference, so an existing booking keeps whatever it has.
     reference: `VB-L${tx.id}`,
     created_at: tx.createdAt ?? instantISO(tx.items[0].date, tx.items[0].time),
     customer: { ...person, subscribe: false },
@@ -650,8 +657,10 @@ if (dryRun) {
 if (LOCAL) {
   const store = localStore();
   const existing = Array.isArray(store.bookings) ? store.bookings : [];
-  const merged = new Map(existing.map((b) => [b.id, b]));
-  for (const b of bookings) merged.set(b.id, b);
+  // Matched on reference, like the database write: an existing booking keeps
+  // its id, a new one gets a random id.
+  const merged = new Map(existing.map((b) => [b.reference, b]));
+  for (const b of bookings) merged.set(b.reference, { ...b, id: merged.get(b.reference)?.id ?? randomUUID() });
   store.bookings = [...merged.values()];
   const existingBlocks = Array.isArray(store.slot_blocks) ? store.slot_blocks : [];
   const blockKey = (b) => `${b.room_id}|${b.date}|${b.time}`;
@@ -700,16 +709,19 @@ async function postChunk(path, chunk, prefer) {
 // Anything already on the row is kept: its recorded payments, and any amount
 // paid beyond what the legacy figures know about. The imported paid amount only
 // ever raises the total, never lowers it.
+// Looked up by reference, never id: imported bookings' ids were re-issued at
+// random (migrations/0002), so an id lookup would find nothing, conclude there
+// was nothing to keep, and overwrite the payments.
 async function keepPaymentsTakenHere(chunk) {
-  const ids = chunk.map((b) => `"${b.id}"`).join(",");
-  const res = await rest(`bookings?select=id,pricing&id=in.(${encodeURIComponent(ids)})`);
+  const refs = chunk.map((b) => `"${b.reference}"`).join(",");
+  const res = await rest(`bookings?select=reference,pricing&reference=in.(${encodeURIComponent(refs)})`);
   if (!res.ok) throw await restErrorish(res);
   const existing = new Map(
-    ((await res.json()) || []).map((row) => [row.id, row.pricing ?? {}])
+    ((await res.json()) || []).map((row) => [row.reference, row.pricing ?? {}])
   );
   let kept = 0;
   for (const booking of chunk) {
-    const was = existing.get(booking.id);
+    const was = existing.get(booking.reference);
     if (!was) continue;
     const payments = Array.isArray(was.payments) ? was.payments : [];
     const takenHere = payments.reduce((sum, p) => sum + (Number(p.amountCents) || 0), 0);
@@ -739,7 +751,7 @@ for (let i = 0; i < bookings.length; i += CHUNK) {
   preserved += await keepPaymentsTakenHere(chunk);
   let res;
   try {
-    res = await postChunk("bookings?on_conflict=id", chunk, "resolution=merge-duplicates,return=minimal");
+    res = await postChunk("bookings?on_conflict=reference", chunk, "resolution=merge-duplicates,return=minimal");
   } catch (err) {
     console.error(
       `\nNetwork failure on bookings ${i + 1}–${i + chunk.length} after ${ATTEMPTS} attempts: ` +
