@@ -58,6 +58,14 @@ because what you edited did *not* reach the databases that already ran it.
 Write the change as a new migration. (`--force` accepts the new checksum without
 running anything — only for a comment-only edit you are certain about.)
 
+## Undoing one
+
+`migrations/rollback/` holds a tested undo for a migration that has gone to a
+live venue, named after the migration it reverses. The runner never reads that
+folder — an undo is a deliberate act, pasted by hand into one venue's SQL editor,
+and it un-records the migration so the runner would apply it again. Write and test
+the undo before a migration reaches Time Zone or Enigma, not after something breaks.
+
 ## Where the old files went
 
 `scripts/*.sql` are the historical record of how Enigma's database got here,
