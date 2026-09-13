@@ -216,6 +216,14 @@ project and its own Supabase project (built with `scripts/schema.sql`). Time Zon
 venue's database — rooms, prices, taxes, hours, copy, deposit and the corporate event fee
 (Settings → Taxes & fees) — never in a branch.
 
+- Staging comes first. A throwaway venue — Vercel project `voltris-staging`
+  (https://voltris-staging.vercel.app), its own Supabase project, `.env.staging`, fake rooms from
+  `scripts/venues/staging.json` — rehearses every change before a venue that takes money sees it.
+  Its Vercel production branch is `staging`, not `main`: code goes to the `staging` branch first,
+  is checked on the staging site, and only then merges to `main`, which deploys Enigma and Time
+  Zone. Migrations follow the same order: staging, then Time Zone, then Enigma — heavy ones on
+  Enigma while it is closed (all locations 10:00–22:30, Winnipeg). Staging's database holds
+  ~29k synthetic Enigma-sized bookings for timing migrations; nothing on it is real.
 - `VENUE_TIMEZONE` (e.g. `America/Toronto`) must be set on every venue's Vercel project
   outside Winnipeg. API routes never see the locale the root layout primes, so without it they
   tell the time in Winnipeg (the default) and sell sessions after they've started. When set,
