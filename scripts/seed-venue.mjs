@@ -143,6 +143,25 @@ async function rest(path, init = {}) {
 }
 
 console.log(`\nTarget database: ${new URL(BASE).host}`);
+
+// Every write below saves against a business plus its name (tenant_id, …),
+// which needs migrations 0001 and 0003. On a database that hasn't had them the
+// writes would fail with "no unique or exclusion constraint matching the ON
+// CONFLICT specification", which says nothing useful — so check first, and do
+// it on the dry run too.
+{
+  const probe = await fetch(`${BASE}/rest/v1/schema_migrations?select=version&version=eq.0003`, { headers });
+  const done = probe.ok ? (await probe.json()).length > 0 : false;
+  if (!done) {
+    console.error(
+      "\nThis database hasn't had the migrations yet (0003 not applied), so the rooms can't be loaded.\n" +
+        "For a new venue the order is: paste scripts/schema.sql, then\n" +
+        `  node --env-file=<this venue's env file> scripts/migrate.mjs --apply\n` +
+        "then run this again."
+    );
+    process.exit(1);
+  }
+}
 const existingRooms = await rest("experiences?select=id,name");
 const ours = new Set(venue.experiences.map((e) => e.id));
 const strangers = existingRooms.filter((r) => !ours.has(r.id));
@@ -226,8 +245,10 @@ if (!apply) {
 }
 
 // ------------------------------------------------------------------ write
+// Conflict targets are the business plus the name (migrations/0003); the
+// database fills tenant_id itself, so rows don't carry it.
 const upsert = (table, onConflict, rows) =>
-  rest(`${table}?on_conflict=${onConflict}`, {
+  rest(`${table}?on_conflict=tenant_id,${onConflict}`, {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify(rows),
@@ -251,6 +272,17 @@ for (const [key, value] of Object.entries(venue.settings ?? {})) {
 }
 // What this load wrote, so the next one can tell portal edits from file edits.
 await upsert("settings", "key", [{ key: "seed_snapshot", value: planned, updated_at: new Date().toISOString() }]);
+
+// Migrations run before seeding now, so migration 0001 named this venue's
+// tenant "Unnamed venue" — it had no business details yet. Name it from the file.
+const company = venue.settings?.business_details?.companyName?.trim();
+if (company) {
+  await rest(`tenants?name=eq.${encodeURIComponent("Unnamed venue")}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ name: company }),
+  });
+}
 
 // ------------------------------------------------------------------ verify
 const rooms = await rest(`experiences?select=id,name,price_cents,min_party,max_party,schedule_mode,times,windows&order=sort.asc`);

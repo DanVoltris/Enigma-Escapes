@@ -33,7 +33,9 @@ export async function locationHoursMap(): Promise<Map<string, LocationHours>> {
 }
 
 export async function upsertLocationHours(location: string, hours: Record<string, DayHours>): Promise<void> {
-  const res = await rest("location_hours", {
+  // Named explicitly rather than left to the primary key: in one shared database
+  // two businesses can each have a "Downtown" (migrations/0003).
+  const res = await rest("location_hours?on_conflict=tenant_id,location", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify({ location, hours }),

@@ -42,7 +42,10 @@ export async function getSetting<T>(key: string): Promise<SettingResult<T>> {
 
 // Upsert one setting. Throws a friendly error when the table doesn't exist.
 export async function saveSetting(key: string, value: unknown): Promise<void> {
-  const res = await rest("settings?on_conflict=key", {
+  // Conflict target is the business plus the name: in one shared database two
+  // businesses may each have their own. The database fills tenant_id itself
+  // (migrations/0001), so it isn't sent; the unique index is migrations/0003.
+  const res = await rest("settings?on_conflict=tenant_id,key", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify([{ key, value, updated_at: new Date().toISOString() }]),

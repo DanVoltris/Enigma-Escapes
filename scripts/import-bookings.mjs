@@ -751,7 +751,8 @@ for (let i = 0; i < bookings.length; i += CHUNK) {
   preserved += await keepPaymentsTakenHere(chunk);
   let res;
   try {
-    res = await postChunk("bookings?on_conflict=reference", chunk, "resolution=merge-duplicates,return=minimal");
+    // Reference is unique per business (migrations/0003); tenant_id is filled by the database.
+    res = await postChunk("bookings?on_conflict=tenant_id,reference", chunk, "resolution=merge-duplicates,return=minimal");
   } catch (err) {
     console.error(
       `\nNetwork failure on bookings ${i + 1}–${i + chunk.length} after ${ATTEMPTS} attempts: ` +
@@ -781,7 +782,7 @@ if (preserved) console.log(`${preserved} kept a payment already recorded here ra
 
 if (blocks.size) {
   const rows = [...blocks.values()].map((b) => ({ id: legacyId(`block:${b.room_id}|${b.date}|${b.time}`), created_at: new Date().toISOString(), ...b }));
-  const res = await rest("slot_blocks?on_conflict=room_id,date,time", {
+  const res = await rest("slot_blocks?on_conflict=tenant_id,room_id,date,time", {
     method: "POST",
     headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
     body: JSON.stringify(rows),
