@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import DrawNotice from "@/components/DrawNotice";
 import ManageBooking from "@/components/ManageBooking";
 import { smsConfigured } from "@/lib/sms";
 import { getBooking } from "@/lib/db";
@@ -35,7 +34,6 @@ export default async function ManageBookingPage({ params }: { params: Promise<{ 
 
       {/* Same cap as the card below, so the two read as one column. */}
       <div style={{ maxWidth: 640 }}>
-        <DrawNotice createdAt={booking.createdAt} />
       </div>
       <div className="form-card" style={{ maxWidth: 640 }}>
         {booking.status === "cancelled" ? (
