@@ -358,6 +358,28 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                   placeholder="e.g. Need a hand? Call us on 204-219-0014."
                 />
               </div>
+              <div className="field">
+                <label>Header links</label>
+                <label className="intg-toggle">
+                  <input
+                    type="checkbox"
+                    checked={s.showHomeLink}
+                    onChange={(e) => patch({ showHomeLink: e.target.checked })}
+                  />
+                  Show &ldquo;Back to home&rdquo;
+                </label>
+                <label className="intg-toggle">
+                  <input
+                    type="checkbox"
+                    checked={s.showGiftVouchers}
+                    onChange={(e) => patch({ showGiftVouchers: e.target.checked })}
+                  />
+                  Show &ldquo;Gift vouchers&rdquo;
+                </label>
+                <p className="field-hint">
+                  Hiding the gift voucher link doesn&apos;t close the shop — anyone with the link can still buy.
+                </p>
+              </div>
             </div>
           </>
         )}
