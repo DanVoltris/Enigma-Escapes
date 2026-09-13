@@ -84,9 +84,9 @@
       "cell": "",
       "email": "info@timezoneescapes.com",
       "website": "https://www.timezoneescapes.com",
-      "address": "Lobby Floor, Chelsea Hotel, 33 Gerrard Street W, Toronto, ON M5G 1Z4",
-      "taxLabel": "HST (Harmonized Sales Tax)",
-      "taxNumber": ""
+      "address": "33 Gerrard Street W, Toronto, ON M5G 1Z4",
+      "taxLabel": "GST (Goods and Services Tax)",
+      "taxNumber": "837257799"
     },
     "locale": {
       "language": "en-CA",
@@ -99,14 +99,16 @@
     },
     "pricing_mode": { "taxInclusive": false, "depositFlatCents": 3389, "corporateFeeCents": 45000 },
     "booking_site": {
-      "windowDays": 360,
+      "windowDays": 90,
       "brandColor": "#1e2e42",
       "buttonBg": "#5a95cf",
       "buttonText": "#0e1a26",
       "logoUrl": "https://cprzhlvuqfnusbnostzq.supabase.co/storage/v1/object/public/experience-images/eb298394-aaf3-4ede-9ac5-c37c65797d80.png",
       "introHeading": "Welcome to Time Zone Escapes",
       "introText": "Two immersive escape rooms on the lobby floor of Toronto's Chelsea Hotel. Every clue matters, every second counts, and teamwork is the key to success: you have 60 minutes. Every game is private, and a dedicated gamemaster watches over your adventure.",
-      "supportText": "Questions? Call 416-585-4760 or email info@timezoneescapes.com. Please arrive 15 minutes before your game."
+      "supportText": "Questions? Call 416-585-4760 or email info@timezoneescapes.com. Please arrive 15 minutes before your game.",
+      "showHomeLink": false,
+      "showGiftVouchers": false
     },
     "dashboard": { "hoursFromSchedule": true },
     "booking_policies": {
