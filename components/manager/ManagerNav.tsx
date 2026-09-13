@@ -27,7 +27,7 @@ const TABS: { href: string; label: string; need?: Permission | Permission[] }[] 
   { href: "/manager/help", label: "Help" },
 ];
 
-export default function ManagerNav({ permissions }: { permissions: Permission[] }) {
+export default function ManagerNav({ permissions, showDraw }: { permissions: Permission[]; showDraw: boolean }) {
   const pathname = usePathname();
 
   function isActive(href: string): boolean {
@@ -36,6 +36,7 @@ export default function ManagerNav({ permissions }: { permissions: Permission[] 
   }
 
   const visible = TABS.filter((tab) => {
+    if (tab.href === "/manager/draw" && !showDraw) return false; // per venue — see drawEnabled
     if (!tab.need) return true;
     const needed = Array.isArray(tab.need) ? tab.need : [tab.need];
     return needed.some((n) => permissions.includes(n));

@@ -36,6 +36,20 @@ export const SCREENING_DATE = "2026-09-09";
 
 const DRAW_KEY = "premiere_draw";
 
+// The promotion was Enigma's. Another venue on this codebase switches it off
+// with the "promotions" setting (Time Zone's venue file does); unset, it runs
+// as it always has. If the setting can't be read it counts as off: briefly
+// hiding a finished promotion is harmless, showing it at a venue that never ran
+// one is not.
+export async function drawEnabled(): Promise<boolean> {
+  try {
+    const { value } = await getSetting<{ premiereDraw?: boolean }>("promotions");
+    return value?.premiereDraw !== false;
+  } catch {
+    return false;
+  }
+}
+
 export type DrawEntry = {
   bookingId: string;
   reference: string;
