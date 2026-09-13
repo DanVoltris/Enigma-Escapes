@@ -21,13 +21,11 @@ const TABS: { href: string; label: string; need?: Permission | Permission[] }[] 
   { href: "/manager/checklists", label: "Checklists", need: "checklists" },
   { href: "/manager/notes", label: "Notes", need: "notes" },
   { href: "/manager/reports", label: "Reports", need: "reports" },
-  // Temporary — remove with the rest of the premiere promotion once it is over.
-  { href: "/manager/draw", label: "Draw", need: "reports" },
   { href: "/manager/settings", label: "Settings", need: ["settings", "staff"] },
   { href: "/manager/help", label: "Help" },
 ];
 
-export default function ManagerNav({ permissions, showDraw }: { permissions: Permission[]; showDraw: boolean }) {
+export default function ManagerNav({ permissions }: { permissions: Permission[] }) {
   const pathname = usePathname();
 
   function isActive(href: string): boolean {
@@ -36,7 +34,6 @@ export default function ManagerNav({ permissions, showDraw }: { permissions: Per
   }
 
   const visible = TABS.filter((tab) => {
-    if (tab.href === "/manager/draw" && !showDraw) return false; // per venue — see drawEnabled
     if (!tab.need) return true;
     const needed = Array.isArray(tab.need) ? tab.need : [tab.need];
     return needed.some((n) => permissions.includes(n));

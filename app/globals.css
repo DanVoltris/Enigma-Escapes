@@ -4995,54 +4995,6 @@ textarea:focus {
 .mgr-table tbody tr.row-link {
   cursor: pointer;
 }
-
-/* Movie premiere draw — temporary, goes with the rest of the promotion. */
-.draw-hero {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-/* Small enough to sit beside the text rather than dominate the page: staff open
-   this to run a draw, not to look at a poster. */
-.draw-poster {
-  width: 96px;
-  height: auto;
-  flex: none;
-  border: 1px solid var(--border);
-}
-.draw-prize {
-  margin: 0 0 4px;
-  font-size: 15px;
-}
-.draw-hero .mgr-page-sub {
-  margin-top: 0;
-}
-@media (max-width: 560px) {
-  .draw-poster {
-    width: 64px;
-  }
-}
-
-/* The draw notice on the confirmation page — poster beside the copy. Temporary,
-   goes with the rest of the promotion. */
-.draw-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin: 14px 0;
-  text-align: left;
-}
-.draw-note-poster {
-  width: 72px;
-  height: auto;
-  flex: none;
-  border: 1px solid var(--border);
-}
-.draw-note .confirm-note {
-  margin: 0;
-}
-
 /* Reports → Timing: sessions sold by weekday × hour. Five shades of the
    accent, so "busier" reads at a glance without a legend. */
 .rpt-heat {
