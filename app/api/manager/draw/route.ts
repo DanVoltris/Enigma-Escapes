@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
-import { runDraw } from "@/lib/draw";
+import { drawEnabled, runDraw } from "@/lib/draw";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const guard = await apiGuard("reports");
   if (guard.response) return guard.response;
+  if (!(await drawEnabled())) {
+    return NextResponse.json({ error: "There's no draw at this venue." }, { status: 404 });
+  }
   if (guard.staff.role !== "admin") {
     return NextResponse.json({ error: "Only an admin can run the draw." }, { status: 403 });
   }

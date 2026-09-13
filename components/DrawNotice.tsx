@@ -1,4 +1,12 @@
-import { DRAW_DATE, isInDrawWindow, MOVIE_POSTER, MOVIE_TITLE, SCREENING_DATE, TICKETS_PER_WINNER } from "@/lib/draw";
+import {
+  DRAW_DATE,
+  drawEnabled,
+  isInDrawWindow,
+  MOVIE_POSTER,
+  MOVIE_TITLE,
+  SCREENING_DATE,
+  TICKETS_PER_WINNER,
+} from "@/lib/draw";
 import { formatDateLong } from "@/lib/format";
 
 // The "you're in the draw" notice, shown wherever a customer looks at their
@@ -8,8 +16,9 @@ import { formatDateLong } from "@/lib/format";
 // reaches, so anyone following the text saw nothing. Renders nothing for a
 // booking outside the entry window. Temporary, goes with the rest of the
 // promotion.
-export default function DrawNotice({ createdAt }: { createdAt: string }) {
-  if (!isInDrawWindow(createdAt)) return null;
+export default async function DrawNotice({ createdAt }: { createdAt: string }) {
+  // Window first: most bookings are outside it, and that check needs no lookup.
+  if (!isInDrawWindow(createdAt) || !(await drawEnabled())) return null;
   return (
     <div className="draw-note">
       {/* eslint-disable-next-line @next/next/no-img-element -- static file in public/ */}

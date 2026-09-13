@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ManagerNav from "@/components/manager/ManagerNav";
+import { drawEnabled } from "@/lib/draw";
 import SignOutButton from "@/components/manager/SignOutButton";
 import { requireStaff } from "@/lib/auth";
 import { readableOn, shade, tint } from "@/lib/color";
@@ -22,7 +23,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
   // The owner's branding (Settings → Booking site → Logo & colours) also skins
   // the portal: logo in the top bar, brand colour as the accent. Hover/tint/
   // text-on-accent are derived from the brand colour so contrast stays readable.
-  const site = await getSiteSettings();
+  const [site, showDraw] = await Promise.all([getSiteSettings(), drawEnabled()]);
   const themeVars = `.mgr{--accent:${site.brandColor};--accent-hover:${shade(site.brandColor, 0.85)};--accent-tint:${tint(site.brandColor, 0.92)};--accent-dark:${readableOn(site.brandColor)};--btn-bg:${site.buttonBg};--btn-fg:${site.buttonText};}`;
 
   const roleLabel = staff.role === "admin" ? "Admin" : staff.role === "manager" ? "Manager" : "Front desk";
@@ -54,7 +55,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
           </span>
         </div>
       </div>
-      <ManagerNav permissions={staff.permissions} />
+      <ManagerNav permissions={staff.permissions} showDraw={showDraw} />
       <div className="mgr-content">{children}</div>
     </div>
   );
