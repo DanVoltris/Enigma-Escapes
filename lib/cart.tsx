@@ -59,9 +59,13 @@ const CartContext = createContext<CartContextValue | null>(null);
 export function CartProvider({
   children,
   holdMinutes = HOLD_MINUTES, // configurable in Settings → Booking site → Shopping basket
+  tax,
 }: {
   children: React.ReactNode;
   holdMinutes?: number;
+  // Loaded by the site layout, so totals are right from the first paint. When
+  // absent (the server lookup failed) the browser asks /api/tax, as before.
+  tax?: { percent: number; label: string; mode: PricingMode };
 }) {
   const [state, setState] = useState<CartState>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
@@ -71,10 +75,12 @@ export function CartProvider({
   holdRef.current = holdMinutes;
 
   // The active tax rate/label, so totals match what the server will charge.
-  const [taxPercent, setTaxPercent] = useState(5);
-  const [taxLabel, setTaxLabel] = useState("Tax");
-  const [pricingMode, setPricingMode] = useState<PricingMode>(DEFAULT_PRICING_MODE);
+  const [taxPercent, setTaxPercent] = useState(tax?.percent ?? 5);
+  const [taxLabel, setTaxLabel] = useState(tax?.label ?? "Tax");
+  const [pricingMode, setPricingMode] = useState<PricingMode>(tax?.mode ?? DEFAULT_PRICING_MODE);
+  const hasTax = tax !== undefined;
   useEffect(() => {
+    if (hasTax) return;
     fetch("/api/tax")
       .then((r) => r.json())
       .then((d) => {
@@ -83,7 +89,7 @@ export function CartProvider({
         if (d.mode) setPricingMode(d.mode as PricingMode);
       })
       .catch(() => {});
-  }, []);
+  }, [hasTax]);
 
   // Restore from localStorage after mount (avoids SSR hydration mismatch).
   useEffect(() => {
