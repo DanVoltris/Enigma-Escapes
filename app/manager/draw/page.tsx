@@ -1,6 +1,8 @@
+import { notFound } from "next/navigation";
 import DrawBoard from "@/components/manager/DrawBoard";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import {
+  drawEnabled,
   cancelledSinceDraw,
   countByLocation,
   DRAW_DATE,
@@ -24,6 +26,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DrawPage() {
   const staff = await requirePermission("reports", "/manager/draw");
+  if (!(await drawEnabled())) notFound(); // not this venue's promotion
   const [result, entries, allLocations] = await Promise.all([getDrawResult(), listEntries(), listLocations()]);
 
   // A manager scoped to one venue sees only their own rows. Admins — the only

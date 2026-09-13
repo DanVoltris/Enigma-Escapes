@@ -111,6 +111,7 @@
       "showGiftVouchers": false
     },
     "dashboard": { "hoursFromSchedule": true },
+    "promotions": { "premiereDraw": false },
     "booking_policies": {
       "reschedule": {
         "show": true,
