@@ -22,6 +22,9 @@ export type SiteSettings = {
   introHeading: string;
   introText: string;
   supportText: string;
+  // header links — per venue, so one can drop a link the other keeps
+  showHomeLink: boolean; // "Back to home" (points at this booking page)
+  showGiftVouchers: boolean; // the gift voucher shop
 };
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -38,6 +41,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   introHeading: "",
   introText: "",
   supportText: "",
+  showHomeLink: true,
+  showGiftVouchers: true,
 };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -73,5 +78,9 @@ export function normalizeSiteSettings(input: unknown): SiteSettings {
     introHeading: typeof o.introHeading === "string" ? o.introHeading.trim().slice(0, 120) : d.introHeading,
     introText: typeof o.introText === "string" ? o.introText.trim().slice(0, 600) : d.introText,
     supportText: typeof o.supportText === "string" ? o.supportText.trim().slice(0, 300) : d.supportText,
+    // Shown unless explicitly switched off, so a venue that has never saved
+    // these keeps both links.
+    showHomeLink: o.showHomeLink !== false,
+    showGiftVouchers: o.showGiftVouchers !== false,
   };
 }

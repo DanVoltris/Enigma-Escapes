@@ -6,7 +6,7 @@ import { useSiteConfig } from "@/lib/site-config";
 
 export default function Header({ company }: { company: string }) {
   const { items } = useCart();
-  const { logoUrl } = useSiteConfig();
+  const { logoUrl, showHomeLink, showGiftVouchers } = useSiteConfig();
   const count = items.length;
 
   return (
@@ -22,12 +22,16 @@ export default function Header({ company }: { company: string }) {
           )}
         </Link>
         <div className="header-right">
-          <Link href="/" className="header-home-link">
-            Back to home
-          </Link>
-          <Link href="/gift-vouchers" className="header-home-link">
-            Gift vouchers
-          </Link>
+          {showHomeLink && (
+            <Link href="/" className="header-home-link">
+              Back to home
+            </Link>
+          )}
+          {showGiftVouchers && (
+            <Link href="/gift-vouchers" className="header-home-link">
+              Gift vouchers
+            </Link>
+          )}
           <Link href="/manager" className="header-home-link">
             Manager
           </Link>
