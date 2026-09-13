@@ -159,12 +159,15 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
     const body = parseBody(init);
     const items = Array.isArray(body) ? body : [body];
     const upsert = /merge-duplicates/.test(preferHeader(init)) || params.has("on_conflict");
-    const pk = params.get("on_conflict") ?? PK[table];
+    // A conflict target can name several columns (tenant_id,key; room_id,date,time).
+    // Columns the real database fills itself, like tenant_id, are absent from local
+    // rows on both sides, so missing compares equal to missing.
+    const conflict = (params.get("on_conflict") ?? PK[table]).split(",").map((c) => c.trim());
     const written: Row[] = [];
     for (const raw of items) {
       const item = { ...(raw as Row) };
       if (upsert) {
-        const idx = rows.findIndex((r) => r[pk] === item[pk]);
+        const idx = rows.findIndex((r) => conflict.every((c) => (r[c] ?? null) === (item[c] ?? null)));
         if (idx >= 0) {
           rows[idx] = { ...rows[idx], ...item };
           written.push(rows[idx]);

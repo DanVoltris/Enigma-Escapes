@@ -359,7 +359,8 @@ export async function deleteManualCustomer(email: string): Promise<void> {
 }
 
 export async function upsertManualCustomer(c: ManualCustomer): Promise<void> {
-  const res = await rest("customers?on_conflict=email", {
+  // Unique per business (migrations/0003): one person can be a customer of two.
+  const res = await rest("customers?on_conflict=tenant_id,email", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify([

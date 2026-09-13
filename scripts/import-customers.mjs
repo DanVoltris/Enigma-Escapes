@@ -376,7 +376,7 @@ async function postChunk(chunk) {
   for (let attempt = 1; ; attempt++) {
     let why;
     try {
-      const res = await fetch(`${BASE}/rest/v1/customers?on_conflict=email`, {
+      const res = await fetch(`${BASE}/rest/v1/customers?on_conflict=tenant_id,email`, {
         method: "POST",
         headers: {
           apikey: KEY,
