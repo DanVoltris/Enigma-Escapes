@@ -10,17 +10,23 @@ import { CONSENT_COOKIE, consentState, parseConsent, trackerKeys } from "@/lib/c
 import { activeTrackers, fbPixelScript, gtmScript } from "@/lib/integrations";
 import { getIntegrations } from "@/lib/settings";
 import { getCompanyName } from "@/lib/settings";
+import { getPricingMode } from "@/lib/pricing-settings";
 import { getSiteSettings } from "@/lib/site-settings";
+import { taxSummary } from "@/lib/taxes";
 import { SiteConfigProvider } from "@/lib/site-config";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   // Booking-site settings drive the theme, basket hold and on-site copy.
-  const [site, integrations, company, jar] = await Promise.all([
+  const [site, integrations, company, jar, taxRate, pricingMode] = await Promise.all([
     getSiteSettings(),
     getIntegrations(),
     getCompanyName(),
     cookies(),
+    // For the cart's totals — saves every page a /api/tax round trip after load.
+    taxSummary().catch(() => null),
+    getPricingMode(),
   ]);
+  const tax = taxRate ? { ...taxRate, mode: pricingMode } : undefined;
 
   // Marketing scripts (Settings → Integrations) run on the customer site only,
   // and only with a validated ID — the IDs are interpolated into inline
@@ -48,7 +54,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
 
   return (
     <SiteConfigProvider value={site}>
-      <CartProvider holdMinutes={site.holdMinutes}>
+      <CartProvider holdMinutes={site.holdMinutes} tax={tax}>
         <VisitorId />
         <style>{themeVars}</style>
         {track.gtm && (
