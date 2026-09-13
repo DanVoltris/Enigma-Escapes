@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ConfirmationEffects from "@/components/ConfirmationEffects";
-import DrawNotice from "@/components/DrawNotice";
 import ProgressSteps from "@/components/ProgressSteps";
 import RoomBadge from "@/components/RoomBadge";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
@@ -99,7 +98,6 @@ export default async function ConfirmationPage({
             </a>
           </p>
         )}
-        <DrawNotice createdAt={booking.createdAt} />
         <p className="confirm-note">
           Played already?{" "}
           <Link href={`/feedback?ref=${encodeURIComponent(booking.reference)}`}>Tell us how it went →</Link>

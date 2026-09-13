@@ -7,10 +7,10 @@
       "name": "Blackbeard's Brig",
       "location": "Chelsea Hotel",
       "tagline": "Held hostage in a pirate's brig, with 60 minutes before he returns. Our more advanced room.",
-      "description": "You've been taken hostage by the most feared pirate on the high seas — Blackbeard. He's gone ashore to pillage and plunder, leaving you to face a terrifying fate. You have exactly 60 minutes to break free before his return. Can you escape the brig?\n\nRecommended for 6–8 players. Difficulty: moderate to advanced. Groups of 2 are welcome, with a minimum charge of 3 guests.",
+      "description": "You've been taken hostage by the most feared pirate on the high seas — Blackbeard. He's gone ashore to pillage and plunder, leaving you to face a terrifying fate. You have exactly 60 minutes to break free before his return. Can you escape the brig?\n\nRecommended for 6–8 players. Difficulty: moderate to advanced. Groups of 2 or more are welcome.",
       "durationMinutes": 60,
       "capacity": 10,
-      "minParty": 3,
+      "minParty": 2,
       "maxParty": 10,
       "isPrivate": true,
       "priceCents": 2999,
@@ -35,10 +35,10 @@
       "name": "The Curse of the Evil Genie",
       "location": "Chelsea Hotel",
       "tagline": "Trapped in a genie's lamp: find his ten favourite tales to break the curse. A great first room.",
-      "description": "You are under the curse of the evil genie Asmodeus, imprisoned inside his magic lamp. Your only hope of breaking the curse and escaping the lamp is to identify which ten of the Tales of the Thousand and One Nights are Asmodeus's favourites. The clock is ticking.\n\nRecommended for 4–8 players. Difficulty: intro to moderate. Groups of 2 are welcome, with a minimum charge of 3 guests.",
+      "description": "You are under the curse of the evil genie Asmodeus, imprisoned inside his magic lamp. Your only hope of breaking the curse and escaping the lamp is to identify which ten of the Tales of the Thousand and One Nights are Asmodeus's favourites. The clock is ticking.\n\nRecommended for 4–8 players. Difficulty: intro to moderate. Groups of 2 or more are welcome.",
       "durationMinutes": 60,
       "capacity": 10,
-      "minParty": 3,
+      "minParty": 2,
       "maxParty": 10,
       "isPrivate": true,
       "priceCents": 2999,
@@ -111,7 +111,6 @@
       "showGiftVouchers": false
     },
     "dashboard": { "hoursFromSchedule": true },
-    "promotions": { "premiereDraw": false },
     "booking_policies": {
       "reschedule": {
         "show": true,
