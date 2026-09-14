@@ -1,6 +1,17 @@
-// Server-only Supabase access via the PostgREST API. Uses the service_role key,
-// which bypasses row level security — it must never be exposed to the browser
-// (only ever read here, inside server code, from environment variables).
+import { tenantAuthFromEnv, tenantToken, type TenantAuth } from "./tenant-token";
+
+// Server-only Supabase access via the PostgREST API, in one of two modes:
+//
+// - Tenant: when the venue's tenant settings are present (lib/tenant-token.ts),
+//   every request carries a signed token naming the business, runs as the
+//   tenant_app role, and row level security keeps it to that business's rows
+//   (migrations/0004). A query that forgets to filter by business gets nothing.
+// - Service: otherwise, the service_role key, which bypasses row level security.
+//   How every venue ran before tenant mode, and still the fallback until each
+//   venue is switched.
+//
+// Either way the keys and secret must never reach the browser: they are only
+// ever read here, inside server code, from environment variables.
 // Supabase's API-keys page shows example URLs that already carry /rest/v1, so
 // that is what gets pasted into the variable about half the time. Appending our
 // own then asks for /rest/v1/rest/v1/… and PostgREST answers 404 PGRST125,
@@ -12,6 +23,19 @@ function normalizeUrl(raw: string | undefined): string | undefined {
 
 const SUPABASE_URL = normalizeUrl(process.env.SUPABASE_URL);
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+// Read once. Throws at the first database call if the venue is half configured —
+// loud on purpose, rather than silently using the key that skips every policy.
+let tenantAuth: TenantAuth | null | undefined;
+function currentTenantAuth(): TenantAuth | null {
+  if (tenantAuth === undefined) tenantAuth = tenantAuthFromEnv();
+  return tenantAuth;
+}
+
+/** Which way this deployment reaches its database. */
+export function databaseMode(): "local" | "tenant" | "service" {
+  if (useLocalData()) return "local";
+  return currentTenantAuth() ? "tenant" : "service";
+}
 
 // When true, all data access is served by a local file-backed store instead of
 // Supabase (see lib/local-db.ts) — for development with no database. Set
@@ -25,17 +49,20 @@ export async function rest(path: string, init?: RequestInit): Promise<Response> 
     const { localRest } = await import("./local-db");
     return localRest(path, init);
   }
-  if (!SUPABASE_URL || !SERVICE_KEY) {
+  const tenant = currentTenantAuth();
+  if (!SUPABASE_URL || (!tenant && !SERVICE_KEY)) {
     throw new Error(
       "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local (see CLAUDE.md), " +
         "or set USE_LOCAL_DATA=true to run on local mock data."
     );
   }
+  const auth = tenant
+    ? { apikey: tenant.apikey, Authorization: `Bearer ${tenantToken(tenant)}` }
+    : { apikey: SERVICE_KEY!, Authorization: `Bearer ${SERVICE_KEY}` };
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
     headers: {
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
+      ...auth,
       "Content-Type": "application/json",
       ...init?.headers,
     },

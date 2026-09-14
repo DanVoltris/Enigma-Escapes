@@ -8,7 +8,7 @@
     "start": "next start",
     "import:customers": "node --env-file=.env.local scripts/import-customers.mjs",
     "import:bookings": "node --env-file=.env.local scripts/import-bookings.mjs",
-    "test:isolation": "node --test tests/tenant-isolation.test.mjs"
+    "test:isolation": "node --test tests/tenant-token.test.mjs tests/tenant-isolation.test.mjs"
   },
   "dependencies": {
     "next": "^16.2.10",

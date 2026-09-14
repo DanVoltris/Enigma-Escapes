@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { signTenantToken } from "../lib/tenant-token.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -267,6 +268,18 @@ describe("tenant isolation", () => {
   test("a business can read its own tenant row and no other", async () => {
     const rows = await asTenant(db, claimsFor(A), async (tx) => (await tx.query("select id from tenants")).rows);
     assert.deepEqual(rows.map((r) => r.id), [A]);
+  });
+
+  test("the token lib/tenant-token.ts signs is read by the policies as intended", async () => {
+    // The Data API verifies the signature and hands Postgres the payload as
+    // request.jwt.claims; this is that payload, straight from the app's signer.
+    const payload = Buffer.from(signTenantToken({ apikey: "k", secret: "s".repeat(40), tenantId: B }).split(".")[1], "base64url").toString();
+    const counts = await asTenant(db, payload, async (tx) => ({
+      bookings: (await tx.query("select count(*)::int n from bookings")).rows[0].n,
+      foreign: (await tx.query("select count(*)::int n from bookings where tenant_id = $1", [A])).rows[0].n,
+    }));
+    assert.equal(counts.bookings, held.bookings.b, "the app's token didn't reach its own business");
+    assert.equal(counts.foreign, 0, "the app's token reached another business");
   });
 
   test("a missing, partial or unknown business in the token sees nothing", async () => {
