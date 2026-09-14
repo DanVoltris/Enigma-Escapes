@@ -224,6 +224,25 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   Zone. Migrations follow the same order: staging, then Time Zone, then Enigma — heavy ones on
   Enigma while it is closed (all locations 10:00–22:30, Winnipeg). Staging's database holds
   ~29k synthetic Enigma-sized bookings for timing migrations; nothing on it is real.
+- Isolation between businesses (migration 0004, `lib/tenant-token.ts`, `/api/health`). Every table with a
+  `tenant_id` has a row level security policy for the `tenant_app` role. A venue in **tenant mode** signs each
+  request with a one-minute HS256 JWT `{ role: "tenant_app", tenant_id }`, so a query that forgets to filter by
+  business gets nothing. A venue in **service mode** uses the service_role key as before. `npm run test:isolation`
+  (also on every push, `.github/workflows/tenant-isolation.yml`) puts two businesses in every table and fails on
+  any leak, or on a table added without `tenant_id`. Switching a venue to tenant mode, as done on staging
+  2026-09-14:
+  1. Supabase → Project Settings → API Keys: copy the **publishable** key (`sb_publishable_…`).
+  2. Generate a secret into the venue's env file (never shown in chat), then Supabase → Project Settings → JWT
+     Keys → create a **standby** key, type **HS256 (Shared Secret)**, importing that secret. Standby is enough —
+     don't rotate, and never revoke the Previous/Legacy key (the service_role key is signed with it). The
+     dashboard shows only the **Key ID** afterwards, never the secret; the Key ID goes in `SUPABASE_JWT_KID`,
+     not in the secret (that mix-up happened once).
+  3. Vercel → the venue's project → Environment Variables: `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_SECRET`,
+     `VENUE_TENANT_ID` (its row in `tenants`), `SUPABASE_JWT_KID`; redeploy. All three of the first must be set,
+     or the app refuses to start its database calls rather than fall back.
+  4. `/api/health` must say `{"ok":true,"database":"tenant"}`. Undo: delete those variables and redeploy.
+  `lib/storage.ts` (photo uploads) still uses the service_role key. Supabase deletes legacy `anon`/`service_role`
+  keys by the end of 2026, so every venue has to move to the new API keys regardless.
 - `VENUE_TIMEZONE` (e.g. `America/Toronto`) must be set on every venue's Vercel project
   outside Winnipeg. API routes never see the locale the root layout primes, so without it they
   tell the time in Winnipeg (the default) and sell sessions after they've started. When set,
