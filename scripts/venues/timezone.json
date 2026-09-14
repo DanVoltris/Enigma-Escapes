@@ -18,13 +18,13 @@
       "scheduleMode": "window",
       "intervalMinutes": 75,
       "windows": {
-        "0": { "first": "11:00", "last": "18:30", "closed": false },
-        "1": { "first": "11:00", "last": "21:00", "closed": false },
-        "2": { "first": "11:00", "last": "21:00", "closed": false },
-        "3": { "first": "11:00", "last": "21:00", "closed": false },
-        "4": { "first": "11:00", "last": "21:00", "closed": false },
-        "5": { "first": "11:00", "last": "22:15", "closed": false },
-        "6": { "first": "11:00", "last": "22:15", "closed": false }
+        "0": { "first": "12:15", "last": "18:30", "closed": false },
+        "1": { "first": "12:15", "last": "21:00", "closed": false },
+        "2": { "first": "12:15", "last": "21:00", "closed": false },
+        "3": { "first": "12:15", "last": "21:00", "closed": false },
+        "4": { "first": "12:15", "last": "21:00", "closed": false },
+        "5": { "first": "12:15", "last": "22:15", "closed": false },
+        "6": { "first": "12:15", "last": "22:15", "closed": false }
       },
       "badgeBg": "#1e2e42",
       "badgeFg": "#FFFFFF",
@@ -46,13 +46,13 @@
       "scheduleMode": "window",
       "intervalMinutes": 75,
       "windows": {
-        "0": { "first": "11:00", "last": "18:30", "closed": false },
-        "1": { "first": "11:00", "last": "21:00", "closed": false },
-        "2": { "first": "11:00", "last": "21:00", "closed": false },
-        "3": { "first": "11:00", "last": "21:00", "closed": false },
-        "4": { "first": "11:00", "last": "21:00", "closed": false },
-        "5": { "first": "11:00", "last": "22:15", "closed": false },
-        "6": { "first": "11:00", "last": "22:15", "closed": false }
+        "0": { "first": "12:15", "last": "18:30", "closed": false },
+        "1": { "first": "12:15", "last": "21:00", "closed": false },
+        "2": { "first": "12:15", "last": "21:00", "closed": false },
+        "3": { "first": "12:15", "last": "21:00", "closed": false },
+        "4": { "first": "12:15", "last": "21:00", "closed": false },
+        "5": { "first": "12:15", "last": "22:15", "closed": false },
+        "6": { "first": "12:15", "last": "22:15", "closed": false }
       },
       "badgeBg": "#7a5c3a",
       "badgeFg": "#FFFFFF",
