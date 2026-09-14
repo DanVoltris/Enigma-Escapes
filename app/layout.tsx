@@ -15,6 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: company,
     description: `Book your escape room experience with ${company}.`,
+    // The name under the home-screen icon. Without it iOS uses the page title,
+    // which on the portal is "Manager — …" and gets cut off.
+    appleWebApp: { title: company },
   };
 }
 
