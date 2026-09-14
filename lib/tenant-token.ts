@@ -57,7 +57,10 @@ export function tenantAuthFromEnv(env: Env = process.env): TenantAuth | null {
   if (!UUID_RE.test(tenantId)) {
     throw new Error("VENUE_TENANT_ID must be the venue's tenant id, a UUID from the tenants table.");
   }
-  return { apikey: value("SUPABASE_PUBLISHABLE_KEY")!, secret, tenantId, kid: value("SUPABASE_JWT_KID") };
+  // Supabase's dashboard shows key ids in upper case but only matches them in
+  // lower case: an upper-case kid is refused with "No suitable key was found to
+  // decode the JWT". Found rehearsing on staging.
+  return { apikey: value("SUPABASE_PUBLISHABLE_KEY")!, secret, tenantId, kid: value("SUPABASE_JWT_KID")?.toLowerCase() };
 }
 
 const b64url = (s: string) => Buffer.from(s).toString("base64url");

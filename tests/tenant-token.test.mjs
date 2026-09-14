@@ -26,8 +26,9 @@ describe("reading a venue's settings", () => {
     assert.throws(() => tenantAuthFromEnv({ ...FULL, SUPABASE_JWT_SECRET: "short" }), /at least 32/);
     assert.throws(() => tenantAuthFromEnv({ ...FULL, VENUE_TENANT_ID: "enigma" }), /must be the venue's tenant id/);
   });
-  test("an optional key id is carried", () => {
+  test("an optional key id is carried, lower-cased as Supabase matches it", () => {
     assert.equal(tenantAuthFromEnv({ ...FULL, SUPABASE_JWT_KID: "key-1" }).kid, "key-1");
+    assert.equal(tenantAuthFromEnv({ ...FULL, SUPABASE_JWT_KID: "FFA4F791-ABCD-4EF0-9A1B-0123456789AB" }).kid, "ffa4f791-abcd-4ef0-9a1b-0123456789ab");
   });
 });
 
