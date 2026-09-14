@@ -82,7 +82,8 @@ export async function createBlocks(
     blocked_by: blockedBy || null,
     created_at: new Date().toISOString(),
   }));
-  const res = await rest("slot_blocks?on_conflict=room_id,date,time", {
+  // A slot is a business's own room, date and time (migrations/0003).
+  const res = await rest("slot_blocks?on_conflict=tenant_id,room_id,date,time", {
     method: "POST",
     headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
     body: JSON.stringify(rows),

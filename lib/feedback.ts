@@ -15,7 +15,8 @@ export type Feedback = {
 type Row = { reference: string; rating: number; comment: string; name: string; created_at: string };
 
 export async function saveFeedback(fb: Feedback): Promise<void> {
-  const res = await rest("feedback?on_conflict=reference", {
+  // One response per booking within a business (migrations/0003).
+  const res = await rest("feedback?on_conflict=tenant_id,reference", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify([

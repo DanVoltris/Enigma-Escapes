@@ -237,6 +237,11 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   `migrations/README.md`. The runner reaches DDL through a `_migrate_exec` function called
   over PostgREST with the service key; a database that predates it needs that function pasted
   in once (the script prints the SQL), and new venues get it from `schema.sql`.
+- A new venue is built in this order: paste `scripts/schema.sql` into its SQL editor, run
+  `node --env-file=.env.<venue> scripts/migrate.mjs --apply`, then load its rooms with
+  `seed-venue.mjs` below. Seeding saves against each business plus its names (migration 0003), so
+  it refuses to run until the migrations have, and it renames the "Unnamed venue" tenant 0001
+  created to the company name in the venue file.
 - Load a venue's rooms and settings from a JSON file:
   `node --env-file=.env.<venue> scripts/seed-venue.mjs scripts/venues/<venue>.json` is a dry
   run; add `--apply` to write. `.env.<venue>` holds that venue's two Supabase variables
