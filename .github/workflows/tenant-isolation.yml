@@ -1,0 +1,23 @@
+# One business must never reach another's rows. Every push and pull request
+# rebuilds the database from scripts/schema.sql and every migration, puts two
+# businesses' data in every table, and checks each is kept to its own.
+# See tests/tenant-isolation.test.mjs. Needs no secrets: it runs on a Postgres
+# inside the job (PGlite), never against a venue's database.
+name: Tenant isolation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:isolation
