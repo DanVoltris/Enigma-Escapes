@@ -26,7 +26,8 @@ export default async function RequestsPage() {
       <p className="mgr-page-sub">
         Sessions starting within 4 hours can&apos;t be booked directly — customers request them here, and the slot is
         held from the moment they ask. Accepting books it{smsConfigured() ? " and texts them to reply Y" : " (texts aren't configured yet — call them to confirm)"};
-        they pay when they arrive. If they don&apos;t reply within 30 minutes the hold is released. Requests die
+        they pay when they arrive. If they don&apos;t reply within 30 minutes (less when the session is close — the text tells them how long) the
+        hold is released. Requests die
         automatically when their start time passes.
       </p>
       <RequestsBoard initialRequests={requests} remaining={remaining} />

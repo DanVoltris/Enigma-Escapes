@@ -107,7 +107,7 @@ export async function releaseRequest(
   await logActivity(
     "Booking request released",
     `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} — ` +
-      (reason === "no-reply" ? "no reply in 30 minutes" : "customer replied N")
+      (reason === "no-reply" ? "no reply in time" : "customer replied N")
   );
   return true;
 }
@@ -132,7 +132,7 @@ export async function sweepAwaitingReplies(origin: string): Promise<{ reminded: 
       // Stamp first, text second: if we can't record that we reminded them, we
       // don't remind them, or every sweep would send it again.
       if (await markReminded(request.id)) {
-        await notifyReplyReminder(request);
+        await notifyReplyReminder(request, deadline - waited);
         reminded++;
       }
     }

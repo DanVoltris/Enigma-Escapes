@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatDateLong, formatTime } from "@/lib/format";
-import { getRequestByToken } from "@/lib/requests";
+import { formatDateLong, formatTime, minutesUntilSlot } from "@/lib/format";
+import { getRequestByToken, replyWindow } from "@/lib/requests";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,11 @@ export default async function RequestPage({ params }: { params: Promise<{ token:
 
   const when = `${formatDateLong(request.date)} at ${formatTime(request.time)}`;
   const state = request.status;
+  // What is left of their own reply window — shorter than thirty minutes when
+  // the session is close, and none at all (never released) when it's closer.
+  const waited = request.decidedAt ? (Date.now() - new Date(request.decidedAt).getTime()) / 60000 : 0;
+  const { deadline } = replyWindow(minutesUntilSlot(request.date, request.time), waited);
+  const minutesLeft = deadline === null ? null : Math.max(1, Math.floor(deadline - waited));
 
   return (
     <div className="panel" style={{ maxWidth: 640, margin: "40px auto" }}>
@@ -32,8 +37,9 @@ export default async function RequestPage({ params }: { params: Promise<{ token:
             {request.phone} to confirm it, or <strong>N</strong> to let it go.
           </p>
           <p className="sub">
-            There&apos;s nothing to pay here — you pay at the venue when you arrive. If we don&apos;t hear
-            back within 30 minutes of us accepting, the spot goes back up for sale.
+            There&apos;s nothing to pay here — you pay at the venue when you arrive.
+            {minutesLeft !== null &&
+              ` If we don't hear back within the next ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}, the spot goes back up for sale.`}
           </p>
         </>
       )}

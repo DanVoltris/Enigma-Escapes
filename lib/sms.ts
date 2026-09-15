@@ -5,11 +5,18 @@
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { hasGuessableId } from "./legacy-booking-id";
-import { REPLY_DEADLINE_MINUTES, REPLY_REMINDER_MINUTES } from "./requests";
+import { replyWindow } from "./requests";
 import { alertRecipients } from "./request-alerts";
 import { getBusinessDetails, getCompanyName } from "./settings";
-import { formatDateLong, formatTime, formatTimestampDate } from "./format";
+import { formatDateLong, formatTime, formatTimestampDate, minutesUntilSlot } from "./format";
 import type { Booking } from "./types";
+
+// Whole minutes, rounded down so a text never promises more time than there is,
+// and never below one.
+function minutesText(minutes: number): string {
+  const n = Math.max(1, Math.floor(minutes));
+  return `${n} minute${n === 1 ? "" : "s"}`;
+}
 
 const SID = process.env.TWILIO_ACCOUNT_SID;
 const TOKEN = process.env.TWILIO_AUTH_TOKEN;
@@ -92,16 +99,23 @@ export function verifyTwilioSignature(header: string | null, url: string, rawBod
 // text carries the completion link — staff also see the link in the portal in
 // case SMS isn't configured yet.
 export async function notifyRequestDecision(
-  r: { firstName: string; phone: string; roomName: string; time: string; token: string },
+  r: { firstName: string; phone: string; roomName: string; date: string; time: string; token: string },
   accepted: boolean,
   origin: string
 ): Promise<void> {
   if (!smsConfigured()) return;
+  // The window they really get: it shrinks when the session is close (see
+  // replyWindow), and a text promising the full thirty minutes had people
+  // replying Y inside it to a booking already cancelled. None at all means the
+  // hold is never released automatically, so there is no deadline to give.
+  const { deadline } = replyWindow(minutesUntilSlot(r.date, r.time), 0);
+  const replyBy =
+    deadline === null ? "Reply Y to confirm." : `Reply Y within ${minutesText(deadline)} to confirm, or the spot goes back on sale.`;
   try {
     await sendSms(
       r.phone,
       accepted
-        ? `Good news ${r.firstName} — we can fit you in for ${r.roomName} at ${formatTime(r.time)}. Reply Y within ${REPLY_DEADLINE_MINUTES} minutes to confirm, or the spot goes back on sale. Reply N to release it now. Pay when you arrive.`
+        ? `Good news ${r.firstName} — we can fit you in for ${r.roomName} at ${formatTime(r.time)}. ${replyBy} Reply N to release it now. Pay when you arrive.`
         : `Hi ${r.firstName} — sorry, we can't fit ${r.roomName} at ${formatTime(r.time)} today. See other times: ${origin}`
     );
   } catch (err) {
@@ -299,17 +313,22 @@ export async function notifyPushStopped(
 
 // Nudge at the halfway mark. Deliberately says what happens if they ignore it,
 // because a reminder that doesn't is just noise.
-export async function notifyReplyReminder(r: {
-  firstName: string;
-  phone: string;
-  roomName: string;
-  time: string;
-}): Promise<void> {
+// minutesLeft is what remains of this request's own window, which is shorter
+// than the standard one when the session is close.
+export async function notifyReplyReminder(
+  r: {
+    firstName: string;
+    phone: string;
+    roomName: string;
+    time: string;
+  },
+  minutesLeft: number
+): Promise<void> {
   if (!smsConfigured()) return;
   try {
     await sendSms(
       r.phone,
-      `${r.firstName}, still want ${r.roomName} at ${formatTime(r.time)}? Reply Y to confirm. Without a reply the spot goes back on sale in ${REPLY_DEADLINE_MINUTES - REPLY_REMINDER_MINUTES} minutes.`
+      `${r.firstName}, still want ${r.roomName} at ${formatTime(r.time)}? Reply Y to confirm. Without a reply the spot goes back on sale in ${minutesText(minutesLeft)}.`
     );
   } catch (err) {
     console.error("reply reminder SMS failed:", err);
