@@ -123,8 +123,10 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               {booking.status === "cancelled" && (
                 <p className="bk-cancelled-note">
                   <strong>This booking was cancelled.</strong> The spots are back on sale and nothing further is owed
-                  {pricing.refundOwedCents
-                    ? ` — a refund of ${formatMoney(pricing.refundOwedCents)} is still to be settled`
+                  {/* Owed is the whole refund and refunded the part already
+                      back (lib/pricing.ts), so only the difference is unsettled. */}
+                  {(pricing.refundOwedCents ?? 0) > (pricing.refundedCents ?? 0)
+                    ? ` — a refund of ${formatMoney((pricing.refundOwedCents ?? 0) - (pricing.refundedCents ?? 0))} is still to be settled`
                     : ""}
                   .
                 </p>
