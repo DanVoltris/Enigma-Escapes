@@ -6,13 +6,15 @@ import { maxPerBooking, minPerBooking, minutesOfTime, minutesToTime, overlappedB
 import {
   addBookingNote,
   bookedCount,
+  busySessionsForDate,
   cancelBooking,
   logActivity,
   rescheduleBooking,
   updateBookingPartySize,
 } from "./db";
 import { getExperience } from "./experiences";
-import { formatMoney, formatTime, minutesUntilSlot } from "./format";
+import { addDaysISO, formatMoney, formatTime, minutesUntilSlot, todayISO } from "./format";
+import { getSiteSettings } from "./site-settings";
 import { getLocationHours } from "./hours";
 import { computeTotals } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
@@ -146,9 +148,23 @@ export async function rescheduleForCustomer(
   if (!startTimesFor(exp, date, hours).includes(time)) {
     return { error: "That time isn't offered on that day — pick another." };
   }
+  // The same booking window the website sells within.
+  if (date > addDaysISO(todayISO(), (await getSiteSettings()).windowDays)) {
+    return { error: "We aren't taking bookings that far ahead yet — pick an earlier date." };
+  }
   const { isBlocked } = await import("./blocks");
   if (await isBlocked(exp.id, date, time)) {
     return { error: "That session isn't running — pick another time." };
+  }
+  // Free for the whole game, not just at its start: a desk booking at a custom
+  // time can run through this slot without being counted in it. The booking's
+  // own session is left out, as a booking can't clash with itself.
+  const duration = item.durationMinutes ?? exp.durationMinutes;
+  const busyHere = ((await busySessionsForDate(date)).get(exp.id) ?? []).filter(
+    (b) => !(item.date === date && b.time === item.time)
+  );
+  if (overlappedBy(busyHere, time, duration)) {
+    return { error: `${formatTime(time)} isn't free any more — try another time.` };
   }
 
   // This booking's own seats shouldn't count against it when moving within
