@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/db";
-import { clearLoginFailures, loginLock, recordLoginFailure } from "@/lib/login-throttle";
+import { claimLoginAttempt, clearLoginFailures } from "@/lib/login-throttle";
 import { SESSION_COOKIE, signIn } from "@/lib/staff";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +22,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Too many recent failures on this login: refuse without checking the
-    // password at all, so guessing costs an attacker the full lockout.
+    // The attempt is counted before the password is checked, so parallel
+    // guesses can't all get in under the limit. Too many recent attempts on
+    // this login: refuse without checking the password at all, so guessing
+    // costs an attacker the full lockout.
     const ip = clientIp(req);
-    const lock = await loginLock(email, ip);
+    const lock = await claimLoginAttempt(email, ip);
+    if (lock.busy) {
+      return NextResponse.json(
+        { error: "Too many sign-in attempts at once. Wait a moment and try again." },
+        { status: 429 }
+      );
+    }
     if (lock.locked) {
       return NextResponse.json(
         {
@@ -40,7 +48,6 @@ export async function POST(req: NextRequest) {
     const result = await signIn(email, password);
     // One message for every failure — never reveal whether the account exists.
     if (!result) {
-      await recordLoginFailure(email, ip);
       return NextResponse.json({ error: "That login and password don't match an active account." }, { status: 401 });
     }
     await clearLoginFailures(email, ip);
