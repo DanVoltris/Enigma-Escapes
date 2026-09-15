@@ -106,15 +106,23 @@ a:hover {
   color: var(--link);
   font-weight: 400;
 }
-/* The uploaded logo is a square canvas with the wordmark in a centered
-   horizontal band — cover + a wide box crops away the empty padding so the
-   mark renders at full size. (Re-tune if a differently-shaped logo is
-   uploaded later.) */
+/* The logo is shown whole, whatever its shape. It used to be cropped to a wide
+   band (it suited one square canvas with a wordmark across the middle), which
+   cut a badge-shaped logo down to a slice. The slot keeps the header the height
+   it has always been; a squarer logo may stand taller than the slot, into the
+   header's padding, rather than shrink to a thumbnail. Upload logos trimmed of
+   empty margins: the margin is shown too. */
+.brand.has-logo {
+  display: flex;
+  align-items: center;
+  height: 46px;
+}
 .brand-logo {
   display: block;
-  height: 46px;
-  width: 210px;
-  object-fit: cover;
+  width: auto;
+  height: auto;
+  max-width: 170px;
+  max-height: 76px;
 }
 .header-right {
   display: flex;
@@ -1162,15 +1170,17 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 10px;
+  height: 40px;
 }
 .mgr-title.has-logo::before {
   content: none;
 }
 .mgr-logo {
-  display: block;
-  height: 40px;
-  width: 182px; /* 34 x 155 scaled up — same ratio, so the crop is unchanged */
-  object-fit: cover; /* same crop trick as .brand-logo */
+  display: block; /* whole logo, same rule as .brand-logo */
+  width: auto;
+  height: auto;
+  max-width: 160px;
+  max-height: 52px;
 }
 .mgr-view-site {
   font-size: 15px;
@@ -3761,9 +3771,12 @@ a.mgr-pill.on:hover {
   .brand {
     font-size: 19px;
   }
-  .brand-logo {
+  .brand.has-logo {
     height: 36px;
-    width: 165px;
+  }
+  .brand-logo {
+    max-width: 144px;
+    max-height: 54px;
   }
   .header-right {
     gap: 12px;
@@ -3862,9 +3875,12 @@ a.mgr-pill.on:hover {
   .mgr-title {
     font-size: 16px;
   }
-  .mgr-logo {
+  .mgr-title.has-logo {
     height: 28px;
-    width: 128px;
+  }
+  .mgr-logo {
+    max-width: 128px;
+    max-height: 38px;
   }
   .mgr-nav-inner {
     padding: 0 8px;

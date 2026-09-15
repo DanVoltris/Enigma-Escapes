@@ -12,7 +12,7 @@ export default function Header({ company }: { company: string }) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/" className="brand">
+        <Link href="/" className={`brand${logoUrl ? " has-logo" : ""}`}>
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- data URLs in local mode
             <img src={logoUrl} alt={company} className="brand-logo" />
