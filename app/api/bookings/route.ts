@@ -6,10 +6,22 @@ import { getRequestByToken, setRequestStatus } from "@/lib/requests";
 import { settleRewardsFor } from "@/lib/reward-flow";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushOnlineBooking } from "@/lib/staff-push";
+import { stripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  // This is the simulated checkout: it saves the booking as paid with nobody
+  // charged. Once a venue has Stripe keys, every booking — voucher-only ones
+  // included — goes through /api/checkout/session instead, so a request here
+  // is someone replaying the old form to get a free booking.
+  if (stripeConfigured()) {
+    return NextResponse.json(
+      { error: "Online payment has moved to secure checkout. Please refresh the payment page and try again." },
+      { status: 409 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();
