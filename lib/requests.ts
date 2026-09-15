@@ -171,18 +171,21 @@ export async function setRequestStatus(
 // Slots held by a live request, keyed "roomId|time", with how many seats each
 // holds. Availability subtracts these so a slot someone is mid-request for
 // can't be sold underneath them — and so a second customer can't request it
-// either. Expired rows are ignored by the same rule toRequest applies.
+// either. Expired rows are ignored by the same rule toRequest applies, and so
+// are requests staff have accepted: accepting books them, and that booking
+// already counts, so holding the seats as well would take them twice.
 export async function heldSeatsForDate(date: string): Promise<Map<string, number>> {
   const held = new Map<string, number>();
   try {
     const statuses = HOLDING_STATUSES.join(",");
     const res = await rest(
-      `booking_requests?select=room_id,time,quantity,status,date&date=eq.${encodeURIComponent(date)}` +
+      `booking_requests?select=room_id,time,quantity,status,date,booking_id&date=eq.${encodeURIComponent(date)}` +
         `&status=in.(${statuses})`
     );
     if (!res.ok) return held;
     for (const r of (await res.json()) as Row[]) {
       if (minutesUntilSlot(r.date, r.time) <= 0) continue; // dead, holds nothing
+      if (r.booking_id) continue; // its booking holds the seats
       const key = `${r.room_id}|${r.time}`;
       held.set(key, (held.get(key) ?? 0) + r.quantity);
     }
