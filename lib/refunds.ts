@@ -103,12 +103,26 @@ export async function refundBookingPayment(
   // reached them. A refund staff have to settle on the terminal counts towards
   // the first and not the second, or the booking would claim the money had gone
   // back when it is still sitting in the till.
-  const owedTotal = (booking.pricing.refundOwedCents ?? 0) + amountCents;
+  //
+  // A cancellation has already recorded the refund it promised as owed, and
+  // the booking page sends staff here to pay it. A refund made afterwards is
+  // that money going back, not more on top — adding it again left the booking
+  // saying the money was still owed after it had reached the card. So on a
+  // cancelled booking, owed only grows once the refunds made against its
+  // payments pass what the cancellation set.
+  const onlineRefunded = online
+    ? online.refundedCents + amountCents
+    : (booking.pricing.onlineRefundedCents ?? 0);
+  const againstPayments = nextPayments.reduce((sum, p) => sum + (p.refundedCents ?? 0), 0) + onlineRefunded;
+  const owedTotal =
+    booking.status === "cancelled"
+      ? Math.max(booking.pricing.refundOwedCents ?? 0, againstPayments)
+      : (booking.pricing.refundOwedCents ?? 0) + amountCents;
   const refundedTotal = (booking.pricing.refundedCents ?? 0) + (toCard ? amountCents : 0);
   const pricing: Booking["pricing"] = {
     ...booking.pricing,
     payments: nextPayments,
-    ...(online ? { onlineRefundedCents: online.refundedCents + amountCents } : {}),
+    ...(online ? { onlineRefundedCents: onlineRefunded } : {}),
     refundedCents: refundedTotal,
     refundOwedCents: owedTotal,
     refundedAt: new Date().toISOString(),
