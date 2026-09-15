@@ -658,9 +658,13 @@ if (LOCAL) {
   const store = localStore();
   const existing = Array.isArray(store.bookings) ? store.bookings : [];
   // Matched on reference, like the database write: an existing booking keeps
-  // its id, a new one gets a random id.
+  // its id and what was done to it here, a new one gets a random id.
   const merged = new Map(existing.map((b) => [b.reference, b]));
-  for (const b of bookings) merged.set(b.reference, { ...b, id: merged.get(b.reference)?.id ?? randomUUID() });
+  for (const b of bookings) {
+    const was = merged.get(b.reference);
+    if (was) keepWhatChangedHere(b, was);
+    merged.set(b.reference, { ...was, ...b, id: was?.id ?? randomUUID() });
+  }
   store.bookings = [...merged.values()];
   const existingBlocks = Array.isArray(store.slot_blocks) ? store.slot_blocks : [];
   const blockKey = (b) => `${b.room_id}|${b.date}|${b.time}`;
@@ -701,41 +705,59 @@ async function postChunk(path, chunk, prefer) {
   }
 }
 
-// Money taken HERE must survive a re-import. The upsert replaces the whole
-// pricing blob, so without this a payment a staff member recorded minutes
+// A booking that's already here has been in this system's hands since it was
+// first imported, and must survive a re-import. The upsert replaces every
+// column it sends, so without this a payment a staff member recorded minutes
 // earlier is silently destroyed and the customer is asked to pay again — which
-// is exactly what happened on 15 Aug before this existed.
+// is exactly what happened on 15 Aug — and so is everything else done here: a
+// session the customer moved goes back to its old slot (freeing the new one
+// for resale), staff notes vanish, participants and contact fixes are lost, and
+// a promo applied at the desk is undone.
 //
-// Anything already on the row is kept: its recorded payments, and any amount
-// paid beyond what the legacy figures know about. The imported paid amount only
-// ever raises the total, never lowers it.
+// The old system is retired, so nothing about these bookings can be newer over
+// there; a re-run is for bookings not yet here (a seasonal room coming back).
+// An existing booking therefore keeps its sessions, contact, notes, promo,
+// no-show and money. The import only refreshes its own note, and the paid
+// amount an export reports only ever raises what's recorded, never lowers it.
+function keepWhatChangedHere(booking, was) {
+  if (Array.isArray(was.items) && was.items.length) booking.items = was.items;
+  if (was.customer) booking.customer = was.customer;
+  if (was.promo_code !== undefined) booking.promo_code = was.promo_code;
+  if (typeof was.no_show === "boolean") booking.no_show = was.no_show;
+
+  const importNote = booking.notes[0];
+  const notes = Array.isArray(was.notes) ? was.notes : [];
+  booking.notes = notes.some((n) => n.id === importNote.id)
+    ? notes.map((n) => (n.id === importNote.id ? importNote : n))
+    : [importNote, ...notes];
+
+  const before = was.pricing ?? {};
+  const legacyPaid = Number(booking.pricing.paidCents) || 0;
+  // Totals change here too (a promo, a party-size change), so the row's own
+  // pricing wins whenever it has one.
+  if (Number.isFinite(before.totalCents)) booking.pricing = { ...before };
+  const payments = Array.isArray(before.payments) ? before.payments : [];
+  const takenHere = payments.reduce((sum, p) => sum + (Number(p.amountCents) || 0), 0);
+  const recordedHere = Math.max(Number(before.paidCents) || 0, takenHere);
+  booking.pricing.paidCents = Math.min(Math.max(legacyPaid, recordedHere), booking.pricing.totalCents);
+  booking.pricing.balanceCents = booking.pricing.totalCents - booking.pricing.paidCents;
+  return recordedHere > legacyPaid;
+}
+
 // Looked up by reference, never id: imported bookings' ids were re-issued at
 // random (migrations/0002), so an id lookup would find nothing, conclude there
-// was nothing to keep, and overwrite the payments.
-async function keepPaymentsTakenHere(chunk) {
+// was nothing to keep, and overwrite the booking.
+async function keepChangesMadeHere(chunk) {
   const refs = chunk.map((b) => `"${b.reference}"`).join(",");
-  const res = await rest(`bookings?select=reference,pricing&reference=in.(${encodeURIComponent(refs)})`);
-  if (!res.ok) throw await restErrorish(res);
-  const existing = new Map(
-    ((await res.json()) || []).map((row) => [row.reference, row.pricing ?? {}])
+  const res = await rest(
+    `bookings?select=reference,pricing,items,customer,notes,promo_code,no_show&reference=in.(${encodeURIComponent(refs)})`
   );
+  if (!res.ok) throw await restErrorish(res);
+  const existing = new Map(((await res.json()) || []).map((row) => [row.reference, row]));
   let kept = 0;
   for (const booking of chunk) {
     const was = existing.get(booking.reference);
-    if (!was) continue;
-    const payments = Array.isArray(was.payments) ? was.payments : [];
-    const takenHere = payments.reduce((sum, p) => sum + (Number(p.amountCents) || 0), 0);
-    const paid = Math.max(Number(booking.pricing.paidCents) || 0, Number(was.paidCents) || 0, takenHere);
-    if (payments.length) booking.pricing.payments = payments;
-    if (paid !== booking.pricing.paidCents) {
-      booking.pricing.paidCents = Math.min(paid, booking.pricing.totalCents);
-      kept++;
-    }
-    booking.pricing.balanceCents = booking.pricing.totalCents - booking.pricing.paidCents;
-    // Carry the rest of what only this system knows.
-    for (const key of ["stripePaymentIntent", "refundOwedCents", "refundedCents", "refundedAt", "voucherCode", "voucherCents", "voucherRedeemed"]) {
-      if (was[key] !== undefined && booking.pricing[key] === undefined) booking.pricing[key] = was[key];
-    }
+    if (was && keepWhatChangedHere(booking, was)) kept++;
   }
   return kept;
 }
@@ -748,7 +770,7 @@ let written = 0;
 let preserved = 0;
 for (let i = 0; i < bookings.length; i += CHUNK) {
   const chunk = bookings.slice(i, i + CHUNK);
-  preserved += await keepPaymentsTakenHere(chunk);
+  preserved += await keepChangesMadeHere(chunk);
   let res;
   try {
     // Reference is unique per business (migrations/0003); tenant_id is filled by the database.
