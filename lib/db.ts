@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { minutesOfTime, type BusySession } from "./capacity";
 import { todayISO } from "./format";
 import { rest, restAllPages, restError } from "./supabase";
-import { spendVoucher } from "./vouchers";
+import { getVoucher, spendVoucher, voucherProblem } from "./vouchers";
 import type { ActivityEntry, Booking, BookingNote, BookingSource, Promo, StaffNote } from "./types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -199,6 +199,21 @@ export async function takeVoucherFor(booking: Booking): Promise<number> {
 
   const first = booking.items[0];
   try {
+    // spendVoucher re-checks the rules against one session; the voucher pays
+    // towards all of them, so the others are checked here first.
+    if (booking.items.length > 1) {
+      const voucher = await getVoucher(code);
+      const problem =
+        voucher &&
+        booking.items
+          .slice(1)
+          .map((i) => voucherProblem(voucher, { today: todayISO(), date: i.date, time: i.time, roomId: i.roomId }))
+          .find((p) => p !== null);
+      if (problem) {
+        console.error(`voucher ${code} could not be spent on ${booking.reference}: ${problem}`);
+        return 0;
+      }
+    }
     const result = await spendVoucher(code, want, {
       today: todayISO(),
       date: first?.date,
