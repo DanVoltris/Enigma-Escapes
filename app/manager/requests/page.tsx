@@ -17,7 +17,7 @@ export default async function RequestsPage() {
   // Live remaining capacity per pending request, so the decision is informed.
   const remaining: Record<string, number | null> = {};
   for (const r of requests) {
-    if (r.status === "pending") remaining[r.id] = await slotRemaining(r.roomId, r.date, r.time);
+    if (r.status === "pending") remaining[r.id] = await slotRemaining(r.roomId, r.date, r.time, r.quantity);
   }
   return (
     <>
