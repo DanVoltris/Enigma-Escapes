@@ -77,6 +77,7 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
   const [error, setError] = useState<string | null>(null);
   const [palette, setPalette] = useState<string[]>([]);
   const [logoBusy, setLogoBusy] = useState(false);
+  const [iconBusy, setIconBusy] = useState(false);
 
   // Recover the swatches for an already-saved logo when the page loads.
   useEffect(() => {
@@ -108,6 +109,33 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
       setError(err instanceof Error ? err.message : "Could not upload the logo. Please try again.");
     } finally {
       setLogoBusy(false);
+    }
+  }
+
+  // PNG or JPG only: the icon is drawn on the server by a renderer that can't
+  // read WebP, and a square picture is what a home screen expects.
+  async function onAppIconFile(file: File) {
+    if (file.type !== "image/png" && file.type !== "image/jpeg") {
+      setError("Use a PNG or JPG for the app icon.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setError("App icon is too large — keep it under 5 MB.");
+      return;
+    }
+    setIconBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/manager/upload", { method: "POST", body: fd });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not upload the app icon. Please try again.");
+      patch({ appIconUrl: data.url });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload the app icon. Please try again.");
+    } finally {
+      setIconBusy(false);
     }
   }
 
@@ -253,6 +281,35 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                   {logoBusy
                     ? "Uploading and reading colours…"
                     : "JPG, PNG or WebP, up to 5 MB. Shown in place of the site name in the booking site header. Remember to Save & update."}
+                </p>
+              </div>
+
+              <div className="field">
+                <label htmlFor="bs-app-icon">Staff app icon</label>
+                {s.appIconUrl && (
+                  <div className="bs-logo-row">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- data URLs in local mode */}
+                    <img src={s.appIconUrl} alt="Current app icon" className="bs-app-icon-preview" />
+                    <button type="button" className="link-button danger" onClick={() => patch({ appIconUrl: null })}>
+                      Remove app icon
+                    </button>
+                  </div>
+                )}
+                <input
+                  id="bs-app-icon"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  disabled={iconBusy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onAppIconFile(f);
+                    e.target.value = "";
+                  }}
+                />
+                <p className="field-hint">
+                  {iconBusy
+                    ? "Uploading…"
+                    : "A square PNG or JPG, ideally 512 × 512 or larger. It's the icon when staff add the portal to their phone's home screen, and the picture on their notifications. Without one, the logo is used. Phones keep the icon they had when the app was added, so remove and re-add it to see a change. Remember to Save & update."}
                 </p>
               </div>
 

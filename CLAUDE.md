@@ -233,6 +233,9 @@ for location-scoped accounts, only for their locations.
   the project's production URL). Without the keys everything is a silent no-op and the page says
   notifications aren't set up. Changing a venue's keys cuts off every phone until each turns
   notifications on again.
+- The app's home-screen and notification icon (`lib/venue-icon.tsx`) is the square **Staff app icon** uploaded in
+  Settings → Booking site → Logo & colours, else the logo fitted on white, else the venue's initial. Phones keep
+  the icon from when the app was added, so a change shows only after removing and re-adding it.
 - `npm run test:push` checks who gets which alert (also run in CI).
 
 ## Running another venue
