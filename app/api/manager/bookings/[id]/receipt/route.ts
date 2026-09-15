@@ -90,7 +90,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     customerEmail: to,
     lines,
     totals: {
-      subtotalCents: p.subtotalCents,
+      // Before the discount, as the confirmation page shows it: the stored
+      // subtotal is already net of it, and the receipt takes it off again.
+      subtotalCents: p.subtotalCents + p.discountCents,
       discountCents: p.discountCents,
       taxCents: p.gstCents,
       taxLabel: b.taxLabel || "GST",

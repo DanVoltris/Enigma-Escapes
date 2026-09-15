@@ -57,7 +57,7 @@ function formatCvc(v: string): string {
 // nobody charged. canceled: the customer backed out of Stripe checkout.
 export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled: boolean; canceled: boolean }) {
   const router = useRouter();
-  const { items, customer, promo, voucher, paymentOption, taxPercent, pricingMode, requestToken, setPromo, setVoucher, setPaymentOption, clear } =
+  const { items, customer, promo, voucher, paymentOption, taxPercent, pricingMode, requestToken, heldCheckout, setPromo, setVoucher, setPaymentOption, setHeldCheckout, clear } =
     useCart();
 
   const [promoOpen, setPromoOpen] = useState(false);
@@ -149,10 +149,14 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
           promoCode: promo?.code ?? null,
           voucherCode: voucher?.code ?? null,
           requestToken: requestToken ?? tokenFromUrl(),
+          heldCheckout,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start the payment. Please try again.");
+      if (typeof data.bookingId === "string" && typeof data.sessionId === "string") {
+        setHeldCheckout({ bookingId: data.bookingId, sessionId: data.sessionId });
+      }
       window.location.assign(data.url as string);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong. Please try again.");

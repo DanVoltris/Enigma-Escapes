@@ -1,10 +1,7 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
-import { getBooking, logActivity, updateBookingFields } from "@/lib/db";
-import { formatMoney } from "@/lib/format";
-import { getIntentState, terminalConfigured } from "@/lib/stripe-terminal";
-import type { BookingPayment } from "@/lib/types";
+import { getBooking } from "@/lib/db";
+import { getIntentState, recordReaderPayment, terminalConfigured } from "@/lib/stripe-terminal";
 
 export const dynamic = "force-dynamic";
 
@@ -24,33 +21,22 @@ export async function GET(req: NextRequest) {
 
   try {
     const state = await getIntentState(intentId);
-    const booking = await getBooking(bookingId);
-    if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
-
-    const already = (booking.pricing.payments ?? []).some((p) => p.intentId === intentId);
     if (state.status !== "succeeded") {
+      const booking = await getBooking(bookingId);
+      if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+      const already = (booking.pricing.payments ?? []).some((p) => p.intentId === intentId);
       return NextResponse.json({ status: state.status, recorded: already, error: state.lastError });
     }
-    if (already) return NextResponse.json({ status: "succeeded", recorded: true });
 
-    const payment: BookingPayment = {
-      id: randomUUID(),
-      method: "card",
-      amountCents: state.amountCents,
-      payer: (req.nextUrl.searchParams.get("payer") ?? "").trim().slice(0, 60) || null,
-      note: "Card reader",
-      at: new Date().toISOString(),
+    const recorded = await recordReaderPayment(
+      bookingId,
       intentId,
-    };
-    const pricing = {
-      ...booking.pricing,
-      paidCents: booking.pricing.paidCents + payment.amountCents,
-      balanceCents: Math.max(0, booking.pricing.balanceCents - payment.amountCents),
-      payments: [...(booking.pricing.payments ?? []), payment],
-    };
-    await updateBookingFields(bookingId, { pricing });
-    await logActivity("Card payment taken", `${formatMoney(payment.amountCents)} on ${booking.reference} (reader)`);
-    return NextResponse.json({ status: "succeeded", recorded: true, pricing });
+      state.amountCents,
+      req.nextUrl.searchParams.get("payer") ?? ""
+    );
+    if (!recorded) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!recorded.pricing) return NextResponse.json({ status: "succeeded", recorded: true });
+    return NextResponse.json({ status: "succeeded", recorded: true, pricing: recorded.pricing });
   } catch (err) {
     console.error("terminal status check failed:", err);
     return NextResponse.json({ error: "Lost contact with the reader — check it and try again." }, { status: 502 });

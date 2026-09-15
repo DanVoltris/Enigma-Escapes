@@ -15,10 +15,11 @@ import {
 import { getExperience } from "./experiences";
 import { formatMoney, formatTime, minutesUntilSlot } from "./format";
 import { getLocationHours } from "./hours";
-import { computeTotals } from "./pricing";
+import { computeTotals, refundGoingBackCents } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
 import { activeTaxPercent } from "./taxes";
 import { startTimesFor } from "./schedule";
+import { onlinePayment } from "./refunds";
 import { refundPayment, stripeConfigured } from "./stripe";
 import { revokeRewardsFor } from "./reward-flow";
 import { refundToVoucher } from "./vouchers";
@@ -83,13 +84,23 @@ export async function cancelForCustomer(booking: Booking): Promise<CancelOutcome
   // The voucher's share goes back on the voucher; only money that actually
   // reached a card can be refunded to one.
   const voucherBackCents = await returnVoucher(booking);
-  const owedCents = Math.max(0, booking.pricing.paidCents - voucherBackCents);
-  const intent = booking.pricing.stripePaymentIntent ?? null;
+  // Anything already refunded from the Refund panel isn't owed a second time.
+  const owedCents = Math.max(
+    0,
+    booking.pricing.paidCents - voucherBackCents - refundGoingBackCents(booking.pricing)
+  );
+  // Only the checkout payment can go back to a card from here, and only what
+  // is still on it: asking Stripe for more than that was refused outright, so
+  // not even the checkout money went back. The rest (paid at the desk) stays
+  // owed for staff to return through the Refund panel.
+  const online = onlinePayment(booking);
+  const toCardCents = Math.min(owedCents, online?.refundableCents ?? 0);
+  const intent = online?.intentId ?? null;
   let refundedCents = 0;
 
-  if (owedCents > 0 && intent && stripeConfigured()) {
+  if (toCardCents > 0 && intent && stripeConfigured()) {
     try {
-      refundedCents = (await refundPayment(intent, owedCents)) ?? 0;
+      refundedCents = (await refundPayment(intent, toCardCents)) ?? 0;
     } catch (err) {
       // A refund failure must not trap the customer in a booking they cancelled —
       // cancel anyway and leave it flagged for staff.
@@ -116,7 +127,7 @@ export async function cancelForCustomer(booking: Booking): Promise<CancelOutcome
         ? "nothing paid"
         : automatic
           ? `refunded ${(refundedCents / 100).toFixed(2)} automatically`
-          : `REFUND OWED ${(owedCents / 100).toFixed(2)}`
+          : `REFUND OWED ${((owedCents - refundedCents) / 100).toFixed(2)}`
     }`
   );
   return { booking: updated ?? booking, refundedCents, owedCents, automatic, rewardNote };
@@ -197,14 +208,23 @@ export async function cancelForStaff(
   // Voucher money always goes back on the voucher — there's nowhere else for it
   // to go — so the staff member's refund figure applies to the card share only.
   const voucherBackCents = await returnVoucher(booking);
-  const cardPaidCents = Math.max(0, booking.pricing.paidCents - voucherBackCents);
+  // Capped at what hasn't already gone back from the Refund panel, so "in
+  // full" never refunds the same money twice.
+  const cardPaidCents = Math.max(
+    0,
+    booking.pricing.paidCents - voucherBackCents - refundGoingBackCents(booking.pricing)
+  );
   const wanted = Math.max(0, Math.min(Math.round(refundCents), cardPaidCents));
-  const intent = booking.pricing.stripePaymentIntent ?? null;
+  // Same split as the customer's cancel above: what is left on the checkout
+  // payment goes back to the card, anything beyond it is owed by hand.
+  const online = onlinePayment(booking);
+  const toCardCents = Math.min(wanted, online?.refundableCents ?? 0);
+  const intent = online?.intentId ?? null;
   let refundedCents = 0;
 
-  if (wanted > 0 && intent && stripeConfigured()) {
+  if (toCardCents > 0 && intent && stripeConfigured()) {
     try {
-      refundedCents = (await refundPayment(intent, wanted)) ?? 0;
+      refundedCents = (await refundPayment(intent, toCardCents)) ?? 0;
     } catch (err) {
       // Never trap a booking staff have decided to cancel — cancel it and
       // leave the money flagged for someone to settle by hand.
@@ -235,7 +255,7 @@ export async function cancelForStaff(
         ? "no refund"
         : refundedCents >= wanted
           ? `refunded $${(refundedCents / 100).toFixed(2)}`
-          : `REFUND OWED $${(owedCents / 100).toFixed(2)}`
+          : `REFUND OWED $${((owedCents - refundedCents) / 100).toFixed(2)}`
     }`
   );
   return {

@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { minutesOfTime, type BusySession } from "./capacity";
 import { todayISO } from "./format";
+import { refundPayment } from "./stripe";
 import { rest, restAllPages, restError } from "./supabase";
 import { spendVoucher } from "./vouchers";
 import type { ActivityEntry, Booking, BookingNote, BookingSource, Promo, StaffNote } from "./types";
@@ -237,6 +238,43 @@ async function saveVoucherTaken(booking: Booking, pricing: Booking["pricing"]): 
   }
 }
 
+// Payment arrived for a booking that was cancelled while its Stripe page was
+// still open. Its slot went back on sale at the cancellation, so the booking
+// stays cancelled and the money goes straight back to the card. The refund is
+// recorded on the booking (owed, and refunded if Stripe took it), so a refund
+// Stripe refused shows as "Refund owed" for staff rather than vanishing.
+// Keyed on the payment intent, so Stripe retrying the webhook, or the return
+// page landing too, neither refunds nor records it twice.
+async function refundLatePayment(
+  booking: Booking,
+  paidCents: number,
+  intent: string | null | undefined
+): Promise<Booking> {
+  if (!intent || paidCents <= 0 || booking.pricing.stripePaymentIntent === intent) return booking;
+  let refundedCents = 0;
+  try {
+    refundedCents = (await refundPayment(intent, paidCents, `late-payment-refund-${intent}`)) ?? 0;
+  } catch (err) {
+    console.error(`refunding the late payment on cancelled ${booking.reference} failed:`, err);
+  }
+  const pricing: Booking["pricing"] = {
+    ...booking.pricing,
+    stripePaymentIntent: intent,
+    refundOwedCents: (booking.pricing.refundOwedCents ?? 0) + paidCents,
+    refundedCents: (booking.pricing.refundedCents ?? 0) + refundedCents,
+    refundedAt: refundedCents > 0 ? new Date().toISOString() : (booking.pricing.refundedAt ?? null),
+  };
+  await updateBookingFields(booking.id, { pricing });
+  const amount = `$${(paidCents / 100).toFixed(2)}`;
+  const what =
+    refundedCents >= paidCents
+      ? `refunded to the card automatically`
+      : `Stripe did not take the refund — refund payment ${intent} by hand`;
+  await addBookingNote(booking.id, `${amount} was paid online after this booking was cancelled — ${what}.`);
+  await logActivity("Payment on a cancelled booking", `${booking.reference} — ${amount} ${what}`);
+  return { ...booking, pricing };
+}
+
 // Marks a pending Stripe booking as paid, recording what was actually charged.
 // Idempotent — the webhook and the redirect-return can both call it.
 //
@@ -253,6 +291,9 @@ export async function finalizeBookingPayment(
   const booking = await getBooking(id);
   if (!booking) return undefined;
   if (booking.status === "paid") return { booking, justPaid: false };
+  if (booking.status === "cancelled") {
+    return { booking: await refundLatePayment(booking, paidCents, stripePaymentIntent), justPaid: false };
+  }
 
   // Claim first, spend second. The webhook and the return page often arrive
   // together and both get past the check above; this save only matches a
@@ -272,14 +313,23 @@ export async function finalizeBookingPayment(
     // remembered so a later cancellation can refund the right charge
     ...(stripePaymentIntent ? { stripePaymentIntent } : {}),
   };
-  const claim = await rest(`bookings?id=eq.${id}&status=neq.paid`, {
+  // Only a booking still pending can be claimed. "Not paid" also matched a
+  // cancelled one, so a customer finishing the Stripe page after staff had
+  // cancelled their checkout un-cancelled it, on top of whoever had since
+  // bought the slot.
+  const claim = await rest(`bookings?id=eq.${id}&status=eq.pending`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({ status: "paid", pending_expires_at: null, pricing: cardPaid }),
   });
   if (!claim.ok) throw await restError(claim, "Recording the payment");
   if (((await claim.json()) as unknown[]).length === 0) {
-    return { booking: (await getBooking(id)) ?? booking, justPaid: false };
+    const now = (await getBooking(id)) ?? booking;
+    // Cancelled between the read above and the claim.
+    if (now.status === "cancelled") {
+      return { booking: await refundLatePayment(now, paidCents, stripePaymentIntent), justPaid: false };
+    }
+    return { booking: now, justPaid: false };
   }
 
   let pricing = cardPaid;
@@ -306,6 +356,22 @@ export async function finalizeBookingPayment(
   const { settleRewardsFor } = await import("./reward-flow");
   await settleRewardsFor(paid);
   return { booking: paid, justPaid: true };
+}
+
+// Lets go of an unpaid checkout's spots now rather than when its hold lapses —
+// the customer backed out of Stripe's page and is paying again, or the Stripe
+// session was never made. The row stays as a lapsed checkout, exactly as if the
+// hold had run out. Only matches a booking still pending, so it can never undo
+// a payment. Callers must make sure the old Stripe session can't be paid first.
+export async function releasePendingBooking(id: string): Promise<boolean> {
+  if (!UUID_RE.test(id)) return false;
+  const res = await rest(`bookings?id=eq.${id}&status=eq.pending`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ pending_expires_at: new Date(Date.now() - 1000).toISOString() }),
+  });
+  if (!res.ok) throw await restError(res, "Releasing the held spots");
+  return ((await res.json()) as unknown[]).length > 0;
 }
 
 export async function setBookingNoShow(id: string, noShow: boolean): Promise<void> {
@@ -537,6 +603,11 @@ export async function updateCustomerAcrossBookings(
 
 // Cancels a booking: frees the slot, records what's owed back and whether
 // Stripe already returned it. Refund figures live in the pricing JSONB.
+//
+// They are added to what the booking already carries, not written over it: a
+// refund made from the Refund panel before the cancellation stays on record,
+// and the cancellation adds only its own. What Stripe returned here came off
+// the checkout payment, so it counts against that payment as well.
 export async function cancelBooking(
   id: string,
   refund: { owedCents: number; refundedCents: number }
@@ -550,9 +621,12 @@ export async function cancelBooking(
     // read so the database itself is right — the bookings list's paid/unpaid
     // filter runs in SQL against this figure.
     balanceCents: 0,
-    refundOwedCents: refund.owedCents,
-    refundedCents: refund.refundedCents,
-    refundedAt: refund.refundedCents > 0 ? new Date().toISOString() : null,
+    refundOwedCents: (booking.pricing.refundOwedCents ?? 0) + refund.owedCents,
+    refundedCents: (booking.pricing.refundedCents ?? 0) + refund.refundedCents,
+    ...(refund.refundedCents > 0
+      ? { onlineRefundedCents: (booking.pricing.onlineRefundedCents ?? 0) + refund.refundedCents }
+      : {}),
+    refundedAt: refund.refundedCents > 0 ? new Date().toISOString() : (booking.pricing.refundedAt ?? null),
   };
   const res = await rest(`bookings?id=eq.${id}`, {
     method: "PATCH",
