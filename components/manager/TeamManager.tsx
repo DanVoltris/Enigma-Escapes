@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SingleSelect from "@/components/SingleSelect";
+import { DeviceTable } from "@/components/manager/NotificationSettings";
+import { formatTimestamp } from "@/lib/format";
+import type { DeviceSummary } from "@/lib/push";
 import {
   defaultPermissionsFor,
   PERMISSION_LABELS,
@@ -37,10 +40,12 @@ export default function TeamManager({
   initialStaff,
   locations,
   currentId,
+  devices,
 }: {
   initialStaff: StaffAccount[];
   locations: string[];
   currentId: string;
+  devices: DeviceSummary[];
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -53,6 +58,7 @@ export default function TeamManager({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [devicesFor, setDevicesFor] = useState<string | null>(null);
 
   async function call(url: string, method: string, body?: unknown): Promise<boolean> {
     setBusy(true);
@@ -82,6 +88,27 @@ export default function TeamManager({
   function toggleLocation(list: string[], l: string): string[] {
     return list.includes(l) ? list.filter((x) => x !== l) : [...list, l];
   }
+
+  // A glance at whether someone's phones are getting alerts, and when each was
+  // last opened: a "stopped" here is someone who will miss the next request.
+  const phoneAlerts = (staffId: string) => {
+    const mine = devices.filter((d) => d.staffId === staffId);
+    if (mine.length === 0) return <span className="sub">None</span>;
+    const stopped = mine.filter((d) => d.stoppedAt).length;
+    const lastSeen = mine.map((d) => d.lastSeenAt).sort().at(-1)!;
+    return (
+      <button type="button" className="link-button" onClick={() => setDevicesFor(devicesFor === staffId ? null : staffId)}>
+        {stopped > 0 ? (
+          <span className="mgr-pill">{stopped} stopped</span>
+        ) : (
+          <span className="mgr-pill on">
+            {mine.length} working
+          </span>
+        )}{" "}
+        <span className="sub">opened {formatTimestamp(lastSeen)}</span>
+      </button>
+    );
+  };
 
   const permissionGrid = (selected: Permission[], onToggle: (p: Permission) => void) => (
     <div className="team-perms">
@@ -124,6 +151,7 @@ export default function TeamManager({
               <th>Role</th>
               <th>Locations</th>
               <th>Status</th>
+              <th>Phone alerts</th>
               <th></th>
             </tr>
           </thead>
@@ -140,6 +168,7 @@ export default function TeamManager({
                 <td>
                   <span className={`mgr-pill${s.active ? " on" : ""}`}>{s.active ? "Active" : "Disabled"}</span>
                 </td>
+                <td>{phoneAlerts(s.id)}</td>
                 <td>
                   <button
                     type="button"
@@ -178,6 +207,30 @@ export default function TeamManager({
           </tbody>
         </table>
       </div>
+
+      {devicesFor && (
+        <div className="team-editor">
+          <h3 className="intg-subhead">
+            Notification devices for {initialStaff.find((s) => s.id === devicesFor)?.name}
+          </h3>
+          <p className="card-sub">
+            Phones get alerts until they&apos;re removed or stop receiving. Remove a lost phone, or one belonging to someone
+            who has left. They choose which alerts they get on their own Notifications page.
+          </p>
+          <DeviceTable
+            devices={devices.filter((d) => d.staffId === devicesFor)}
+            busy={busy ? "busy" : null}
+            onRemove={async (d) => {
+              if (await call(`/api/manager/push/devices/${d.id}`, "DELETE")) {
+                setNotice(`${d.device} removed from their notifications.`);
+              }
+            }}
+          />
+          <button type="button" className="link-button" style={{ marginTop: 10 }} onClick={() => setDevicesFor(null)}>
+            Close
+          </button>
+        </div>
+      )}
 
       {editingId && edit && (
         <div className="team-editor">

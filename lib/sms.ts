@@ -274,6 +274,29 @@ export async function notifyNewRequest(
   return results.filter((r) => r.status === "fulfilled").length;
 }
 
+// A staff member's phone stopped taking notifications (the push service said
+// its address is gone). Texted because the one thing that can't tell them is a
+// notification. Sent once per stop, never with anything about customers.
+export async function notifyPushStopped(
+  phone: string,
+  company: string,
+  devices: string[],
+  origin: string | null
+): Promise<void> {
+  if (!smsConfigured()) return;
+  const which = devices.length === 1 ? `your ${devices[0]}` : `${devices.length} of your devices`;
+  try {
+    await sendSms(
+      phone,
+      `${company}: staff notifications have stopped on ${which}. Open the staff app and turn them back on under Notifications` +
+        (origin ? `: ${origin}/manager/notifications` : ".") +
+        ` If you turned them off on purpose, ignore this.`
+    );
+  } catch (err) {
+    console.error("notifications-stopped SMS failed:", err);
+  }
+}
+
 // Nudge at the halfway mark. Deliberately says what happens if they ignore it,
 // because a reminder that doesn't is just noise.
 export async function notifyReplyReminder(r: {

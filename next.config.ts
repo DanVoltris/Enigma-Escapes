@@ -36,7 +36,21 @@ const nextConfig: NextConfig = {
   // saves telling every scanner which framework to try exploits for.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The service worker (public/sw.js) must never be served stale: a phone
+      // holding an old copy would keep showing notifications the old way.
+      // It loads nothing and runs no inline code, so its own policy can be
+      // this strict (proxy.ts skips it — the page policy is for pages).
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
+    ];
   },
 };
 

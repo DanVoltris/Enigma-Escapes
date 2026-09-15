@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
 import { notifyBookingConfirmed } from "@/lib/sms";
+import { pushOnlineBooking } from "@/lib/staff-push";
 import { stripeConfigured, verifyStripeWebhook, webhookConfigured } from "@/lib/stripe";
 import { fulfilVoucherSession } from "@/lib/voucher-shop";
 
@@ -61,7 +62,10 @@ export async function POST(req: NextRequest) {
           typeof session.payment_intent === "string" ? session.payment_intent : null
         );
         if (booking) await logActivity("Payment received", `${booking.reference} — paid via Stripe`);
-        if (booking && wasPending) await notifyBookingConfirmed(booking, req.nextUrl.origin);
+        if (booking && wasPending) {
+          await notifyBookingConfirmed(booking, req.nextUrl.origin);
+          pushOnlineBooking(booking, req.nextUrl.origin);
+        }
       } catch (err) {
         console.error("webhook finalize failed:", err);
         // 500 makes Stripe retry the delivery later — exactly what we want.

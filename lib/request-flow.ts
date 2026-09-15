@@ -23,6 +23,7 @@ import {
   notifyRequestLapsed,
   notifyRequestReleased,
 } from "./sms";
+import { pushRequestConfirmed, pushRequestReleased } from "./staff-push";
 
 const minutesSince = (iso: string | null): number =>
   iso ? (Date.now() - new Date(iso).getTime()) / 60000 : 0;
@@ -37,6 +38,7 @@ export async function confirmRequest(request: BookingRequest, by?: string): Prom
   await setRequestStatus(request.id, "confirmed", request.bookingId ?? undefined);
   const booking = request.bookingId ? await getBooking(request.bookingId) : undefined;
   await notifyRequestConfirmed(request, booking?.reference ?? "—");
+  pushRequestConfirmed(request, by);
   await logActivity(
     "Booking request confirmed",
     `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} ` +
@@ -62,6 +64,7 @@ export async function releaseRequest(
   await setRequestStatus(request.id, "cancelled", request.bookingId ?? undefined);
   if (reason === "declined-by-customer") await notifyRequestReleased(request);
   else await notifyRequestLapsed(request, origin);
+  pushRequestReleased(request, reason, origin);
   await logActivity(
     "Booking request released",
     `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} — ` +

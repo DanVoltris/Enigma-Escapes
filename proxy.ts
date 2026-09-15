@@ -75,7 +75,7 @@ export const config = {
     // with no inline anything, and running this on each would add a per-asset
     // cost for no protection.
     {
-      source: "/((?!_next/static|_next/image|favicon.ico).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|sw.js).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

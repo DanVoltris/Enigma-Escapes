@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ManagerNav from "@/components/manager/ManagerNav";
+import PushBanner from "@/components/manager/PushBanner";
 import SignOutButton from "@/components/manager/SignOutButton";
 import { requireStaff } from "@/lib/auth";
+import { pushPublicKey } from "@/lib/push";
 import { readableOn, shade, tint } from "@/lib/color";
 import { getCompanyName } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -11,6 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: `Manager — ${await getCompanyName()}`,
     robots: { index: false, follow: false }, // staff area: keep out of search engines
+    manifest: "/staff.webmanifest", // the home-screen staff app (app/staff.webmanifest)
   };
 }
 
@@ -47,6 +50,9 @@ export default async function ManagerLayout({ children }: { children: React.Reac
                 {roleLabel} · {scope}
               </span>
             </span>
+            <Link href="/manager/notifications" className="mgr-view-site">
+              Notifications
+            </Link>
             <Link href="/" className="mgr-view-site">
               View booking site →
             </Link>
@@ -55,7 +61,10 @@ export default async function ManagerLayout({ children }: { children: React.Reac
         </div>
       </div>
       <ManagerNav permissions={staff.permissions} />
-      <div className="mgr-content">{children}</div>
+      <div className="mgr-content">
+        <PushBanner publicKey={pushPublicKey()} />
+        {children}
+      </div>
     </div>
   );
 }

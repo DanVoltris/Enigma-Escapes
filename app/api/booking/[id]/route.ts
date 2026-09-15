@@ -4,6 +4,7 @@ import { isValidISODate } from "@/lib/format";
 import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { cancelForCustomer, rescheduleForCustomer, selfServiceBlock } from "@/lib/manage-booking";
 import { notifyBookingCancelled, notifyBookingRescheduled } from "@/lib/sms";
+import { pushBookingCancelled, pushBookingRescheduled } from "@/lib/staff-push";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (action === "cancel") {
       const result = await cancelForCustomer(booking);
       await notifyBookingCancelled(booking); // best-effort; never throws
+      pushBookingCancelled(booking, req.nextUrl.origin);
       return NextResponse.json({
         ok: true,
         refundedCents: result.refundedCents,
@@ -48,7 +50,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
     // Confirm the new date/time by text (customer + business cell).
     const moved = result.items[0];
-    if (moved) await notifyBookingRescheduled(booking, moved, req.nextUrl.origin);
+    if (moved) {
+      await notifyBookingRescheduled(booking, moved, req.nextUrl.origin);
+      pushBookingRescheduled(booking, moved, req.nextUrl.origin);
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("customer booking change failed:", err);

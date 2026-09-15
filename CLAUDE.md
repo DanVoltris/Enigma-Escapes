@@ -208,6 +208,33 @@ Verify with Stripe test cards: `4242 4242 4242 4242`, any future expiry, any
 CVC. Check Stripe Dashboard → Payments, and the Webhooks page for delivery
 attempts if a booking doesn't finalize.
 
+## Phone notifications for staff
+
+Staff can get lock-screen and banner notifications from the portal as a home-screen web app (no
+App Store app), alongside the texts, never instead of them. Each person turns them on per phone and
+picks which alerts they want at `/manager/notifications` (linked in the top bar). Alert types,
+defaults and who may get each live in `lib/push-events.ts`; the wording (room, location, time and
+party size, never a customer's name) in `lib/staff-push.ts`; sending, device records and the
+reminder sweep in `lib/push.ts`. An alert only reaches someone with the permission for it and,
+for location-scoped accounts, only for their locations.
+
+- **iPhone** (iOS 16.4+): open the site in Safari → Share → Add to Home Screen → open the app from
+  the home screen → Notifications → Turn on. Only the home-screen app can get notifications; an icon
+  added before the manifest existed (`app/staff.webmanifest`) must be removed and added again.
+  **Android**: Chrome, same page.
+- A phone that hasn't opened the portal for 14 days gets one "open the app now and then"
+  notification. If a push bounces (the phone's address is gone), the device is marked stopped,
+  the person is texted once if their account has a phone number, and opening the portal on that
+  phone reconnects it or shows a "Turn back on" banner. Settings → Team shows each person's
+  devices, when each was last opened, and whether it's working.
+- Needs migration `0005` and two environment variables per Vercel project (generate a key pair
+  with `npx web-push generate-vapid-keys`; each venue gets its own): `VAPID_PUBLIC_KEY` and
+  `VAPID_PRIVATE_KEY`, plus optionally `VAPID_SUBJECT` (a `mailto:` or `https:` contact; defaults to
+  the project's production URL). Without the keys everything is a silent no-op and the page says
+  notifications aren't set up. Changing a venue's keys cuts off every phone until each turns
+  notifications on again.
+- `npm run test:push` checks who gets which alert (also run in CI).
+
 ## Running another venue
 
 One codebase, one deployment per venue: the same repo and `main` branch, but its own Vercel

@@ -11,6 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: `Staff sign in — ${await getCompanyName()}`,
     robots: { index: false, follow: false },
+    // Staff often add the app to their home screen from here, before signing in.
+    manifest: "/staff.webmanifest",
   };
 }
 
