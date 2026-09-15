@@ -69,13 +69,16 @@ export async function POST(req: NextRequest) {
     return twiml(YES.has(word) ? "You're already confirmed — see you soon!" : null);
   }
 
+  // Either can find the request already settled by the time it lands (the
+  // sweep released it a moment earlier, or staff dealt with the booking) — then
+  // say so, rather than stay silent about a reply that did nothing.
+  const tooLate = "We couldn't update that booking by text — it changed just before your reply arrived. Please give us a call.";
   if (YES.has(word)) {
-    await confirmRequest(request);
-    return twiml(null); // confirmRequest sends the real confirmation
+    // confirmRequest sends the real confirmation
+    return twiml((await confirmRequest(request)) ? null : tooLate);
   }
   if (NO.has(word)) {
-    await releaseRequest(request, "declined-by-customer", req.nextUrl.origin);
-    return twiml(null);
+    return twiml((await releaseRequest(request, "declined-by-customer", req.nextUrl.origin)) ? null : tooLate);
   }
   return twiml("Sorry, we didn't catch that — please reply Y to confirm your booking or N to release it.");
 }
