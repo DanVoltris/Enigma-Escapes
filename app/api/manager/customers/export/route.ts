@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { allowedLocations, apiGuard } from "@/lib/auth";
 import { aggregateCustomers, listManualCustomers } from "@/lib/customers";
 import { listBookings } from "@/lib/db";
 
@@ -15,7 +15,11 @@ export async function GET(req: NextRequest) {
   const guard = await apiGuard("customers.export");
   if (guard.response) return guard.response;
   const subscribedOnly = req.nextUrl.searchParams.get("subscribed") === "1";
-  const [bookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
+  const [allBookings, manual] = await Promise.all([listBookings(), listManualCustomers()]);
+  // The same location cut the Customers tab makes, so a limited account's file
+  // holds the people it can see on screen and nobody else's.
+  const scope = allowedLocations(guard.staff);
+  const bookings = scope ? allBookings.filter((b) => b.items.some((i) => scope.includes(i.location))) : allBookings;
   let rows = await aggregateCustomers(bookings, manual);
   if (subscribedOnly) rows = rows.filter((r) => r.subscribed);
 
