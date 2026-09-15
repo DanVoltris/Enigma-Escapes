@@ -17,7 +17,7 @@ import { tenantAuthFromEnv, tenantToken, type TenantAuth } from "./tenant-token"
 // own then asks for /rest/v1/rest/v1/… and PostgREST answers 404 PGRST125,
 // "Invalid path specified in request URL" — an error that names neither the
 // variable nor the cause. Accept the project root with or without the suffix.
-function normalizeUrl(raw: string | undefined): string | undefined {
+export function normalizeUrl(raw: string | undefined): string | undefined {
   return raw?.trim().replace(/\/+$/, "").replace(/\/rest\/v1$/, "").replace(/\/+$/, "");
 }
 
