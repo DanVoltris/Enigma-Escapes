@@ -7,6 +7,7 @@ import { settleRewardsFor } from "@/lib/reward-flow";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushOnlineBooking } from "@/lib/staff-push";
 import { stripeConfigured } from "@/lib/stripe";
+import { refundToVoucher } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,17 @@ export async function POST(req: NextRequest) {
     await saveBooking(result.booking);
   } catch (err) {
     console.error("saving booking failed:", err);
+    // The voucher was spent above, but there is no booking to show for it, so
+    // the balance goes back — otherwise the retry we ask for finds it empty.
+    if (p.voucherRedeemed && p.voucherCode && (p.voucherCents ?? 0) > 0) {
+      const back = await refundToVoucher(p.voucherCode, p.voucherCents ?? 0).catch(() => false);
+      if (!back) {
+        console.error(
+          `$${((p.voucherCents ?? 0) / 100).toFixed(2)} was taken from voucher ${p.voucherCode} for ` +
+            `${result.booking.reference}, which never saved — put it back on the voucher by hand.`
+        );
+      }
+    }
     return NextResponse.json(
       { error: "Could not save your booking right now. You have not been charged — please try again shortly." },
       { status: 500 }
