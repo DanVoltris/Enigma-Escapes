@@ -64,6 +64,34 @@ export async function releaseRequest(
   reason: "declined-by-customer" | "no-reply",
   origin: string
 ): Promise<boolean> {
+  // Staff may have taken the booking in hand since accepting it — taken payment
+  // at the desk, moved it for someone who rang, or cancelled it themselves —
+  // without pressing "They confirmed". Cancelling it now would record nothing
+  // owed over money actually taken, free a slot the group still has, or wipe the
+  // refund staff recorded. So the request is closed to match, and nobody is texted.
+  let booking;
+  try {
+    booking = request.bookingId ? await getBooking(request.bookingId) : undefined;
+  } catch (err) {
+    console.error("loading the booking behind a request to release failed:", err);
+    return false; // the next sweep tries again
+  }
+  if (booking) {
+    const cancelled = booking.status === "cancelled";
+    const moved = !booking.items.some(
+      (i) => i.roomId === request.roomId && i.date === request.date && i.time === request.time
+    );
+    if (cancelled || moved || booking.pricing.paidCents > 0) {
+      if (await setRequestStatus(request.id, cancelled ? "cancelled" : "confirmed", undefined, "accepted")) {
+        await logActivity(
+          "Booking request closed",
+          `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} — ` +
+            `not released: ${booking.reference} was already ${cancelled ? "cancelled" : moved ? "moved" : "paid"}`
+        );
+      }
+      return false;
+    }
+  }
   if (!(await setRequestStatus(request.id, "cancelled", request.bookingId ?? undefined, "accepted"))) return false;
   if (request.bookingId) {
     try {
