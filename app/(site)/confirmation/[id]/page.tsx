@@ -30,8 +30,9 @@ export default async function ConfirmationPage({
 
   // Stripe flow: the customer lands here straight from Stripe with the session
   // id. Verify payment server-side and finalize — the webhook does the same
-  // (idempotently) for customers who never return.
-  if (booking.status === "pending" && stripeConfigured()) {
+  // (idempotently) for customers who never return. A cancelled booking goes
+  // through it too: paid after staff cancelled it, the money is sent back there.
+  if ((booking.status === "pending" || booking.status === "cancelled") && stripeConfigured()) {
     const { sid } = await searchParams;
     if (sid) {
       try {

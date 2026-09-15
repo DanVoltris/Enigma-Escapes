@@ -43,7 +43,14 @@ function encodeForm(value: unknown, prefix: string, out: URLSearchParams): void 
   }
 }
 
-export async function stripeRequest(method: "GET" | "POST", path: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+export async function stripeRequest(
+  method: "GET" | "POST",
+  path: string,
+  params?: Record<string, unknown>,
+  // Stripe answers a repeat of the same key with the first result instead of
+  // doing it again — for calls that must happen once however often we retry.
+  idempotencyKey?: string
+): Promise<Record<string, unknown>> {
   if (!KEY) throw new Error("Stripe is not configured. Set STRIPE_SECRET_KEY in the environment.");
   const body = new URLSearchParams();
   if (params) encodeForm(params, "", body);
@@ -53,6 +60,7 @@ export async function stripeRequest(method: "GET" | "POST", path: string, params
       Authorization: `Bearer ${KEY}`,
       "Stripe-Version": API_VERSION,
       ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: method === "POST" ? body.toString() : undefined,
     cache: "no-store",
@@ -184,11 +192,20 @@ export async function retrieveCheckoutSession(id: string): Promise<CheckoutSessi
 
 // Refunds a payment in full or part. Returns the refunded amount in cents, or
 // null when Stripe is not configured (nothing was ever really charged).
-export async function refundPayment(paymentIntentId: string, amountCents: number): Promise<number | null> {
+export async function refundPayment(
+  paymentIntentId: string,
+  amountCents: number,
+  idempotencyKey?: string
+): Promise<number | null> {
   if (!stripeConfigured()) return null;
   if (!/^pi_[a-zA-Z0-9_]+$/.test(paymentIntentId)) throw new Error("Invalid payment id.");
   if (amountCents <= 0) return 0;
-  const r = await stripeRequest("POST", "/v1/refunds", { payment_intent: paymentIntentId, amount: amountCents });
+  const r = await stripeRequest(
+    "POST",
+    "/v1/refunds",
+    { payment_intent: paymentIntentId, amount: amountCents },
+    idempotencyKey
+  );
   return typeof r.amount === "number" ? r.amount : amountCents;
 }
 
