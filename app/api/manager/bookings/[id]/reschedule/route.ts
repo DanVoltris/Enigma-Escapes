@@ -30,16 +30,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (booking.status === "cancelled") {
     return NextResponse.json({ error: "That booking is cancelled — it can't be moved." }, { status: 400 });
   }
-  // A location-scoped account moves bookings at its own locations, and only
-  // into rooms at them — same rule as the party and customer routes.
-  if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
-    return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
-  }
-  const roomId = typeof o.roomId === "string" && o.roomId ? o.roomId : undefined;
-  const targetRoom = roomId ? await getExperience(roomId) : undefined;
-  if (targetRoom && !canSeeLocation(guard.staff, targetRoom.location)) {
-    return NextResponse.json({ error: "That room is at a location your account doesn't cover." }, { status: 403 });
-  }
 
   // Which session is moving. A booking can hold several; absent means the first,
   // which is every booking made before this existed.
