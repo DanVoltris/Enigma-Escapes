@@ -70,7 +70,15 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
   return slots;
 }
 
-export async function slotRemaining(roomId: string, date: string, time: string): Promise<number | null> {
+// ownHeldSeats: seats held by the request being looked at, which aren't taken
+// from it — the Requests board showed a 6-guest request in a room for 6 as
+// "0 spots free" because it was counting that request's own hold against it.
+export async function slotRemaining(
+  roomId: string,
+  date: string,
+  time: string,
+  ownHeldSeats = 0
+): Promise<number | null> {
   const exp = await getExperience(roomId);
   if (!exp || !exp.active) return null;
   const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
@@ -79,5 +87,6 @@ export async function slotRemaining(roomId: string, date: string, time: string):
   const busy = await busySessionsForDate(date);
   if (overlappedBy(busy.get(roomId), time, exp.durationMinutes)) return 0; // room is mid-game
   const taken = await bookedCount(roomId, date, time);
-  return Math.max(0, remainingSpots(exp, taken) - (await heldSeats(roomId, date, time)));
+  const heldByOthers = Math.max(0, (await heldSeats(roomId, date, time)) - ownHeldSeats);
+  return Math.max(0, remainingSpots(exp, taken) - heldByOthers);
 }

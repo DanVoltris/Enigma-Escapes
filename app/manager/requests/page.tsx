@@ -17,7 +17,7 @@ export default async function RequestsPage() {
   // Live remaining capacity per pending request, so the decision is informed.
   const remaining: Record<string, number | null> = {};
   for (const r of requests) {
-    if (r.status === "pending") remaining[r.id] = await slotRemaining(r.roomId, r.date, r.time);
+    if (r.status === "pending") remaining[r.id] = await slotRemaining(r.roomId, r.date, r.time, r.quantity);
   }
   return (
     <>
@@ -26,7 +26,8 @@ export default async function RequestsPage() {
       <p className="mgr-page-sub">
         Sessions starting within 4 hours can&apos;t be booked directly — customers request them here, and the slot is
         held from the moment they ask. Accepting books it{smsConfigured() ? " and texts them to reply Y" : " (texts aren't configured yet — call them to confirm)"};
-        they pay when they arrive. If they don&apos;t reply within 30 minutes the hold is released. Requests die
+        they pay when they arrive. If they don&apos;t reply within 30 minutes (less when the session is close — the text tells them how long) the
+        hold is released. Requests die
         automatically when their start time passes.
       </p>
       <RequestsBoard initialRequests={requests} remaining={remaining} />

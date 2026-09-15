@@ -153,19 +153,28 @@ export async function getRequestById(id: string): Promise<BookingRequest | undef
   return rows[0] ? toRequest(rows[0]) : undefined;
 }
 
+// `from` makes the change conditional: it only applies while the request is
+// still in that status, and the result says whether it did. The reply flow
+// needs this — a sweep, a second overlapping sweep and the customer's own text
+// can all act on the same request at once, and without it the last one to write
+// wins (a Y confirmed, then overwritten by a release that loaded it a second
+// earlier).
 export async function setRequestStatus(
   id: string,
   status: RequestStatus,
-  bookingId?: string
-): Promise<void> {
+  bookingId?: string,
+  from?: RequestStatus
+): Promise<boolean> {
   const patch: Record<string, unknown> = { status, decided_at: new Date().toISOString() };
   if (bookingId) patch.booking_id = bookingId;
-  const res = await rest(`booking_requests?id=eq.${id}`, {
+  const res = await rest(`booking_requests?id=eq.${id}${from ? `&status=eq.${from}` : ""}`, {
     method: "PATCH",
-    headers: { Prefer: "return=minimal" },
+    headers: { Prefer: from ? "return=representation" : "return=minimal" },
     body: JSON.stringify(patch),
   });
   if (!res.ok) throw await restError(res, "Updating the booking request");
+  if (!from) return true;
+  return ((await res.json()) as Row[]).length > 0;
 }
 
 // Slots held by a live request, keyed "roomId|time", with how many seats each
@@ -210,9 +219,18 @@ export async function requestsAwaitingReply(): Promise<BookingRequest[]> {
 export async function latestRequestForPhone(phone: string): Promise<BookingRequest | undefined> {
   const digits = phone.replace(/\D/g, "").slice(-10);
   if (digits.length < 10) return undefined;
-  const res = await rest(`booking_requests?select=*&phone=like.*${digits}&order=created_at.desc&limit=5`);
+  // The phone is stored as the customer typed it — "(204) 555-0134", "204 555
+  // 0134" — while Twilio sends +12045550134. Matching the bare digits only found
+  // people who typed no punctuation; everyone else's Y was answered "no booking
+  // waiting" and their hold lapsed. So the database is asked for the digits in
+  // order with anything between them, and the exact comparison happens here.
+  const loose = digits.split("").join("*");
+  const res = await rest(`booking_requests?select=*&phone=like.*${loose}*&order=created_at.desc&limit=20`);
   if (!res.ok) return undefined;
-  const rows = ((await res.json()) as Row[]).map(toRequest);
+  const rows = ((await res.json()) as Row[])
+    .filter((r) => r.phone.replace(/\D/g, "").slice(-10) === digits)
+    .slice(0, 5)
+    .map(toRequest);
   return rows.find((r) => r.status === "accepted") ?? rows.find((r) => r.status === "confirmed");
 }
 
@@ -220,19 +238,20 @@ export async function latestRequestForPhone(phone: string): Promise<BookingReque
 // Returns false if it couldn't be stamped — including when the column doesn't
 // exist yet. The caller stamps BEFORE texting, so a database that can't
 // remember having reminded someone sends nothing at all, rather than the same
-// nudge every five minutes until their slot lapses.
+// nudge every five minutes until their slot lapses. Only an unstamped row is
+// stamped, so when two sweeps overlap just one of them gets to send it.
 export async function markReminded(id: string): Promise<boolean> {
   try {
-    const res = await rest(`booking_requests?id=eq.${id}`, {
+    const res = await rest(`booking_requests?id=eq.${id}&reminded_at=is.null`, {
       method: "PATCH",
-      headers: { Prefer: "return=minimal" },
+      headers: { Prefer: "return=representation" },
       body: JSON.stringify({ reminded_at: new Date().toISOString() }),
     });
     if (!res.ok) {
       console.error("marking a request reminded failed:", await res.text().catch(() => ""));
       return false;
     }
-    return true;
+    return ((await res.json()) as Row[]).length > 0;
   } catch (err) {
     console.error("marking a request reminded failed:", err);
     return false;
