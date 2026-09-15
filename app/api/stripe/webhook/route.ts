@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
+import { finalizeBookingPayment, logActivity } from "@/lib/db";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushOnlineBooking } from "@/lib/staff-push";
 import { stripeConfigured, verifyStripeWebhook, webhookConfigured } from "@/lib/stripe";
@@ -54,17 +54,17 @@ export async function POST(req: NextRequest) {
     const bookingId = meta.bookingId;
     if (session.payment_status === "paid" && bookingId) {
       try {
-        // Text only on the pending→paid transition, so retries can't double-send.
-        const wasPending = (await getBooking(bookingId))?.status === "pending";
-        const booking = await finalizeBookingPayment(
+        const result = await finalizeBookingPayment(
           bookingId,
           (session.amount_total as number | null) ?? 0,
           typeof session.payment_intent === "string" ? session.payment_intent : null
         );
-        if (booking) await logActivity("Payment received", `${booking.reference} — paid via Stripe`);
-        if (booking && wasPending) {
-          await notifyBookingConfirmed(booking, req.nextUrl.origin);
-          pushOnlineBooking(booking, req.nextUrl.origin);
+        // Text and alert only if this call marked it paid: the return page may
+        // have got there first and already sent them, and Stripe retries.
+        if (result?.justPaid) {
+          await logActivity("Payment received", `${result.booking.reference} — paid via Stripe`);
+          await notifyBookingConfirmed(result.booking, req.nextUrl.origin);
+          pushOnlineBooking(result.booking, req.nextUrl.origin);
         }
       } catch (err) {
         console.error("webhook finalize failed:", err);

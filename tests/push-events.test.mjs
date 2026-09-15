@@ -16,21 +16,21 @@ const ALL = ["calendar", "bookings.view", "bookings.create", "bookings.modify", 
 const person = (over = {}) => ({ id: "a", role: "manager", locations: [], permissions: ALL, active: true, ...over });
 const alert = (over = {}) => ({ event: "request.new", locations: ["Grant Park"], ...over });
 
-test("defaults: action alerts on, the all-day ones off", () => {
+test("defaults: new requests and new online bookings on, everything else off", () => {
   const p = normalizePrefs(null);
   assert.equal(p["request.new"], true);
-  assert.equal(p["request.confirmed"], true);
-  assert.equal(p["request.released"], true);
-  assert.equal(p["booking.cancelled"], true);
-  assert.equal(p["booking.rescheduled"], true);
-  assert.equal(p["booking.new"], false);
+  assert.equal(p["booking.new"], true);
+  assert.equal(p["request.confirmed"], false);
+  assert.equal(p["request.released"], false);
+  assert.equal(p["booking.cancelled"], false);
+  assert.equal(p["booking.rescheduled"], false);
   assert.equal(p["booking.walkin"], false);
 });
 
 test("stored choices win, junk is ignored, missing keys take the default", () => {
-  const p = normalizePrefs({ "request.new": false, "booking.new": true, "made.up": true, "booking.walkin": "yes" });
+  const p = normalizePrefs({ "request.new": false, "booking.cancelled": true, "made.up": true, "booking.walkin": "yes" });
   assert.equal(p["request.new"], false);
-  assert.equal(p["booking.new"], true);
+  assert.equal(p["booking.cancelled"], true);
   assert.equal(p["booking.walkin"], false);
   assert.equal("made.up" in p, false);
   assert.deepEqual(Object.keys(normalizePrefs([1, 2])).sort(), [...PUSH_EVENTS].sort());
@@ -60,7 +60,7 @@ test("locations: scoped managers only hear about their own; admins and unscoped 
   assert.equal(wantsAlert(person({ locations: [] }), prefs, alert()), true);
   // A booking spanning two locations reaches either location's manager.
   assert.equal(
-    wantsAlert(person({ locations: ["St. Vital"] }), prefs, alert({ event: "booking.cancelled", locations: ["Grant Park", "St. Vital"] })),
+    wantsAlert(person({ locations: ["St. Vital"] }), prefs, alert({ event: "booking.new", locations: ["Grant Park", "St. Vital"] })),
     true
   );
 });

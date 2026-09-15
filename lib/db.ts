@@ -216,17 +216,23 @@ export async function takeVoucherFor(booking: Booking): Promise<number> {
 
 // Marks a pending Stripe booking as paid, recording what was actually charged.
 // Idempotent — the webhook and the redirect-return can both call it.
+//
+// `justPaid` is true for exactly one caller: the one whose save moved the
+// booking to paid. That caller sends the confirmation text and the staff
+// alerts, so they go out once whichever path gets there first — before this,
+// only the webhook sent them, and a customer returning faster than the webhook
+// meant nobody was told at all.
 export async function finalizeBookingPayment(
   id: string,
   paidCents: number,
   stripePaymentIntent?: string | null
-): Promise<Booking | undefined> {
+): Promise<{ booking: Booking; justPaid: boolean } | undefined> {
   const booking = await getBooking(id);
   if (!booking) return undefined;
   // This status check is what makes the whole thing idempotent: the webhook
   // and the return page race each other, and only the first one through here
   // gets as far as spending the voucher.
-  if (booking.status === "paid") return booking;
+  if (booking.status === "paid") return { booking, justPaid: false };
 
   const voucherCents = await takeVoucherFor(booking);
   const settledCents = paidCents + voucherCents;
@@ -239,18 +245,23 @@ export async function finalizeBookingPayment(
     // remembered so a later cancellation can refund the right charge
     ...(stripePaymentIntent ? { stripePaymentIntent } : {}),
   };
-  const res = await rest(`bookings?id=eq.${id}`, {
+  // Both racers can pass the check above at the same moment. The save only
+  // matches a booking that isn't paid yet, so exactly one of them moves it.
+  const res = await rest(`bookings?id=eq.${id}&status=neq.paid`, {
     method: "PATCH",
-    headers: { Prefer: "return=minimal" },
+    headers: { Prefer: "return=representation" },
     body: JSON.stringify({ status: "paid", pending_expires_at: null, pricing }),
   });
   if (!res.ok) throw await restError(res, "Recording the payment");
+  if (((await res.json()) as unknown[]).length === 0) {
+    return { booking: (await getBooking(id)) ?? booking, justPaid: false };
+  }
   const paid: Booking = { ...booking, status: "paid", pendingExpiresAt: null, pricing };
   // Imported here rather than at the top: reward-flow reaches back into this
   // module, and a static cycle would leave one of them half-initialised.
   const { settleRewardsFor } = await import("./reward-flow");
   await settleRewardsFor(paid);
-  return paid;
+  return { booking: paid, justPaid: true };
 }
 
 export async function setBookingNoShow(id: string, noShow: boolean): Promise<void> {

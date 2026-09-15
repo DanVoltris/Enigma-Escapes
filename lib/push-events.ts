@@ -19,8 +19,9 @@ export type PushEvent = (typeof PUSH_EVENTS)[number];
 
 // `permission` is what the account must already have to be offered the alert:
 // a notification is a view into the portal, so it can't show more than the
-// portal would. `on` is the default for someone who has never changed it — on
-// for things that need a person to act, off for the ones that would buzz all day.
+// portal would. `on` is the default for someone who has never changed it: new
+// requests (someone has to answer) and new online bookings are on; the rest are
+// off until a person switches them on.
 export const PUSH_EVENT_INFO: Record<PushEvent, { label: string; hint: string; permission: Permission; on: boolean }> = {
   "request.new": {
     label: "New booking requests",
@@ -32,31 +33,31 @@ export const PUSH_EVENT_INFO: Record<PushEvent, { label: string; hint: string; p
     label: "Requests confirmed",
     hint: "The customer replied Y, or someone confirmed it at the desk.",
     permission: "requests",
-    on: true,
+    on: false,
   },
   "request.released": {
     label: "Requests released",
     hint: "The customer replied N, or didn't reply in time and the spot went back on sale.",
     permission: "requests",
-    on: true,
+    on: false,
   },
   "booking.cancelled": {
     label: "Customer cancellations",
     hint: "A customer cancels their own booking from their link.",
     permission: "bookings.view",
-    on: true,
+    on: false,
   },
   "booking.rescheduled": {
     label: "Customer reschedules",
     hint: "A customer moves their own booking to another time.",
     permission: "bookings.view",
-    on: true,
+    on: false,
   },
   "booking.new": {
     label: "New online bookings",
     hint: "Every booking made on the website. Busy days bring a lot of these.",
     permission: "bookings.view",
-    on: false,
+    on: true,
   },
   "booking.walkin": {
     label: "Walk-ins",
