@@ -214,6 +214,29 @@ export async function takeVoucherFor(booking: Booking): Promise<number> {
   }
 }
 
+// Records what came off the voucher on a booking already claimed as paid. The
+// money has left the voucher by now, so a failed save is retried rather than
+// thrown: throwing would make Stripe retry, find the booking paid, and leave it
+// showing the voucher's share as still owed. If it still fails, say exactly
+// what to correct.
+async function saveVoucherTaken(booking: Booking, pricing: Booking["pricing"]): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await rest(`bookings?id=eq.${booking.id}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ pricing }),
+    });
+    if (res.ok) return;
+    if (attempt === 2) {
+      console.error(
+        `${booking.reference}: $${((pricing.voucherCents ?? 0) / 100).toFixed(2)} was taken from voucher ` +
+          `${pricing.voucherCode} but the booking could not be updated (${await restError(res, "Saving")}). ` +
+          `Its balance should be $${(pricing.balanceCents / 100).toFixed(2)}.`
+      );
+    }
+  }
+}
+
 // Marks a pending Stripe booking as paid, recording what was actually charged.
 // Idempotent — the webhook and the redirect-return can both call it.
 //
@@ -229,32 +252,53 @@ export async function finalizeBookingPayment(
 ): Promise<{ booking: Booking; justPaid: boolean } | undefined> {
   const booking = await getBooking(id);
   if (!booking) return undefined;
-  // This status check is what makes the whole thing idempotent: the webhook
-  // and the return page race each other, and only the first one through here
-  // gets as far as spending the voucher.
   if (booking.status === "paid") return { booking, justPaid: false };
 
-  const voucherCents = await takeVoucherFor(booking);
-  const settledCents = paidCents + voucherCents;
-  const pricing: Booking["pricing"] = {
+  // Claim first, spend second. The webhook and the return page often arrive
+  // together and both get past the check above; this save only matches a
+  // booking that isn't paid yet, so exactly one of them moves it, and only that
+  // one goes on to take the gift voucher. (Spending before claiming let both
+  // take it: a $50 voucher share came off the balance twice.)
+  //
+  // The claim records the card payment alone. If anything stops between here
+  // and the voucher being taken, the booking reads paid by card with the
+  // voucher's share still owed at the venue, and the voucher keeps its balance:
+  // the customer is never charged twice, they just pay that share in person.
+  const cardPaid: Booking["pricing"] = {
     ...booking.pricing,
-    paidCents: settledCents,
-    balanceCents: booking.pricing.totalCents - settledCents,
-    voucherCents,
-    voucherRedeemed: true,
+    paidCents,
+    balanceCents: booking.pricing.totalCents - paidCents,
+    voucherRedeemed: false,
     // remembered so a later cancellation can refund the right charge
     ...(stripePaymentIntent ? { stripePaymentIntent } : {}),
   };
-  // Both racers can pass the check above at the same moment. The save only
-  // matches a booking that isn't paid yet, so exactly one of them moves it.
-  const res = await rest(`bookings?id=eq.${id}&status=neq.paid`, {
+  const claim = await rest(`bookings?id=eq.${id}&status=neq.paid`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ status: "paid", pending_expires_at: null, pricing }),
+    body: JSON.stringify({ status: "paid", pending_expires_at: null, pricing: cardPaid }),
   });
-  if (!res.ok) throw await restError(res, "Recording the payment");
-  if (((await res.json()) as unknown[]).length === 0) {
+  if (!claim.ok) throw await restError(claim, "Recording the payment");
+  if (((await claim.json()) as unknown[]).length === 0) {
     return { booking: (await getBooking(id)) ?? booking, justPaid: false };
+  }
+
+  let pricing = cardPaid;
+  const voucherCents = await takeVoucherFor(booking);
+  if (voucherCents > 0) {
+    const settledCents = paidCents + voucherCents;
+    pricing = {
+      ...cardPaid,
+      paidCents: settledCents,
+      balanceCents: booking.pricing.totalCents - settledCents,
+      voucherCents,
+      voucherRedeemed: true,
+    };
+    await saveVoucherTaken(booking, pricing);
+  } else if (booking.pricing.voucherCode && (booking.pricing.voucherCents ?? 0) > 0) {
+    // Nothing could be taken (emptied or expired since checkout): the voucher's
+    // share stays on the balance rather than being recorded as paid.
+    pricing = { ...cardPaid, voucherCents: 0 };
+    await saveVoucherTaken(booking, pricing);
   }
   const paid: Booking = { ...booking, status: "paid", pendingExpiresAt: null, pricing };
   // Imported here rather than at the top: reward-flow reaches back into this
