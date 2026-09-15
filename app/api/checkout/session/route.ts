@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { ATTRIBUTION_COOKIE, attributionFromCookie } from "@/lib/attribution";
 import { buildBooking } from "@/lib/create-booking";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
-import { finalizeBookingPayment, getBooking, logActivity, releasePendingBooking, saveBooking } from "@/lib/db";
+import { getBooking, logActivity, releasePendingBooking, saveBooking, takeVoucherFor } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
+import { settleRewardsFor } from "@/lib/reward-flow";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushOnlineBooking } from "@/lib/staff-push";
 import {
@@ -13,6 +14,7 @@ import {
   retrieveCheckoutSession,
   stripeConfigured,
 } from "@/lib/stripe";
+import { refundToVoucher } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,19 @@ async function closeRequest(body: unknown, bookingId: string): Promise<void> {
   } catch (err) {
     console.error("closing request after checkout failed:", err); // the booking still stands
   }
+}
+
+// Puts voucher money back when the booking it was taken for didn't happen.
+async function putBackOnVoucher(code: string | null | undefined, cents: number, reference: string): Promise<void> {
+  if (!code || cents <= 0) return;
+  try {
+    if (await refundToVoucher(code, cents)) return;
+  } catch (err) {
+    console.error(`returning money to voucher ${code} failed:`, err);
+  }
+  console.error(
+    `${reference} was not booked, but $${(cents / 100).toFixed(2)} taken from voucher ${code} could not be put back — add it back by hand.`
+  );
 }
 
 // The customer's own earlier try at this checkout: they backed out of Stripe's
@@ -118,28 +133,50 @@ export async function POST(req: NextRequest) {
   };
 
   // A voucher big enough to cover everything due leaves nothing to charge, so
-  // there is no Stripe session to make. Finalize it here instead — that spends
-  // the voucher and marks the booking paid through the same idempotent path.
+  // there is no Stripe session to make and nothing to wait for. It is saved the
+  // way the simulated checkout saves: the voucher is taken first, and the
+  // booking only exists if it still covers what's due. Saving it pending and
+  // claiming it paid before spending confirmed bookings whose voucher had just
+  // been used in another tab — paid, texted and rewarded with nothing collected.
   if (dueCents <= 0) {
+    const paid = result.booking;
+    const code = paid.pricing.voucherCode;
+    const wantCents = paid.pricing.voucherCents ?? 0;
+    const takenCents = await takeVoucherFor(paid);
+    if (takenCents < wantCents) {
+      await putBackOnVoucher(code, takenCents, paid.reference);
+      return NextResponse.json(
+        {
+          error:
+            "That gift voucher no longer covers this booking — its balance may have just been used. " +
+            "Nothing has been charged; remove the code and apply it again to see what is left.",
+        },
+        { status: 409 }
+      );
+    }
+    if (wantCents > 0) paid.pricing.voucherRedeemed = true;
     try {
-      await saveBooking(booking);
-      const result = await finalizeBookingPayment(booking.id, 0);
-      await logActivity("Booking paid by gift voucher", `${booking.reference} — no card payment needed`);
-      await closeRequest(body, booking.id);
-      // Paid in full by voucher never goes near Stripe, so no webhook will ever
-      // send the confirmation text or the staff alert: this is the only chance.
-      if (result?.justPaid) {
-        await notifyBookingConfirmed(result.booking, req.nextUrl.origin); // best-effort; never throws
-        pushOnlineBooking(result.booking, req.nextUrl.origin);
-      }
+      await saveBooking(paid);
     } catch (err) {
-      console.error("finalizing voucher-only booking failed:", err);
+      console.error("saving voucher-only booking failed:", err);
+      await putBackOnVoucher(code, takenCents, paid.reference);
       return NextResponse.json(
         { error: "Could not complete the booking right now. You have not been charged — please try again shortly." },
         { status: 500 }
       );
     }
-    return NextResponse.json({ url: `${req.nextUrl.origin}/confirmation/${booking.id}` }, { status: 201 });
+    try {
+      await logActivity("Booking paid by gift voucher", `${paid.reference} — no card payment needed`);
+    } catch (err) {
+      console.error("logging voucher-only booking failed:", err); // the booking stands
+    }
+    await closeRequest(body, paid.id);
+    // Paid in full by voucher never goes near Stripe, so no webhook will ever
+    // send the confirmation text or the staff alert: this is the only chance.
+    await notifyBookingConfirmed(paid, req.nextUrl.origin); // best-effort; never throws
+    pushOnlineBooking(paid, req.nextUrl.origin);
+    await settleRewardsFor(paid); // spends any reward used, issues the next one
+    return NextResponse.json({ url: `${req.nextUrl.origin}/confirmation/${paid.id}` }, { status: 201 });
   }
 
   try {
