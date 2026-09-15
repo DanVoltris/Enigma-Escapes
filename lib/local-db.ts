@@ -38,6 +38,7 @@ const PK: Record<string, string> = {
   staff_members: "id", // the people who run the games (not logins)
   staff_shifts: "id", // check in / check out records
   quotes: "id", // invoices raised before a booking exists
+  push_subscriptions: "id", // phones staff turned notifications on for
 };
 
 // Query-string keys that are PostgREST directives, not column filters.

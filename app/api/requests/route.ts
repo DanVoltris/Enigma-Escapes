@@ -7,6 +7,7 @@ import { formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES } 
 import { getLocationHours } from "@/lib/hours";
 import { createRequest } from "@/lib/requests";
 import { notifyNewRequest } from "@/lib/sms";
+import { pushNewRequest } from "@/lib/staff-push";
 import { startTimesFor } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
       { roomName: exp.name, location: exp.location, date, time, quantity, firstName, lastName, phone },
       req.nextUrl.origin
     );
+    pushNewRequest(request, req.nextUrl.origin);
     return NextResponse.json({ ok: true, id: request.id }, { status: 201 });
   } catch (err) {
     console.error("creating booking request failed:", err);

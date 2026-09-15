@@ -4,6 +4,8 @@ import { buildBooking } from "@/lib/create-booking";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
 import { finalizeBookingPayment, logActivity, saveBooking } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
+import { notifyBookingConfirmed } from "@/lib/sms";
+import { pushOnlineBooking } from "@/lib/staff-push";
 import { createCheckoutSession, PENDING_MINUTES, stripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -71,9 +73,15 @@ export async function POST(req: NextRequest) {
   if (dueCents <= 0) {
     try {
       await saveBooking(booking);
-      await finalizeBookingPayment(booking.id, 0);
+      const result = await finalizeBookingPayment(booking.id, 0);
       await logActivity("Booking paid by gift voucher", `${booking.reference} — no card payment needed`);
       await closeRequest(body, booking.id);
+      // Paid in full by voucher never goes near Stripe, so no webhook will ever
+      // send the confirmation text or the staff alert: this is the only chance.
+      if (result?.justPaid) {
+        await notifyBookingConfirmed(result.booking, req.nextUrl.origin); // best-effort; never throws
+        pushOnlineBooking(result.booking, req.nextUrl.origin);
+      }
     } catch (err) {
       console.error("finalizing voucher-only booking failed:", err);
       return NextResponse.json(

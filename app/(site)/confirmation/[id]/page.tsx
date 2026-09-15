@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ConfirmationEffects from "@/components/ConfirmationEffects";
@@ -6,6 +7,8 @@ import RoomBadge from "@/components/RoomBadge";
 import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
 import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { getBookingPolicies, getIntegrations } from "@/lib/settings";
+import { notifyBookingConfirmed } from "@/lib/sms";
+import { pushOnlineBooking } from "@/lib/staff-push";
 import { retrieveCheckoutSession, stripeConfigured } from "@/lib/stripe";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
@@ -34,10 +37,16 @@ export default async function ConfirmationPage({
       try {
         const session = await retrieveCheckoutSession(sid);
         if (session.payment_status === "paid" && session.metadata?.bookingId === booking.id) {
-          const finalized = await finalizeBookingPayment(booking.id, session.amount_total ?? 0, session.payment_intent);
-          if (finalized) {
-            booking = finalized;
+          const result = await finalizeBookingPayment(booking.id, session.amount_total ?? 0, session.payment_intent);
+          if (result) booking = result.booking;
+          // Beat the webhook here, so this is the one that tells the customer
+          // and the staff (finalizeBookingPayment makes sure only one does).
+          if (result?.justPaid) {
             await logActivity("Payment received", `${booking.reference} — paid via Stripe`);
+            const h = await headers();
+            const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
+            await notifyBookingConfirmed(booking, origin); // best-effort; never throws
+            pushOnlineBooking(booking, origin);
           }
         }
       } catch (err) {

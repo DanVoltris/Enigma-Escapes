@@ -8,18 +8,21 @@
     "start": "next start",
     "import:customers": "node --env-file=.env.local scripts/import-customers.mjs",
     "import:bookings": "node --env-file=.env.local scripts/import-bookings.mjs",
-    "test:isolation": "node --test tests/tenant-token.test.mjs tests/tenant-isolation.test.mjs"
+    "test:isolation": "node --test tests/tenant-token.test.mjs tests/tenant-isolation.test.mjs",
+    "test:push": "node --test tests/push-events.test.mjs"
   },
   "dependencies": {
     "next": "^16.2.10",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.16",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/web-push": "^3.6.4",
     "typescript": "^5.9.3"
   }
 }

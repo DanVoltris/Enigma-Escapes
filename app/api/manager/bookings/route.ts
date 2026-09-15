@@ -4,6 +4,7 @@ import { buildBooking } from "@/lib/create-booking";
 import { logActivity, saveBooking, takeVoucherFor } from "@/lib/db";
 import { markRewardUsed } from "@/lib/reward-codes";
 import { notifyBookingConfirmed } from "@/lib/sms";
+import { pushWalkIn } from "@/lib/staff-push";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
   // problem can't lose a booking the desk has already taken. No staff copy;
   // whoever took it is standing right there.
   await notifyBookingConfirmed(b, req.nextUrl.origin, { notifyStaff: false });
+  pushWalkIn(b, { id: guard.staff.id, name: guard.staff.name || guard.staff.email }, req.nextUrl.origin);
   const guests = b.items.reduce((s, i) => s + i.quantity, 0);
   await logActivity(
     "Walk-in booking",
