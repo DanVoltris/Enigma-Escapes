@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ATTRIBUTION_COOKIE, attributionFromCookie } from "@/lib/attribution";
 import { buildBooking } from "@/lib/create-booking";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
-import { finalizeBookingPayment, logActivity, saveBooking } from "@/lib/db";
+import { finalizeBookingPayment, listBookingsForEmail, logActivity, releasePendingHold, saveBooking } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushOnlineBooking } from "@/lib/staff-push";
@@ -31,6 +31,30 @@ async function closeRequest(body: unknown, bookingId: string): Promise<void> {
   }
 }
 
+// The same customer's earlier unpaid checkout for these rooms — left behind by
+// pressing back on Stripe to change something, or by a Stripe error — holds
+// their own slot, so paying again would be refused as already booked until it
+// lapsed. It is released first, exactly as if it had run out. Matched on the
+// email and the room and day, so it is their own attempt at the same sessions.
+async function releaseEarlierCheckout(body: unknown): Promise<void> {
+  const o = (body ?? {}) as { customer?: { email?: unknown }; items?: unknown };
+  const email = typeof o.customer?.email === "string" ? o.customer.email : "";
+  if (!email.trim() || !Array.isArray(o.items)) return;
+  const wanted = new Set(
+    (o.items as { roomId?: unknown; date?: unknown }[]).map((i) => `${i?.roomId}|${i?.date}`)
+  );
+  try {
+    for (const b of await listBookingsForEmail(email)) {
+      if (b.status === "pending" && b.items.some((i) => wanted.has(`${i.roomId}|${i.date}`))) {
+        await releasePendingHold(b.id);
+      }
+    }
+  } catch (err) {
+    // Not fatal: the booking check below reports the slot as taken.
+    console.error("releasing an earlier checkout failed:", err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!stripeConfigured()) {
     return NextResponse.json(
@@ -49,6 +73,7 @@ export async function POST(req: NextRequest) {
   // Same first-touch cookie the simulated checkout reads — a booking paid
   // through Stripe should be credited to its source just the same.
   const attribution = attributionFromCookie(req.cookies.get(ATTRIBUTION_COOKIE)?.value);
+  await releaseEarlierCheckout(body);
   const result = await buildBooking({ ...(body as Record<string, unknown>), attribution }, "online");
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
@@ -110,6 +135,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url }, { status: 201 });
   } catch (err) {
     console.error("creating Stripe checkout session failed:", err);
+    // Nobody can pay for this booking, so its spots shouldn't sit held.
+    await releasePendingHold(booking.id).catch((e) => console.error("releasing the held spots failed:", e));
     return NextResponse.json(
       { error: "Could not reach the payment provider. You have not been charged — please try again shortly." },
       { status: 502 }

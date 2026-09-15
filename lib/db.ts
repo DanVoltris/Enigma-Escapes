@@ -184,6 +184,19 @@ export async function saveBooking(booking: Booking): Promise<void> {
   if (!res.ok) throw await restError(res, "Saving the booking");
 }
 
+// Lets go of an unpaid Stripe checkout's spots now, rather than when its 30
+// minutes run out. It is left pending, not cancelled — the same state as a
+// checkout left to lapse — and a booking that has been paid is never touched.
+export async function releasePendingHold(id: string): Promise<void> {
+  if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
+  const res = await rest(`bookings?id=eq.${id}&status=eq.pending`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ pending_expires_at: new Date().toISOString() }),
+  });
+  if (!res.ok) throw await restError(res, "Releasing the held spots");
+}
+
 // Spends the gift voucher a booking was checked out with, and reports how much
 // actually came off it.
 //
