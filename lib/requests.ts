@@ -210,9 +210,18 @@ export async function requestsAwaitingReply(): Promise<BookingRequest[]> {
 export async function latestRequestForPhone(phone: string): Promise<BookingRequest | undefined> {
   const digits = phone.replace(/\D/g, "").slice(-10);
   if (digits.length < 10) return undefined;
-  const res = await rest(`booking_requests?select=*&phone=like.*${digits}&order=created_at.desc&limit=5`);
+  // The phone is stored as the customer typed it — "(204) 555-0134", "204 555
+  // 0134" — while Twilio sends +12045550134. Matching the bare digits only found
+  // people who typed no punctuation; everyone else's Y was answered "no booking
+  // waiting" and their hold lapsed. So the database is asked for the digits in
+  // order with anything between them, and the exact comparison happens here.
+  const loose = digits.split("").join("*");
+  const res = await rest(`booking_requests?select=*&phone=like.*${loose}*&order=created_at.desc&limit=20`);
   if (!res.ok) return undefined;
-  const rows = ((await res.json()) as Row[]).map(toRequest);
+  const rows = ((await res.json()) as Row[])
+    .filter((r) => r.phone.replace(/\D/g, "").slice(-10) === digits)
+    .slice(0, 5)
+    .map(toRequest);
   return rows.find((r) => r.status === "accepted") ?? rows.find((r) => r.status === "confirmed");
 }
 
