@@ -5,8 +5,14 @@ import { listBookings } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+// Names are typed by anyone on the public checkout, and Excel or Sheets runs a
+// cell starting with = + - @ (or a tab/CR) as a formula — a HYPERLINK that
+// ships the neighbouring emails off-site. A leading ' makes it plain text. A
+// plain phone number like "+1 204 555 0100" is left alone: it can't call a
+// function, and email tools importing the file want it as typed.
 function csvField(v: string): string {
-  return `"${v.replace(/"/g, '""')}"`;
+  const safe = /^[=+\-@\t\r]/.test(v) && !/^\+?[\d\s().-]+$/.test(v) ? `'${v}` : v;
+  return `"${safe.replace(/"/g, '""')}"`;
 }
 
 // CSV download of the customer list — ?subscribed=1 narrows to the marketing
