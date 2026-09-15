@@ -116,7 +116,10 @@ export async function listVoucherPage(query: VoucherQuery = {}): Promise<Voucher
     // Commas and parens would break out of the or() grouping, so drop them.
     const safe = q.replace(/[(),*]/g, "").slice(0, 80);
     if (safe) {
-      const like = `*${safe}*`;
+      // Encoded, or the query string eats it: "+" reads as a space (so a
+      // plus-addressed purchaser email never matches), "&" and "#" cut the
+      // filter short and the whole search fails.
+      const like = `*${encodeURIComponent(safe)}*`;
       parts.push(`or=(code.ilike.${like},purchaser.ilike.${like},email.ilike.${like})`);
     }
   }
