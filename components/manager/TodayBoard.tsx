@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DateJump from "@/components/manager/DateJump";
@@ -276,8 +276,13 @@ function TakePayment({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Live card-reader charge: null when idle, otherwise the payment in flight.
-  const [onReader, setOnReader] = useState<{ intentId: string; readerId: string; cents: number } | null>(null);
+  const [onReader, setOnReader] = useState<{ intentId: string; readerId: string; cents: number; payer: string } | null>(
+    null
+  );
   const [readerNote, setReaderNote] = useState<string | null>(null);
+  // Which reader payment the running poll belongs to; Cancel clears it so that
+  // poll stops once the cancel has answered for the payment itself.
+  const pollingFor = useRef<string | null>(null);
 
   // Sends one line's amount to the reader at this venue and waits for the tap.
   async function chargeOnReader(line: Line) {
@@ -297,7 +302,7 @@ function TakePayment({
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((d as { error?: string }).error ?? "Could not reach the reader.");
-      setOnReader({ intentId: d.intentId, readerId: d.readerId, cents });
+      setOnReader({ intentId: d.intentId, readerId: d.readerId, cents, payer: line.payer.trim() });
       setReaderNote("Waiting for the customer to tap…");
       poll(d.intentId as string, line.payer.trim());
     } catch (err) {
@@ -311,7 +316,9 @@ function TakePayment({
   // (once), so a slow network here can never double-charge anyone.
   function poll(intentId: string, payer: string) {
     let tries = 0;
+    pollingFor.current = intentId;
     const tick = async () => {
+      if (pollingFor.current !== intentId) return;
       tries += 1;
       try {
         const res = await fetch(
@@ -327,16 +334,19 @@ function TakePayment({
           onDone();
           return;
         }
+        // Cancelled (by the Cancel button): nothing more can happen to it.
+        if (d.status === "canceled") return;
         if (d.error) setReaderNote(`Reader says: ${d.error}`);
-        if (tries > 150) {
-          // ~5 minutes: stop nagging Stripe and hand control back to staff.
-          setReaderNote("The reader timed out — cancel and try again.");
+        if (tries === 150) {
+          // ~5 minutes: hand control back to staff. Checking carries on, more
+          // slowly, while the payment is still open on the reader — a customer
+          // can still tap it, and that money has to land on the booking.
+          setReaderNote("The reader is still waiting — press Cancel to stop it before trying again.");
           setBusy(false);
-          return;
         }
-        setTimeout(tick, 2000);
+        setTimeout(tick, tries >= 150 ? 10000 : 2000);
       } catch {
-        setTimeout(tick, 2000);
+        setTimeout(tick, tries >= 150 ? 10000 : 2000);
       }
     };
     setTimeout(tick, 2000);
@@ -344,14 +354,38 @@ function TakePayment({
 
   async function cancelReader() {
     if (!onReader) return;
-    await fetch("/api/manager/terminal/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ readerId: onReader.readerId, intentId: onReader.intentId }),
-    }).catch(() => {});
+    // The server says whether the card went through before it could be
+    // cancelled (and records it if so). Until it has answered, the payment
+    // stays on screen: resetting as if nothing happened let staff charge again.
+    let d: { ok?: boolean; paid?: boolean; error?: string } = {};
+    try {
+      const res = await fetch("/api/manager/terminal/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          readerId: onReader.readerId,
+          intentId: onReader.intentId,
+          bookingId,
+          payer: onReader.payer,
+        }),
+      });
+      d = await res.json().catch(() => ({ error: "Could not cancel the reader payment." }));
+    } catch {
+      d = { error: "Couldn't reach the server — check the payment in Stripe before charging again." };
+    }
+    if (d.error || !d.ok) {
+      setError(d.error ?? "Could not cancel the reader payment.");
+      return;
+    }
+    pollingFor.current = null;
     setOnReader(null);
-    setReaderNote(null);
     setBusy(false);
+    if (d.paid) {
+      setReaderNote("The card went through before it could be cancelled — the payment is recorded.");
+      onDone();
+      return;
+    }
+    setReaderNote(null);
   }
 
   const enteredCents = lines.reduce((s, l) => s + Math.round((Number(l.amount) || 0) * 100), 0);
