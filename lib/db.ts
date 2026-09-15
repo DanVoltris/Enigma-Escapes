@@ -603,6 +603,11 @@ export async function updateCustomerAcrossBookings(
 
 // Cancels a booking: frees the slot, records what's owed back and whether
 // Stripe already returned it. Refund figures live in the pricing JSONB.
+//
+// They are added to what the booking already carries, not written over it: a
+// refund made from the Refund panel before the cancellation stays on record,
+// and the cancellation adds only its own. What Stripe returned here came off
+// the checkout payment, so it counts against that payment as well.
 export async function cancelBooking(
   id: string,
   refund: { owedCents: number; refundedCents: number }
@@ -616,9 +621,12 @@ export async function cancelBooking(
     // read so the database itself is right — the bookings list's paid/unpaid
     // filter runs in SQL against this figure.
     balanceCents: 0,
-    refundOwedCents: refund.owedCents,
-    refundedCents: refund.refundedCents,
-    refundedAt: refund.refundedCents > 0 ? new Date().toISOString() : null,
+    refundOwedCents: (booking.pricing.refundOwedCents ?? 0) + refund.owedCents,
+    refundedCents: (booking.pricing.refundedCents ?? 0) + refund.refundedCents,
+    ...(refund.refundedCents > 0
+      ? { onlineRefundedCents: (booking.pricing.onlineRefundedCents ?? 0) + refund.refundedCents }
+      : {}),
+    refundedAt: refund.refundedCents > 0 ? new Date().toISOString() : (booking.pricing.refundedAt ?? null),
   };
   const res = await rest(`bookings?id=eq.${id}`, {
     method: "PATCH",
