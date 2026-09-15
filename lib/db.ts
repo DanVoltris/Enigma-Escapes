@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { minutesOfTime, type BusySession } from "./capacity";
 import { todayISO } from "./format";
+import { refundPayment } from "./stripe";
 import { rest, restAllPages, restError } from "./supabase";
 import { getVoucher, spendVoucher, voucherProblem } from "./vouchers";
 import type { ActivityEntry, Booking, BookingNote, BookingSource, Promo, StaffNote } from "./types";
@@ -252,6 +253,78 @@ async function saveVoucherTaken(booking: Booking, pricing: Booking["pricing"]): 
   }
 }
 
+// A checkout that was cancelled — by staff, or by the customer on their booking
+// page — while the customer still had Stripe's payment page open, and then
+// paid. Its slot went back on sale at the cancellation and may be sold again,
+// so it must not come back to life as paid: the money goes straight back to
+// the card, or is recorded as owed for staff when Stripe can't return it.
+async function refundPaymentOnCancelled(
+  booking: Booking,
+  paidCents: number,
+  intent: string | null
+): Promise<Booking> {
+  if (paidCents <= 0) return booking;
+  // A pending checkout is saved with nothing paid, so recording the payment
+  // doubles as the claim: the webhook and a Stripe retry can't both refund it.
+  // A failed claim throws, as a failed payment claim does, so Stripe retries.
+  const owed: Booking["pricing"] = {
+    ...booking.pricing,
+    paidCents,
+    balanceCents: 0,
+    ...(intent ? { stripePaymentIntent: intent } : {}),
+    refundOwedCents: (booking.pricing.refundOwedCents ?? 0) + paidCents,
+  };
+  const claim = await rest(`bookings?id=eq.${booking.id}&status=eq.cancelled&pricing->>paidCents=eq.0`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ pricing: owed }),
+  });
+  if (!claim.ok) throw await restError(claim, "Recording the payment");
+  if (((await claim.json()) as unknown[]).length === 0) return (await getBooking(booking.id)) ?? booking;
+
+  // From here on nothing throws: the payment is recorded as owed, and a retry
+  // would only find it claimed.
+  let refundedCents = 0;
+  if (intent) {
+    try {
+      refundedCents = (await refundPayment(intent, paidCents)) ?? 0;
+    } catch (err) {
+      console.error(`refunding the payment on cancelled ${booking.reference} failed:`, err);
+    }
+  }
+  let pricing = owed;
+  if (refundedCents > 0) {
+    pricing = {
+      ...owed,
+      refundedCents: (owed.refundedCents ?? 0) + refundedCents,
+      onlineRefundedCents: (owed.onlineRefundedCents ?? 0) + refundedCents,
+      refundedAt: new Date().toISOString(),
+    };
+    const saved = await rest(`bookings?id=eq.${booking.id}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ pricing }),
+    }).catch(() => null);
+    if (!saved?.ok) {
+      console.error(
+        `${booking.reference}: $${(refundedCents / 100).toFixed(2)} was refunded by Stripe but the booking ` +
+          `could not be updated — it still shows the refund as owed.`
+      );
+    }
+  }
+  const back = refundedCents >= paidCents;
+  await logActivity(
+    "Payment received on a cancelled booking",
+    `${booking.reference} — ${back ? `refunded $${(refundedCents / 100).toFixed(2)} automatically` : `REFUND OWED $${(paidCents / 100).toFixed(2)}`}`
+  );
+  await addBookingNote(
+    booking.id,
+    `The customer paid $${(paidCents / 100).toFixed(2)} on Stripe after this booking was cancelled, so it stays ` +
+      `cancelled — ${back ? "the payment was refunded to their card." : "the payment still needs refunding by hand."}`
+  );
+  return { ...booking, pricing };
+}
+
 // Marks a pending Stripe booking as paid, recording what was actually charged.
 // Idempotent — the webhook and the redirect-return can both call it.
 //
@@ -268,10 +341,13 @@ export async function finalizeBookingPayment(
   const booking = await getBooking(id);
   if (!booking) return undefined;
   if (booking.status === "paid") return { booking, justPaid: false };
+  if (booking.status === "cancelled") {
+    return { booking: await refundPaymentOnCancelled(booking, paidCents, stripePaymentIntent ?? null), justPaid: false };
+  }
 
   // Claim first, spend second. The webhook and the return page often arrive
   // together and both get past the check above; this save only matches a
-  // booking that isn't paid yet, so exactly one of them moves it, and only that
+  // booking that is still pending, so exactly one of them moves it, and only that
   // one goes on to take the gift voucher. (Spending before claiming let both
   // take it: a $50 voucher share came off the balance twice.)
   //
@@ -287,7 +363,8 @@ export async function finalizeBookingPayment(
     // remembered so a later cancellation can refund the right charge
     ...(stripePaymentIntent ? { stripePaymentIntent } : {}),
   };
-  const claim = await rest(`bookings?id=eq.${id}&status=neq.paid`, {
+  // Pending only: a checkout cancelled meanwhile must not come back as paid.
+  const claim = await rest(`bookings?id=eq.${id}&status=eq.pending`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({ status: "paid", pending_expires_at: null, pricing: cardPaid }),
