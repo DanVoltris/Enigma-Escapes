@@ -217,11 +217,12 @@ export async function requestsAwaitingReply(): Promise<BookingRequest[]> {
   return ((await res.json()) as Row[]).map(toRequest).filter((r) => r.status === "accepted");
 }
 
-// The newest live request for a phone number — how an inbound "Y" finds what
-// it is answering, since a text carries nothing but the number it came from.
-export async function latestRequestForPhone(phone: string): Promise<BookingRequest | undefined> {
+// The live requests for a phone number, newest first — how an inbound "Y"
+// finds what it is answering, since a text carries nothing but the number it
+// came from.
+export async function liveRequestsForPhone(phone: string): Promise<BookingRequest[]> {
   const digits = phone.replace(/\D/g, "").slice(-10);
-  if (digits.length < 10) return undefined;
+  if (digits.length < 10) return [];
   // The phone is stored as the customer typed it — "(204) 555-0134", "204 555
   // 0134" — while Twilio sends +12045550134. Matching the bare digits only found
   // people who typed no punctuation; everyone else's Y was answered "no booking
@@ -229,12 +230,11 @@ export async function latestRequestForPhone(phone: string): Promise<BookingReque
   // order with anything between them, and the exact comparison happens here.
   const loose = digits.split("").join("*");
   const res = await rest(`booking_requests?select=*&phone=like.*${loose}*&order=created_at.desc&limit=20`);
-  if (!res.ok) return undefined;
-  const rows = ((await res.json()) as Row[])
+  if (!res.ok) return [];
+  return ((await res.json()) as Row[])
     .filter((r) => r.phone.replace(/\D/g, "").slice(-10) === digits)
     .slice(0, 5)
     .map(toRequest);
-  return rows.find((r) => r.status === "accepted") ?? rows.find((r) => r.status === "confirmed");
 }
 
 // Stamps when the reminder went out, so the sweep never sends it twice.
