@@ -6,6 +6,7 @@ import { maxPerBooking, minPerBooking, minutesOfTime, minutesToTime, overlappedB
 import {
   addBookingNote,
   bookedCount,
+  busySessionsForDate,
   cancelBooking,
   logActivity,
   rescheduleBooking,
@@ -149,6 +150,17 @@ export async function rescheduleForCustomer(
   const { isBlocked } = await import("./blocks");
   if (await isBlocked(exp.id, date, time)) {
     return { error: "That session isn't running — pick another time." };
+  }
+
+  // Free for the whole game, not just at the start — a custom-time or imported
+  // session running into this slot takes the room, and only availability on the
+  // page (possibly stale) was hiding it. The booking's own session is left out
+  // unless someone else shares its start, as it can't clash with itself.
+  const busyHere = ((await busySessionsForDate(date)).get(exp.id) ?? []).filter(
+    (b) => !(item.date === date && b.time === item.time && b.guests <= item.quantity)
+  );
+  if (overlappedBy(busyHere, time, exp.durationMinutes)) {
+    return { error: `${formatTime(time)} isn't free any more — try another time.` };
   }
 
   // This booking's own seats shouldn't count against it when moving within
