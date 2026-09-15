@@ -144,6 +144,24 @@ export async function createVoucherCheckoutSession(
   return { id: session.id as string, url: session.url as string };
 }
 
+// Closes a Checkout Session so it can no longer be paid. True when it is closed
+// (just now, or it had already expired); false when it was completed and must
+// be left alone. Throws when Stripe can't say, so a caller never treats a
+// session that may still be payable as closed.
+export async function expireCheckoutSession(id: string): Promise<boolean> {
+  if (!/^cs_[a-zA-Z0-9_]+$/.test(id)) throw new Error("Invalid checkout session id.");
+  try {
+    await stripeRequest("POST", `/v1/checkout/sessions/${id}/expire`);
+    return true;
+  } catch (err) {
+    // Stripe refuses to expire a session that isn't open: find out which way.
+    const s = await stripeRequest("GET", `/v1/checkout/sessions/${id}`);
+    if (s.status === "expired") return true;
+    if (s.status === "complete") return false;
+    throw err;
+  }
+}
+
 export type CheckoutSession = {
   id: string;
   payment_status: string;

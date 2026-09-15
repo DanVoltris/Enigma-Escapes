@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { ATTRIBUTION_COOKIE, attributionFromCookie } from "@/lib/attribution";
 import { buildBooking } from "@/lib/create-booking";
 import { getRequestByToken, setRequestStatus } from "@/lib/requests";
-import { finalizeBookingPayment, logActivity, saveBooking } from "@/lib/db";
+import { finalizeBookingPayment, getBooking, logActivity, releasePendingBooking, saveBooking } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushOnlineBooking } from "@/lib/staff-push";
-import { createCheckoutSession, PENDING_MINUTES, stripeConfigured } from "@/lib/stripe";
+import {
+  createCheckoutSession,
+  expireCheckoutSession,
+  PENDING_MINUTES,
+  retrieveCheckoutSession,
+  stripeConfigured,
+} from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +37,48 @@ async function closeRequest(body: unknown, bookingId: string): Promise<void> {
   }
 }
 
+// The customer's own earlier try at this checkout: they backed out of Stripe's
+// page and pressed Pay again. That attempt's pending booking still holds the
+// slot, so without this the retry was refused as "already booked" — by their
+// own hold — for PENDING_MINUTES. The cart sends back the booking and session
+// it started (both secrets only that browser has), and the hold is let go only
+// once Stripe confirms the old session can no longer be paid, so it can't come
+// back later as a second booking for the same slot.
+//
+// Returns a response only when the old session turns out to have been paid:
+// the customer belongs on its confirmation page, not in a second checkout.
+async function releaseEarlierAttempt(body: unknown, origin: string): Promise<NextResponse | null> {
+  const held = (body as { heldCheckout?: { bookingId?: unknown; sessionId?: unknown } | null }).heldCheckout;
+  if (!held || typeof held.bookingId !== "string" || typeof held.sessionId !== "string") return null;
+  try {
+    const earlier = await getBooking(held.bookingId);
+    if (!earlier || earlier.status !== "pending") return null;
+    const session = await retrieveCheckoutSession(held.sessionId);
+    if (session.metadata?.bookingId !== earlier.id) return null;
+    if (!(await expireCheckoutSession(session.id))) {
+      return NextResponse.json(
+        { url: `${origin}/confirmation/${earlier.id}?sid=${encodeURIComponent(session.id)}` },
+        { status: 201 }
+      );
+    }
+    await releasePendingBooking(earlier.id);
+    // Starting that checkout closed the customer's accepted request; reopen it,
+    // or the retry is refused for not having one.
+    const token = (body as { requestToken?: unknown }).requestToken;
+    if (typeof token === "string" && token) {
+      const request = await getRequestByToken(token);
+      if (request && request.status === "completed" && request.bookingId === earlier.id) {
+        await setRequestStatus(request.id, "accepted");
+      }
+    }
+  } catch (err) {
+    // Validation below still decides; at worst the old hold refuses the retry
+    // the way it did before.
+    console.error("releasing the earlier checkout attempt failed:", err);
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   if (!stripeConfigured()) {
     return NextResponse.json(
@@ -49,6 +97,8 @@ export async function POST(req: NextRequest) {
   // Same first-touch cookie the simulated checkout reads — a booking paid
   // through Stripe should be credited to its source just the same.
   const attribution = attributionFromCookie(req.cookies.get(ATTRIBUTION_COOKIE)?.value);
+  const alreadyPaid = await releaseEarlierAttempt(body, req.nextUrl.origin);
+  if (alreadyPaid) return alreadyPaid;
   const result = await buildBooking({ ...(body as Record<string, unknown>), attribution }, "online");
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
 
@@ -107,9 +157,18 @@ export async function POST(req: NextRequest) {
     const session = await createCheckoutSession(booking, dueCents, currencyCode, req.nextUrl.origin);
     await logActivity("Checkout started", `${booking.reference} — awaiting payment`);
     await closeRequest(body, booking.id);
-    return NextResponse.json({ url: session.url }, { status: 201 });
+    // The booking and session come back so the cart can hand them in if the
+    // customer backs out and pays again (releaseEarlierAttempt above).
+    return NextResponse.json({ url: session.url, bookingId: booking.id, sessionId: session.id }, { status: 201 });
   } catch (err) {
     console.error("creating Stripe checkout session failed:", err);
+    // Nobody can pay a session we never handed out, so the hold goes now —
+    // left in place it refused every "try again" for PENDING_MINUTES.
+    try {
+      await releasePendingBooking(booking.id);
+    } catch (releaseErr) {
+      console.error("releasing the unpaid hold failed:", releaseErr);
+    }
     return NextResponse.json(
       { error: "Could not reach the payment provider. You have not been charged — please try again shortly." },
       { status: 502 }

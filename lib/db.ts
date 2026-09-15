@@ -308,6 +308,22 @@ export async function finalizeBookingPayment(
   return { booking: paid, justPaid: true };
 }
 
+// Lets go of an unpaid checkout's spots now rather than when its hold lapses —
+// the customer backed out of Stripe's page and is paying again, or the Stripe
+// session was never made. The row stays as a lapsed checkout, exactly as if the
+// hold had run out. Only matches a booking still pending, so it can never undo
+// a payment. Callers must make sure the old Stripe session can't be paid first.
+export async function releasePendingBooking(id: string): Promise<boolean> {
+  if (!UUID_RE.test(id)) return false;
+  const res = await rest(`bookings?id=eq.${id}&status=eq.pending`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ pending_expires_at: new Date(Date.now() - 1000).toISOString() }),
+  });
+  if (!res.ok) throw await restError(res, "Releasing the held spots");
+  return ((await res.json()) as unknown[]).length > 0;
+}
+
 export async function setBookingNoShow(id: string, noShow: boolean): Promise<void> {
   if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
   const res = await rest(`bookings?id=eq.${id}`, {
