@@ -2223,6 +2223,12 @@ a:hover {
   gap: 16px;
   margin-bottom: 10px;
 }
+.bs-app-icon-preview {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
 .bs-logo-preview {
   height: 56px;
   max-width: 220px;

@@ -22,6 +22,7 @@ export async function PUT(req: NextRequest) {
   // Only accept a logo URL our own upload endpoint produced (same guard as
   // experience images); arbitrary external URLs are dropped.
   if (settings.logoUrl && !settings.logoUrl.startsWith(publicImageBase())) settings.logoUrl = null;
+  if (settings.appIconUrl && !settings.appIconUrl.startsWith(publicImageBase())) settings.appIconUrl = null;
 
   try {
     await saveSetting("booking_site", settings);

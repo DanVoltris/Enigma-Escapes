@@ -15,6 +15,10 @@ export type SiteSettings = {
   buttonBg: string;
   buttonText: string;
   logoUrl: string | null; // shown in the site header instead of the text brand
+  // Square picture for the staff app on a phone's home screen and on its
+  // notifications (lib/venue-icon.tsx). Without one the logo is used, and
+  // without that the venue's initial.
+  appIconUrl: string | null;
   // shopping basket
   holdMinutes: number; // how long a cart holds its slots
   basketExpiredText: string;
@@ -35,6 +39,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   buttonBg: "#87cefa",
   buttonText: "#0b2540",
   logoUrl: null,
+  appIconUrl: null,
   holdMinutes: HOLD_MINUTES,
   basketExpiredText:
     "You are out of time. Your held slots have been released — please pick your times again to continue.",
@@ -72,6 +77,10 @@ export function normalizeSiteSettings(input: unknown): SiteSettings {
     // the save API also rejects any URL our own upload endpoint didn't produce.
     logoUrl:
       typeof o.logoUrl === "string" && o.logoUrl.trim() && o.logoUrl.length <= 8_000_000 ? o.logoUrl.trim() : null,
+    appIconUrl:
+      typeof o.appIconUrl === "string" && o.appIconUrl.trim() && o.appIconUrl.length <= 8_000_000
+        ? o.appIconUrl.trim()
+        : null,
     holdMinutes: int(o.holdMinutes, d.holdMinutes, 1, 120),
     basketExpiredText: str(o.basketExpiredText, d.basketExpiredText, 300),
     // these three are optional copy — empty means "don't show"
