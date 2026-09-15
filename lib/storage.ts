@@ -1,7 +1,12 @@
 import { randomUUID } from "crypto";
-import { useLocalData } from "./supabase";
+import { normalizeUrl, useLocalData } from "./supabase";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+// Cleaned the same way as the database address (lib/supabase.ts). Time Zone's is
+// set with a trailing /rest/v1/, which here produced ".../rest/v1//storage/...":
+// uploads went to an address that doesn't exist, and a stored picture never
+// matched publicImageBase, so the app icon ignored the logo and the next
+// Booking site save would have dropped it.
+const SUPABASE_URL = normalizeUrl(process.env.SUPABASE_URL);
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BUCKET = "experience-images";
 
