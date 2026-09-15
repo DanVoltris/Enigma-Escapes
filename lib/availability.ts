@@ -49,8 +49,9 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         time,
         durationMinutes: exp.durationMinutes,
         capacity: exp.capacity,
-        // A held seat is not a sold seat, but it is not available either.
-        remaining: clash ? 0 : Math.max(0, remainingSpots(exp, taken) - onHold),
+        // A held seat is not a sold seat, but it is not available either — and
+        // in a private room any hold takes the whole room, as a booking would.
+        remaining: clash ? 0 : remainingSpots(exp, taken + onHold),
         heldSeats: onHold,
         priceCents: exp.priceCents,
         minParty: exp.minParty,

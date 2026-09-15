@@ -13,7 +13,8 @@ import {
   updateBookingPartySize,
 } from "./db";
 import { getExperience } from "./experiences";
-import { formatMoney, formatTime, minutesUntilSlot } from "./format";
+import { addDaysISO, formatMoney, formatTime, minutesUntilSlot, todayISO } from "./format";
+import { getSiteSettings } from "./site-settings";
 import { getLocationHours } from "./hours";
 import { computeTotals, refundGoingBackCents } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
@@ -158,19 +159,22 @@ export async function rescheduleForCustomer(
   if (!startTimesFor(exp, date, hours).includes(time)) {
     return { error: "That time isn't offered on that day — pick another." };
   }
+  // The same booking window the website sells within.
+  if (date > addDaysISO(todayISO(), (await getSiteSettings()).windowDays)) {
+    return { error: "We aren't taking bookings that far ahead yet — pick an earlier date." };
+  }
   const { isBlocked } = await import("./blocks");
   if (await isBlocked(exp.id, date, time)) {
     return { error: "That session isn't running — pick another time." };
   }
-
-  // Free for the whole game, not just at the start — a custom-time or imported
-  // session running into this slot takes the room, and only availability on the
-  // page (possibly stale) was hiding it. The booking's own session is left out
-  // unless someone else shares its start, as it can't clash with itself.
+  // Free for the whole game, not just at its start: a desk booking at a custom
+  // time can run through this slot without being counted in it. The booking's
+  // own session is left out, as a booking can't clash with itself.
+  const duration = item.durationMinutes ?? exp.durationMinutes;
   const busyHere = ((await busySessionsForDate(date)).get(exp.id) ?? []).filter(
-    (b) => !(item.date === date && b.time === item.time && b.guests <= item.quantity)
+    (b) => !(item.date === date && b.time === item.time)
   );
-  if (overlappedBy(busyHere, time, exp.durationMinutes)) {
+  if (overlappedBy(busyHere, time, duration)) {
     return { error: `${formatTime(time)} isn't free any more — try another time.` };
   }
 

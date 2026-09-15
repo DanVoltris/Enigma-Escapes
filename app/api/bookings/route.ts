@@ -6,11 +6,23 @@ import { getRequestByToken, setRequestStatus } from "@/lib/requests";
 import { settleRewardsFor } from "@/lib/reward-flow";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushOnlineBooking } from "@/lib/staff-push";
+import { stripeConfigured } from "@/lib/stripe";
 import { refundToVoucher } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  // This is the simulated checkout: it saves the booking as paid with nobody
+  // charged. Once a venue has Stripe keys, every booking — voucher-only ones
+  // included — goes through /api/checkout/session instead, so a request here
+  // is someone replaying the old form to get a free booking.
+  if (stripeConfigured()) {
+    return NextResponse.json(
+      { error: "Online payment has moved to secure checkout. Please refresh the payment page and try again." },
+      { status: 409 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -48,11 +60,16 @@ export async function POST(req: NextRequest) {
     await saveBooking(result.booking);
   } catch (err) {
     console.error("saving booking failed:", err);
-    // The voucher was spent for a booking that doesn't exist: put it back, or
-    // the "try again" below finds the balance gone.
-    if (p.voucherRedeemed && p.voucherCode) {
+    // The voucher was spent above, but there is no booking to show for it, so
+    // the balance goes back — otherwise the retry we ask for finds it empty.
+    if (p.voucherRedeemed && p.voucherCode && (p.voucherCents ?? 0) > 0) {
       const back = await refundToVoucher(p.voucherCode, p.voucherCents ?? 0).catch(() => false);
-      if (!back) console.error(`$${((p.voucherCents ?? 0) / 100).toFixed(2)} taken from voucher ${p.voucherCode} for an unsaved booking could not be put back — add it back by hand.`);
+      if (!back) {
+        console.error(
+          `$${((p.voucherCents ?? 0) / 100).toFixed(2)} was taken from voucher ${p.voucherCode} for ` +
+            `${result.booking.reference}, which never saved — put it back on the voucher by hand.`
+        );
+      }
     }
     return NextResponse.json(
       { error: "Could not save your booking right now. You have not been charged — please try again shortly." },

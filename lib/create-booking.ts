@@ -297,14 +297,17 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       return { error: "Could not check the gift voucher right now. Please try again shortly.", status: 500 };
     }
     if (!voucher) return err("That gift voucher code is not valid.");
-    const first = items[0];
-    const problem = voucherProblem(voucher, {
-      today,
-      date: first?.date,
-      time: first?.time,
-      roomId: first?.roomId,
-    });
-    if (problem) return err(problem);
+    // The voucher pays towards every session on the booking, so every one of
+    // them has to meet its rules — not just whichever was added to the cart first.
+    for (const item of items) {
+      const problem = voucherProblem(voucher, {
+        today,
+        date: item.date,
+        time: item.time,
+        roomId: item.roomId,
+      });
+      if (problem) return err(items.length > 1 ? `${item.roomName}: ${problem}` : problem);
+    }
     if (voucher.redemptionType === "spaces") {
       return err("That voucher is for spaces rather than a dollar amount — please call us to book it.");
     }

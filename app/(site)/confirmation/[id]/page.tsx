@@ -77,6 +77,26 @@ export default async function ConfirmationPage({
     );
   }
 
+  // A checkout cancelled while the customer was still paying lands here from
+  // Stripe too. The payment goes back (finalizeBookingPayment), so it must not
+  // read as a confirmed booking.
+  if (booking.status === "cancelled") {
+    return (
+      <div className="empty-state">
+        <h1 className="page-title">This booking is cancelled</h1>
+        <p>
+          Booking <strong>{booking.reference}</strong> has been cancelled, so it isn&apos;t going ahead. Your booking
+          page shows what is being refunded.
+        </p>
+        <p style={{ marginTop: 16 }}>
+          <Link href={`/booking/${booking.id}`} className="btn">
+            View booking
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
   const { customer, items, pricing } = booking;
   const integrations = await getIntegrations();
   const meetingUrl = integrations.zoomEnabled && integrations.zoomUrl ? integrations.zoomUrl : null;
