@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking } from "@/lib/db";
 import { cancelForStaff } from "@/lib/manage-booking";
 import { notifyBookingCancelled } from "@/lib/sms";
@@ -17,6 +17,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const booking = await getBooking(id);
   if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+  if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+    return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+  }
   if (booking.status === "cancelled") {
     return NextResponse.json({ error: "That booking is already cancelled." }, { status: 400 });
   }

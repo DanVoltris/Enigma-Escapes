@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getPricingMode } from "@/lib/pricing-settings";
 import { getBooking, getPromo, logActivity, updateBookingFields } from "@/lib/db";
 import { computeTotals } from "@/lib/pricing";
@@ -50,6 +50,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     if (booking.promoCode) {
       return NextResponse.json(
         { error: `Promo ${booking.promoCode} is already applied. Remove it first.` },
@@ -79,6 +82,9 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     if (!booking.promoCode) {
       return NextResponse.json({ error: "This booking has no promo applied." }, { status: 400 });
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking, logActivity, saveGameResult } from "@/lib/db";
 import type { GameResult } from "@/lib/types";
 
@@ -42,6 +42,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const booking = await getBooking(id);
   if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+  if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+    return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+  }
 
   const result: GameResult = {
     escaped: o.escaped,

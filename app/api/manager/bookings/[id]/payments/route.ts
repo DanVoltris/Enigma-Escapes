@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { getBooking, logActivity, updateBookingFields } from "@/lib/db";
 import { formatMoney } from "@/lib/format";
@@ -53,6 +53,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     if (booking.pricing.balanceCents <= 0) {
       return NextResponse.json({ error: "This booking has no balance due." }, { status: 400 });
     }
@@ -103,6 +106,9 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     const payments = booking.pricing.payments ?? [];
     const payment = payments.find((p) => p.id === pid);
     if (!payment) return NextResponse.json({ error: "That payment record no longer exists." }, { status: 404 });

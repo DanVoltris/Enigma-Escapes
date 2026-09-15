@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking, logActivity, setBookingNoShow } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     await setBookingNoShow(id, d.noShow);
     await logActivity(
       d.noShow ? "Marked no-show" : "Cleared no-show",
