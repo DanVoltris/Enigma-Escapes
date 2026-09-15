@@ -8,7 +8,7 @@ import { alertRecipients } from "@/lib/request-alerts";
 import { listStaff } from "@/lib/staff";
 import { listStaffMembers, openShifts, recentShifts } from "@/lib/staff-members";
 import { formatDuration, shiftMinutes } from "@/lib/staff-types";
-import { todayISO } from "@/lib/format";
+import { businessDateOf, todayISO } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +76,8 @@ export default async function ManagerStaff() {
 
   // Hours worked today, closed shifts and open ones alike.
   const today = todayISO();
-  const todays = recent.filter((s) => s.startedAt.slice(0, 10) === today);
+  // startedAt is UTC; the venue's day decides which shifts count as today's.
+  const todays = recent.filter((s) => businessDateOf(s.startedAt) === today);
   const byPerson = new Map<string, { name: string; minutes: number; shifts: number }>();
   for (const s of todays) {
     const row = byPerson.get(s.memberId) ?? { name: s.memberName, minutes: 0, shifts: 0 };

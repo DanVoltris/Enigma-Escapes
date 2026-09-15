@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { getBooking, logActivity, updateBookingFields } from "@/lib/db";
 import type { Participant } from "@/lib/types";
@@ -35,6 +35,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
 
     const participant: Participant = {
       id: randomUUID(),
@@ -67,6 +70,9 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     const participants = booking.customer.participants ?? [];
     const participant = participants.find((p) => p.id === pid);
     if (!participant) return NextResponse.json({ error: "That participant no longer exists." }, { status: 404 });

@@ -104,9 +104,20 @@ export async function deleteBlock(id: string): Promise<SlotBlock | undefined> {
   return rows[0] ? toBlock(rows[0]) : undefined;
 }
 
-// Clears every block on one date (optionally just for one room).
-export async function deleteBlocksForDate(date: string, roomId?: string): Promise<void> {
-  const roomFilter = roomId ? `&room_id=eq.${encodeURIComponent(roomId)}` : "";
+// One block, so a caller can check whose room it is before removing it.
+export async function getBlock(id: string): Promise<SlotBlock | undefined> {
+  const res = await rest(`slot_blocks?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+  if (res.status === 404) return undefined; // table not created yet
+  if (!res.ok) throw await restError(res, "Loading the blocked slot");
+  const rows = (await res.json()) as Row[];
+  return rows[0] ? toBlock(rows[0]) : undefined;
+}
+
+// Clears every block on one date (optionally just for some rooms).
+export async function deleteBlocksForDate(date: string, roomIds?: string[]): Promise<void> {
+  if (roomIds && roomIds.length === 0) return;
+  const list = roomIds?.map((r) => `"${r.replace(/"/g, '\\"')}"`).join(",");
+  const roomFilter = list ? `&room_id=in.(${encodeURIComponent(list)})` : "";
   const res = await rest(`slot_blocks?date=eq.${encodeURIComponent(date)}${roomFilter}`, {
     method: "DELETE",
     headers: { Prefer: "return=minimal" },

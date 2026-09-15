@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard, canSeeLocation } from "@/lib/auth";
+import { allowedLocations, apiGuard, canSeeLocation } from "@/lib/auth";
 import { createBlocks, deleteBlocksForDate } from "@/lib/blocks";
 import { logActivity } from "@/lib/db";
-import { getExperience } from "@/lib/experiences";
+import { getExperience, listExperiences } from "@/lib/experiences";
 import { formatDateLong, isValidISODate } from "@/lib/format";
 import { getLocationHours } from "@/lib/hours";
 import { startTimesFor } from "@/lib/schedule";
@@ -82,7 +82,19 @@ export async function DELETE(req: NextRequest) {
   if (!isValidISODate(date)) return NextResponse.json({ error: "Pick a valid date." }, { status: 400 });
   const roomId = typeof o.roomId === "string" && o.roomId ? o.roomId : undefined;
   try {
-    await deleteBlocksForDate(date, roomId);
+    let roomIds = roomId ? [roomId] : undefined;
+    // A location-limited account only sees its own locations' blocks, so "the
+    // whole day" has to mean theirs — not another store's private event, which
+    // would quietly go back on sale.
+    const scope = allowedLocations(guard.staff);
+    if (scope) {
+      const mine = new Set((await listExperiences()).filter((e) => scope.includes(e.location)).map((e) => e.id));
+      if (roomId && !mine.has(roomId)) {
+        return NextResponse.json({ error: "That room is at a location your account doesn't cover." }, { status: 403 });
+      }
+      roomIds = roomIds ?? [...mine];
+    }
+    await deleteBlocksForDate(date, roomIds);
     await logActivity(
       "Slots unblocked",
       `All blocks cleared on ${formatDateLong(date)} — ${guard.staff.name || guard.staff.email}`

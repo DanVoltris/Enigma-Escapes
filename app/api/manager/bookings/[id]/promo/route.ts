@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getPricingMode } from "@/lib/pricing-settings";
 import { getBooking, getPromo, logActivity, updateBookingFields } from "@/lib/db";
 import { computeTotals } from "@/lib/pricing";
+import { getRewardCode } from "@/lib/reward-codes";
 import { activeTaxPercent } from "@/lib/taxes";
 import type { Booking } from "@/lib/types";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 // Recompute a booking's pricing for a given discount, keeping what was already
 // paid. Tax uses the current configured rate (staff is editing the booking now).
-async function repriced(booking: Booking, percentOff: number): Promise<Booking["pricing"]> {
+async function repriced(booking: Booking, percentOff: number, feeDiscountable = true): Promise<Booking["pricing"]> {
   const taxPercent = await activeTaxPercent();
   const totals = computeTotals(
     booking.items,
@@ -18,7 +19,7 @@ async function repriced(booking: Booking, percentOff: number): Promise<Booking["
     taxPercent,
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
-    true // staff applying a promo by hand — same reach as one typed at checkout
+    feeDiscountable // a promo applied by hand has the same reach as one typed at checkout
   );
   return {
     ...booking.pricing,
@@ -50,9 +51,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     if (booking.promoCode) {
       return NextResponse.json(
         { error: `Promo ${booking.promoCode} is already applied. Remove it first.` },
+        { status: 409 }
+      );
+    }
+    // A booking made with a 20% reward code carries its discount without a
+    // promoCode. Repricing for a promo would replace that discount, and the
+    // one-time code is already spent. Checkout takes one code or the other, so
+    // the desk does too. (A reward voided by a cancellation no longer counts.)
+    if (booking.pricing.rewardCode && !booking.pricing.rewardVoidedAt) {
+      return NextResponse.json(
+        { error: `This booking already has reward code ${booking.pricing.rewardCode} applied — a promo can't be added on top.` },
         { status: 409 }
       );
     }
@@ -79,12 +93,21 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   try {
     const booking = await getBooking(id);
     if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+    if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+      return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+    }
     if (!booking.promoCode) {
       return NextResponse.json({ error: "This booking has no promo applied." }, { status: 400 });
     }
 
     const removed = booking.promoCode;
-    const pricing = await repriced(booking, 0);
+    // A promo stacked on a reward booking before that was refused: removing it
+    // goes back to the reward's discount, not to full price.
+    const reward =
+      booking.pricing.rewardCode && !booking.pricing.rewardVoidedAt
+        ? await getRewardCode(booking.pricing.rewardCode)
+        : undefined;
+    const pricing = reward ? await repriced(booking, reward.percentOff, false) : await repriced(booking, 0);
     await updateBookingFields(id, { pricing, promoCode: null });
     await logActivity("Removed promo", `${removed} from ${booking.reference}`);
     return NextResponse.json({ ok: true, pricing, promoCode: null });

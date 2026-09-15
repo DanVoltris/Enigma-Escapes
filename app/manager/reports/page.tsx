@@ -27,6 +27,7 @@ import {
   nowMinutesInBusinessTZ,
   todayISO,
 } from "@/lib/format";
+import { refundGoingBackCents } from "@/lib/pricing";
 import type { Booking } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -255,12 +256,15 @@ function SalesTab({
   params: { range?: string; from?: string; to?: string; status?: string };
 }) {
   const sum = (list: Booking[], f: (b: Booking) => number) => list.reduce((s, b) => s + f(b), 0);
+  // A refund leaves paidCents alone (lib/refunds.ts), so it comes off here —
+  // money handed back isn't money the business kept.
+  const kept = (b: Booking) => b.pricing.paidCents - refundGoingBackCents(b.pricing);
   const now = {
     count: purchased.length,
     sales: sum(purchased, (b) => b.pricing.totalCents),
     taxes: sum(purchased, (b) => b.pricing.gstCents),
     discounts: sum(purchased, (b) => b.pricing.discountCents),
-    paid: sum(purchased, (b) => b.pricing.paidCents),
+    paid: sum(purchased, kept),
     unpaid: sum(purchased, (b) => Math.max(0, b.pricing.balanceCents)),
   };
   const was = {
@@ -268,7 +272,7 @@ function SalesTab({
     sales: sum(prev, (b) => b.pricing.totalCents),
     taxes: sum(prev, (b) => b.pricing.gstCents),
     discounts: sum(prev, (b) => b.pricing.discountCents),
-    paid: sum(prev, (b) => b.pricing.paidCents),
+    paid: sum(prev, kept),
     unpaid: sum(prev, (b) => Math.max(0, b.pricing.balanceCents)),
   };
 
@@ -646,8 +650,12 @@ function PaymentsTab({ purchased }: { purchased: Booking[] }) {
   const manual = purchased.flatMap((b) =>
     (b.pricing.payments ?? []).map((p) => ({ ...p, reference: b.reference, bookingId: b.id }))
   );
-  const manualCents = manual.reduce((s, p) => s + p.amountCents, 0);
-  const paidCents = purchased.reduce((s, b) => s + b.pricing.paidCents, 0);
+  // Refunds leave paidCents and each payment's amount alone (lib/refunds.ts),
+  // so what went back is taken off here. A venue payment carries its own
+  // refunded share; whatever else was refunded came off the checkout payment.
+  const manualCents = manual.reduce((s, p) => s + p.amountCents - (p.refundedCents ?? 0), 0);
+  const refundCents = purchased.reduce((s, b) => s + refundGoingBackCents(b.pricing), 0);
+  const paidCents = purchased.reduce((s, b) => s + b.pricing.paidCents, 0) - refundCents;
   const onlineCents = paidCents - manualCents;
   const label: Record<string, string> = { cash: "Cash", card: "Card (terminal)", etransfer: "E-transfer", other: "Other" };
   const byMethod = new Map<string, { count: number; cents: number }>();
@@ -656,7 +664,7 @@ function PaymentsTab({ purchased }: { purchased: Booking[] }) {
     const key = label[p.method] ?? p.method;
     const agg = byMethod.get(key) ?? { count: 0, cents: 0 };
     agg.count += 1;
-    agg.cents += p.amountCents;
+    agg.cents += p.amountCents - (p.refundedCents ?? 0);
     byMethod.set(key, agg);
   }
 
@@ -667,6 +675,12 @@ function PaymentsTab({ purchased }: { purchased: Booking[] }) {
           <div className="label">Collected</div>
           <div className="value">{formatMoney(paidCents)}</div>
         </div>
+        {refundCents > 0 && (
+          <div className="rpt-tile">
+            <div className="label">Refunded</div>
+            <div className="value">{formatMoney(refundCents)}</div>
+          </div>
+        )}
         <div className="rpt-tile">
           <div className="label">Online checkout</div>
           <div className="value">{formatMoney(onlineCents)}</div>

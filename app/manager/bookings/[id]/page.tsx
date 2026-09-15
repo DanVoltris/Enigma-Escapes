@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, requirePermission } from "@/lib/auth";
+import { canSeeLocation, hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
 import EditCustomer from "@/components/manager/EditCustomer";
@@ -33,6 +33,9 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     listTaxes(),
   ]);
   if (!booking) notFound();
+  // Scoped accounts reach bookings by id from links elsewhere; the list only
+  // shows bookings with a session in their locations, so neither does this.
+  if (!booking.items.some((i) => canSeeLocation(staff, i.location))) notFound();
 
   const { customer, items, pricing } = booking;
   const emailReady = emailConfigured();

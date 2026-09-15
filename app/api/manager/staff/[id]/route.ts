@@ -27,6 +27,22 @@ async function lastAdminProblem(targetId: string, becomingInactiveOrDemoted: boo
   return null;
 }
 
+// The same lockout by another route: accounts are managed with the "staff"
+// permission, not the admin role, so taking it off the last active account that
+// holds it would leave nobody able to open Team — and /login setup is closed
+// once any account exists.
+async function lastStaffManagerProblem(
+  target: { id: string; active: boolean; permissions: Permission[] },
+  losingIt: boolean
+): Promise<string | null> {
+  if (!losingIt || !target.active || !target.permissions.includes("staff")) return null;
+  const others = (await listStaff()).filter((s) => s.id !== target.id && s.active && s.permissions.includes("staff"));
+  if (others.length === 0) {
+    return "This is the only active account that can manage staff accounts — give that access to someone else first.";
+  }
+  return null;
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await apiGuard("staff");
   if (guard.response) return guard.response;
@@ -56,6 +72,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     patch.active === false || (patch.role !== undefined && patch.role !== "admin" && target.role === "admin")
   );
   if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+  const staffProblem = await lastStaffManagerProblem(
+    target,
+    patch.active === false || (patch.permissions !== undefined && !patch.permissions.includes("staff"))
+  );
+  if (staffProblem) return NextResponse.json({ error: staffProblem }, { status: 400 });
 
   try {
     await updateStaff(id, patch);
