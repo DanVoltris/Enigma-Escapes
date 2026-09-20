@@ -12,6 +12,7 @@ import { startTimesFor } from "./schedule";
 import { activeTaxPercent } from "./taxes";
 import {
   CORPORATE_LEAD_IN_MINUTES,
+  STAFF_BOOKING_WINDOW_DAYS,
   cardDueCents,
   computeTotals,
   voucherAppliedCents,
@@ -91,7 +92,11 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   }
 
   const today = todayISO();
-  const lastBookable = addDaysISO(today, (await getSiteSettings()).windowDays);
+  const windowDays = (await getSiteSettings()).windowDays;
+  const lastBookable = addDaysISO(
+    today,
+    source === "in_person" ? Math.max(windowDays, STAFF_BOOKING_WINDOW_DAYS) : windowDays
+  );
   const items: CartItem[] = [];
   let percentOff = 0;
   let promoCode: string | null = null;
