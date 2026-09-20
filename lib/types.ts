@@ -81,6 +81,11 @@ export type CartItem = {
   date: string;
   time: string;
   quantity: number;
+  // How many the room is charged for, when that is more than turned up: a venue
+  // with a minimum charge bills a pair as the minimum (Settings → Taxes & fees).
+  // Absent means charged for exactly `quantity`, which is every booking at a
+  // venue without the rule and every booking taken before it existed.
+  chargedQuantity?: number;
   priceCents: number;
   durationMinutes: number;
   depositPercent: number; // carried from the experience so totals can blend deposits

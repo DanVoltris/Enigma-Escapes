@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { lineCents } from "@/lib/pricing";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import EditCustomerProfile from "@/components/manager/EditCustomerProfile";
 import { notFound } from "next/navigation";
@@ -105,7 +106,7 @@ export default async function ManagerCustomerDetail({
       when: `${formatDateLong(i.date)} · ${formatTime(i.time)}`,
       duration: `${i.durationMinutes} min`,
       quantity: i.quantity,
-      amountCents: i.priceCents * i.quantity,
+      amountCents: lineCents(i),
     }))
   );
   const payments: Payment[] = bookings.map((b) => ({

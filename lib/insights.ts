@@ -1,5 +1,5 @@
 import { businessDateOf, businessWeekdayOf } from "./format";
-import { refundGoingBackCents } from "./pricing";
+import { lineCents, refundGoingBackCents } from "./pricing";
 import type { Booking } from "./types";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -81,7 +81,7 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
     for (const item of b.items) {
       const e = experience.get(item.roomName) ?? { guests: 0, grossCents: 0, sessions: 0 };
       e.guests += item.quantity;
-      e.grossCents += item.priceCents * item.quantity;
+      e.grossCents += lineCents(item);
       e.sessions += 1; // one item = one booked session of this room
       experience.set(item.roomName, e);
     }

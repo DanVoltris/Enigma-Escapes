@@ -16,6 +16,9 @@ export type DocumentLine = {
   date?: string | null; // ISO
   time?: string | null; // HH:MM
   quantity: number;
+  // Set only when a venue's minimum charge bills more than turned up, so the
+  // line reads "2 (charged for 3)" and the money adds up on the page.
+  chargedQuantity?: number;
   unitCents: number;
   lineCents: number;
 };
@@ -93,7 +96,7 @@ export function renderDocument(d: DocumentData): string {
           <div style="color:${INK};font-size:15px;font-weight:600;">${esc(l.roomName)}</div>
           ${sub ? `<div style="color:${MUTED};font-size:13px;padding-top:2px;">${esc(sub)}</div>` : ""}
         </td>
-        <td align="center" style="padding:12px 8px;border-bottom:1px solid ${LINE};color:${INK};font-size:15px;vertical-align:top;white-space:nowrap;">${l.quantity}</td>
+        <td align="center" style="padding:12px 8px;border-bottom:1px solid ${LINE};color:${INK};font-size:15px;vertical-align:top;white-space:nowrap;">${l.chargedQuantity && l.chargedQuantity > l.quantity ? `${l.quantity}<br><span style="font-size:12px;color:${MUTED};">charged for ${l.chargedQuantity}</span>` : l.quantity}</td>
         <td align="right" style="padding:12px 8px;border-bottom:1px solid ${LINE};color:${MUTED};font-size:15px;vertical-align:top;white-space:nowrap;">${esc(formatMoney(l.unitCents))}</td>
         <td align="right" style="padding:12px 0;border-bottom:1px solid ${LINE};color:${INK};font-size:15px;vertical-align:top;white-space:nowrap;">${esc(formatMoney(l.lineCents))}</td>
       </tr>`;

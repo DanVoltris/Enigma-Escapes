@@ -3,6 +3,7 @@ import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking, logActivity } from "@/lib/db";
 import { documentSubject, renderDocument, type DocumentLine } from "@/lib/documents";
+import { lineCents as lineOf } from "@/lib/pricing";
 import { emailConfigured, isEmail, sendEmail } from "@/lib/email";
 import { getBusinessDetails } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -65,8 +66,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     date: i.date,
     time: i.time,
     quantity: i.quantity,
+    ...(i.chargedQuantity && i.chargedQuantity > i.quantity ? { chargedQuantity: i.chargedQuantity } : {}),
     unitCents: i.priceCents,
-    lineCents: i.priceCents * i.quantity,
+    lineCents: lineOf(i),
   }));
   // A corporate flat fee is charged once for the whole booking, so it is its
   // own line rather than being folded into a room's price.

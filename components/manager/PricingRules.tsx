@@ -14,6 +14,7 @@ export default function PricingRules({ initial, taxPercent }: { initial: Pricing
     initial.depositFlatCents != null ? (initial.depositFlatCents / 100).toString() : ""
   );
   const [corporateFee, setCorporateFee] = useState((initial.corporateFeeCents / 100).toString());
+  const [minCharged, setMinCharged] = useState(initial.minChargedGuests > 0 ? String(initial.minChargedGuests) : "");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +47,12 @@ export default function PricingRules({ initial, taxPercent }: { initial: Pricing
         headers: { "Content-Type": "application/json" },
         // The fee rides along on every save: the API stores the whole pricing
         // mode, so leaving it out would reset it to the default.
-        body: JSON.stringify({ taxInclusive, depositFlatCents: cents, corporateFeeCents: feeCents }),
+        body: JSON.stringify({
+          taxInclusive,
+          depositFlatCents: cents,
+          corporateFeeCents: feeCents,
+          minChargedGuests: minCharged.trim() === "" ? 0 : Math.round(Number(minCharged)),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not save. Try again.");
@@ -117,6 +123,26 @@ export default function PricingRules({ initial, taxPercent }: { initial: Pricing
           />
           <p className="field-hint">
             Charged once on a corporate booking or invoice, on top of the rooms at their usual per-person price.
+          </p>
+        </div>
+
+        <div className="field" style={{ maxWidth: 220 }}>
+          <label htmlFor="min-charged">Smallest party charged for</label>
+          <input
+            id="min-charged"
+            type="number"
+            min="0"
+            max="12"
+            step="1"
+            value={minCharged}
+            onChange={(e) => {
+              setMinCharged(e.target.value);
+              setSaved(false);
+            }}
+          />
+          <p className="field-hint">
+            A group smaller than this pays for this many. Enigma runs a room for two but charges for three, so a
+            pair pays 3 × the per-person price. Leave blank for no minimum — everyone pays for who turns up.
           </p>
         </div>
 

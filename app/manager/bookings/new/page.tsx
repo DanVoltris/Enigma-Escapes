@@ -44,7 +44,11 @@ export default async function NewWalkInPage() {
         Record a booking taken in person or over the phone. It&apos;s tagged as in-person so you can see the
         split against online bookings on the dashboard.
       </p>
-      <WalkInWithShift people={people} corporateFeeCents={pricingMode.corporateFeeCents} />
+      <WalkInWithShift
+        people={people}
+        corporateFeeCents={pricingMode.corporateFeeCents}
+        minChargedGuests={pricingMode.minChargedGuests}
+      />
     </>
   );
 }

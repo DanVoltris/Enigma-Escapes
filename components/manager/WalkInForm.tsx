@@ -63,9 +63,13 @@ export function rollForward(sessions: Session[], today: string): Session[] {
 export default function WalkInForm({
   onRoomChange,
   corporateFeeCents,
+  minChargedGuests,
 }: {
   onRoomChange?: (roomId: string) => void;
   corporateFeeCents: number; // this venue's, from Settings → Taxes & fees
+  // The smallest party the venue charges for (0 = no minimum). A pair booked at
+  // a venue with a minimum of three pays for three, here and at save time.
+  minChargedGuests: number;
 }) {
   const router = useRouter();
   // Live, not frozen at page load. The desk leaves this form open, and a form
@@ -320,9 +324,10 @@ export default function WalkInForm({
 
   const removeSession = (key: number) => setSessions((prev) => prev.filter((x) => x.key !== key));
 
+  const chargedFor = (quantity: number) => Math.max(quantity, minChargedGuests);
   const roomsTotal = sessions.reduce((sum, x) => {
     const exp = expFor(x);
-    return sum + (exp ? exp.priceCents * x.quantity : 0);
+    return sum + (exp ? exp.priceCents * chargedFor(x.quantity) : 0);
   }, 0);
   // The fee is charged once for the booking, however many rooms it holds.
   const subtotal = roomsTotal + (corporate ? corporateFeeCents : 0);
@@ -633,6 +638,9 @@ export default function WalkInForm({
                     +
                   </button>
                 </div>
+                {chargedFor(x.quantity) > x.quantity && (
+                  <p className="field-hint">Charged for {chargedFor(x.quantity)} — the smallest party we bill.</p>
+                )}
               </div>
             </div>
           </div>

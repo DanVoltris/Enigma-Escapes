@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { lineCents } from "@/lib/pricing";
 import BarChart from "@/components/manager/BarChart";
 import Delta from "@/components/manager/Delta";
 import DateJump from "@/components/manager/DateJump";
@@ -177,7 +178,7 @@ async function OperationsView({
   }
   const gamesToday = todayItems.length;
   const guestsToday = todayItems.reduce((sum, t) => sum + t.item.quantity, 0);
-  const expectedRevenueToday = todayItems.reduce((sum, t) => sum + t.item.priceCents * t.item.quantity, 0);
+  const expectedRevenueToday = todayItems.reduce((sum, t) => sum + lineCents(t.item), 0);
   // createdAt is a UTC timestamp; "today" is the venue's day, so an evening
   // booking must not land on tomorrow.
   const newBookingsToday = bookings.filter((b) => businessDateOf(b.createdAt) === today).length;

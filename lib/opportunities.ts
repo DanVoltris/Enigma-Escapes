@@ -10,6 +10,7 @@
 // against the database without a browser.
 import { WEEKDAYS, withoutTests } from "./behaviour";
 import { parseISODate } from "./format";
+import { lineCents } from "./pricing";
 import type { Booking, Experience } from "./types";
 
 export type PublishedSlot = { roomId: string; date: string; time: string };
@@ -43,7 +44,7 @@ function soldSessions(bookings: Booking[], from: string, to: string): Sold[] {
     if (b.status === "cancelled") continue;
     for (const i of b.items) {
       if (i.date < from || i.date > to || !i.time) continue;
-      out.push({ roomId: i.roomId, date: i.date, time: i.time, guests: i.quantity, cents: i.priceCents * i.quantity });
+      out.push({ roomId: i.roomId, date: i.date, time: i.time, guests: i.quantity, cents: lineCents(i) });
     }
   }
   return out;
