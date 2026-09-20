@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, requirePermission } from "@/lib/auth";
+import { canSeeLocation, hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
 import EditCustomer from "@/components/manager/EditCustomer";
@@ -33,6 +33,9 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     listTaxes(),
   ]);
   if (!booking) notFound();
+  // Scoped accounts reach bookings by id from links elsewhere; the list only
+  // shows bookings with a session in their locations, so neither does this.
+  if (!booking.items.some((i) => canSeeLocation(staff, i.location))) notFound();
 
   const { customer, items, pricing } = booking;
   const emailReady = emailConfigured();
@@ -123,8 +126,10 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               {booking.status === "cancelled" && (
                 <p className="bk-cancelled-note">
                   <strong>This booking was cancelled.</strong> The spots are back on sale and nothing further is owed
-                  {pricing.refundOwedCents
-                    ? ` — a refund of ${formatMoney(pricing.refundOwedCents)} is still to be settled`
+                  {/* Owed is the whole refund and refunded the part already
+                      back (lib/pricing.ts), so only the difference is unsettled. */}
+                  {(pricing.refundOwedCents ?? 0) > (pricing.refundedCents ?? 0)
+                    ? ` — a refund of ${formatMoney((pricing.refundOwedCents ?? 0) - (pricing.refundedCents ?? 0))} is still to be settled`
                     : ""}
                   .
                 </p>

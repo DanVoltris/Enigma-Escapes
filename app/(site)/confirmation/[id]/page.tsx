@@ -30,8 +30,9 @@ export default async function ConfirmationPage({
 
   // Stripe flow: the customer lands here straight from Stripe with the session
   // id. Verify payment server-side and finalize — the webhook does the same
-  // (idempotently) for customers who never return.
-  if (booking.status === "pending" && stripeConfigured()) {
+  // (idempotently) for customers who never return. A cancelled booking goes
+  // through it too: paid after staff cancelled it, the money is sent back there.
+  if ((booking.status === "pending" || booking.status === "cancelled") && stripeConfigured()) {
     const { sid } = await searchParams;
     if (sid) {
       try {
@@ -73,6 +74,26 @@ export default async function ConfirmationPage({
           </p>
         </div>
       </>
+    );
+  }
+
+  // A checkout cancelled while the customer was still paying lands here from
+  // Stripe too. The payment goes back (finalizeBookingPayment), so it must not
+  // read as a confirmed booking.
+  if (booking.status === "cancelled") {
+    return (
+      <div className="empty-state">
+        <h1 className="page-title">This booking is cancelled</h1>
+        <p>
+          Booking <strong>{booking.reference}</strong> has been cancelled, so it isn&apos;t going ahead. Your booking
+          page shows what is being refunded.
+        </p>
+        <p style={{ marginTop: 16 }}>
+          <Link href={`/booking/${booking.id}`} className="btn">
+            View booking
+          </Link>
+        </p>
+      </div>
     );
   }
 

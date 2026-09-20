@@ -7,7 +7,11 @@
 //
 // Flow: create a card_present PaymentIntent → hand it to the reader → poll
 // until the customer taps → record the payment on the booking.
+import { randomUUID } from "crypto";
+import { getBooking, logActivity, updateBookingFields } from "./db";
+import { formatMoney } from "./format";
 import { stripeConfigured, stripeRequest } from "./stripe";
+import type { Booking, BookingPayment } from "./types";
 
 export type TerminalReader = {
   id: string;
@@ -83,6 +87,42 @@ export async function getIntentState(paymentIntentId: string): Promise<IntentSta
     amountCents: Number(data.amount ?? 0),
     lastError: err?.message ?? null,
   };
+}
+
+// Writes a reader payment Stripe says succeeded onto the booking — once, keyed
+// on the intent id, however many times it's asked. Shared by the Today screen's
+// poll and its Cancel button: a tap that lands as staff cancel, or after the
+// poll has stopped, is still money taken, and leaving it off the booking showed
+// the balance as due and invited a second charge.
+export async function recordReaderPayment(
+  bookingId: string,
+  paymentIntentId: string,
+  amountCents: number,
+  payer: string
+): Promise<{ booking: Booking; pricing: Booking["pricing"] | null } | undefined> {
+  const booking = await getBooking(bookingId);
+  if (!booking) return undefined;
+  if ((booking.pricing.payments ?? []).some((p) => p.intentId === paymentIntentId)) {
+    return { booking, pricing: null };
+  }
+  const payment: BookingPayment = {
+    id: randomUUID(),
+    method: "card",
+    amountCents,
+    payer: payer.trim().slice(0, 60) || null,
+    note: "Card reader",
+    at: new Date().toISOString(),
+    intentId: paymentIntentId,
+  };
+  const pricing = {
+    ...booking.pricing,
+    paidCents: booking.pricing.paidCents + payment.amountCents,
+    balanceCents: Math.max(0, booking.pricing.balanceCents - payment.amountCents),
+    payments: [...(booking.pricing.payments ?? []), payment],
+  };
+  await updateBookingFields(bookingId, { pricing });
+  await logActivity("Card payment taken", `${formatMoney(payment.amountCents)} on ${booking.reference} (reader)`);
+  return { booking, pricing };
 }
 
 export async function cancelIntent(paymentIntentId: string): Promise<void> {

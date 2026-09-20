@@ -34,8 +34,12 @@ const minutesSince = (iso: string | null): number =>
 // someone who rings the venue instead of texting back has still confirmed, and
 // before this existed the hold lapsed underneath them and cancelled a booking
 // they had just been told was fine.
-export async function confirmRequest(request: BookingRequest, by?: string): Promise<void> {
-  await setRequestStatus(request.id, "confirmed", request.bookingId ?? undefined);
+//
+// Returns false, having done nothing, when the request is no longer awaiting a
+// reply — released by the sweep a moment before the Y arrived, say. Telling
+// them "you're booked" then would be telling them about a cancelled booking.
+export async function confirmRequest(request: BookingRequest, by?: string): Promise<boolean> {
+  if (!(await setRequestStatus(request.id, "confirmed", request.bookingId ?? undefined, "accepted"))) return false;
   const booking = request.bookingId ? await getBooking(request.bookingId) : undefined;
   await notifyRequestConfirmed(request, booking?.reference ?? "—");
   pushRequestConfirmed(request, by);
@@ -44,15 +48,51 @@ export async function confirmRequest(request: BookingRequest, by?: string): Prom
     `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} ` +
       (by ? `— confirmed at the desk by ${by}` : "replied Y")
   );
+  return true;
 }
 
 // Customer said no, or ran out of time. The booking goes with it, which is what
 // frees the slot — the request row alone doesn't hold anything once it's dead.
+//
+// The request is claimed first, and only while it is still awaiting a reply:
+// two sweeps overlapping would otherwise both release it (two "gone back on
+// sale" texts), and a sweep holding a copy loaded before the customer's Y would
+// cancel a booking they had just been told was confirmed. Returns whether this
+// call was the one that released it.
 export async function releaseRequest(
   request: BookingRequest,
   reason: "declined-by-customer" | "no-reply",
   origin: string
-): Promise<void> {
+): Promise<boolean> {
+  // Staff may have taken the booking in hand since accepting it — taken payment
+  // at the desk, moved it for someone who rang, or cancelled it themselves —
+  // without pressing "They confirmed". Cancelling it now would record nothing
+  // owed over money actually taken, free a slot the group still has, or wipe the
+  // refund staff recorded. So the request is closed to match, and nobody is texted.
+  let booking;
+  try {
+    booking = request.bookingId ? await getBooking(request.bookingId) : undefined;
+  } catch (err) {
+    console.error("loading the booking behind a request to release failed:", err);
+    return false; // the next sweep tries again
+  }
+  if (booking) {
+    const cancelled = booking.status === "cancelled";
+    const moved = !booking.items.some(
+      (i) => i.roomId === request.roomId && i.date === request.date && i.time === request.time
+    );
+    if (cancelled || moved || booking.pricing.paidCents > 0) {
+      if (await setRequestStatus(request.id, cancelled ? "cancelled" : "confirmed", undefined, "accepted")) {
+        await logActivity(
+          "Booking request closed",
+          `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} — ` +
+            `not released: ${booking.reference} was already ${cancelled ? "cancelled" : moved ? "moved" : "paid"}`
+        );
+      }
+      return false;
+    }
+  }
+  if (!(await setRequestStatus(request.id, "cancelled", request.bookingId ?? undefined, "accepted"))) return false;
   if (request.bookingId) {
     try {
       // Nothing was taken, so nothing is owed back.
@@ -61,15 +101,15 @@ export async function releaseRequest(
       console.error("cancelling the booking behind a released request failed:", err);
     }
   }
-  await setRequestStatus(request.id, "cancelled", request.bookingId ?? undefined);
   if (reason === "declined-by-customer") await notifyRequestReleased(request);
   else await notifyRequestLapsed(request, origin);
   pushRequestReleased(request, reason, origin);
   await logActivity(
     "Booking request released",
     `${request.roomName} ${formatTime(request.time)} — ${request.firstName} ${request.lastName} — ` +
-      (reason === "no-reply" ? "no reply in 30 minutes" : "customer replied N")
+      (reason === "no-reply" ? "no reply in time" : "customer replied N")
   );
+  return true;
 }
 
 // Run on a timer: nudge the ones halfway through their window, release the ones
@@ -87,13 +127,12 @@ export async function sweepAwaitingReplies(origin: string): Promise<{ reminded: 
     const { deadline, reminderAt } = replyWindow(minutesUntilSlot(request.date, request.time), waited);
     if (deadline === null) continue;
     if (waited >= deadline) {
-      await releaseRequest(request, "no-reply", origin);
-      released++;
+      if (await releaseRequest(request, "no-reply", origin)) released++;
     } else if (reminderAt !== null && waited >= reminderAt && !request.remindedAt) {
       // Stamp first, text second: if we can't record that we reminded them, we
       // don't remind them, or every sweep would send it again.
       if (await markReminded(request.id)) {
-        await notifyReplyReminder(request);
+        await notifyReplyReminder(request, deadline - waited);
         reminded++;
       }
     }
@@ -117,8 +156,10 @@ export async function sweepIfDue(origin: string): Promise<void> {
   try {
     const last = await getSetting<string>(SWEEP_KEY);
     if (last.value && minutesSince(last.value) < SWEEP_EVERY_MINUTES) return;
-    // Claim the slot before doing the work, so two requests arriving together
-    // don't both sweep and double-send.
+    // Claim the slot before doing the work, so most requests arriving together
+    // don't both sweep. This read-then-write can still let two through (and the
+    // cron route can overlap it); what stops a double send is that each reminder
+    // and release claims its own request before texting.
     await saveSetting(SWEEP_KEY, new Date().toISOString());
     await sweepAwaitingReplies(origin);
   } catch (err) {

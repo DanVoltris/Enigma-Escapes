@@ -14,6 +14,7 @@ import { startTimesFor } from "@/lib/schedule";
 import { getSetting } from "@/lib/settings";
 import {
   addDaysISO,
+  businessDateOf,
   formatDateLong,
   formatMoney,
   formatTime,
@@ -177,7 +178,9 @@ async function OperationsView({
   const gamesToday = todayItems.length;
   const guestsToday = todayItems.reduce((sum, t) => sum + t.item.quantity, 0);
   const expectedRevenueToday = todayItems.reduce((sum, t) => sum + t.item.priceCents * t.item.quantity, 0);
-  const newBookingsToday = bookings.filter((b) => b.createdAt.slice(0, 10) === today).length;
+  // createdAt is a UTC timestamp; "today" is the venue's day, so an evening
+  // booking must not land on tomorrow.
+  const newBookingsToday = bookings.filter((b) => businessDateOf(b.createdAt) === today).length;
 
   // With hoursFromSchedule the chart's hours are the day's own: every hour a
   // session starts at the rooms in view (the calendar's schedule), plus any

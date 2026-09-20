@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking } from "@/lib/db";
+import { getExperience } from "@/lib/experiences";
 import { isValidISODate } from "@/lib/format";
 import { rescheduleForStaff } from "@/lib/manage-booking";
 import { notifyBookingRescheduled } from "@/lib/sms";
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const booking = await getBooking(id);
   if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+  if (!booking.items.every((i) => canSeeLocation(guard.staff, i.location))) {
+    return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+  }
   if (booking.status === "cancelled") {
     return NextResponse.json({ error: "That booking is cancelled — it can't be moved." }, { status: 400 });
   }
@@ -34,13 +38,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "That session is no longer on this booking." }, { status: 400 });
   }
 
+  // Moving can switch room, and the room it lands in has to be one of theirs too.
+  const roomId = typeof o.roomId === "string" && o.roomId ? o.roomId : undefined;
+  if (roomId) {
+    const room = await getExperience(roomId);
+    if (room && !canSeeLocation(guard.staff, room.location)) {
+      return NextResponse.json({ error: "That room is at a location your account doesn't cover." }, { status: 403 });
+    }
+  }
+
   try {
     const result = await rescheduleForStaff(
       booking,
       {
         date,
         time,
-        roomId: typeof o.roomId === "string" && o.roomId ? o.roomId : undefined,
+        roomId,
         // Only an explicit true lets the move sit off the room's published grid.
         customTime: o.customTime === true,
       },

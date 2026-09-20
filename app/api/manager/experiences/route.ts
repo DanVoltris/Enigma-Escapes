@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { createExperience, getExperience, listExperiences } from "@/lib/experiences";
 import { parseExperienceInput, slugify } from "@/lib/experience-validation";
 import { logActivity } from "@/lib/db";
@@ -18,6 +18,9 @@ export async function POST(req: NextRequest) {
 
   const parsed = parseExperienceInput(body);
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  if (!canSeeLocation(guard.staff, parsed.location)) {
+    return NextResponse.json({ error: "That location isn't one your account covers." }, { status: 403 });
+  }
 
   try {
     const id = slugify(parsed.name);

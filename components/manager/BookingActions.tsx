@@ -98,7 +98,11 @@ export default function BookingActions({
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not cancel that booking.");
       const d = data as { refundedCents: number; owedCents: number; rewardNote?: string | null };
       const base =
-        d.refundedCents > 0
+        // Only the online payment goes back automatically, so a booking also
+        // paid at the desk can be part refunded and part still owed.
+        d.refundedCents > 0 && d.owedCents > d.refundedCents
+          ? `Cancelled — ${formatMoney(d.refundedCents)} refunded to the card, ${formatMoney(d.owedCents - d.refundedCents)} still to refund by hand.`
+          : d.refundedCents > 0
           ? `Cancelled — ${formatMoney(d.refundedCents)} refunded.`
           : d.owedCents > 0
             ? `Cancelled — ${formatMoney(d.owedCents)} still to refund by hand.`

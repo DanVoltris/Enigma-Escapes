@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasGuessableId } from "@/lib/legacy-booking-id";
-import { apiGuard } from "@/lib/auth";
+import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking, logActivity } from "@/lib/db";
 import { documentSubject, renderDocument, type DocumentLine } from "@/lib/documents";
 import { emailConfigured, isEmail, sendEmail } from "@/lib/email";
@@ -26,6 +26,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   const booking = await getBooking(id);
   if (!booking) return NextResponse.json({ error: "That booking no longer exists." }, { status: 404 });
+  // Same rule as the booking page: a booking with any session in their locations.
+  if (!booking.items.some((i) => canSeeLocation(guard.staff, i.location))) {
+    return NextResponse.json({ error: "That booking is at a location your account doesn't cover." }, { status: 403 });
+  }
 
   let to = booking.customer.email || "";
   try {
@@ -86,7 +90,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     customerEmail: to,
     lines,
     totals: {
-      subtotalCents: p.subtotalCents,
+      // Before the discount, as the confirmation page shows it: the stored
+      // subtotal is already net of it, and the receipt takes it off again.
+      subtotalCents: p.subtotalCents + p.discountCents,
       discountCents: p.discountCents,
       taxCents: p.gstCents,
       taxLabel: b.taxLabel || "GST",

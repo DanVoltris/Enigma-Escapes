@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
-import { CORPORATE_LEAD_IN_MINUTES } from "@/lib/pricing";
+import { CORPORATE_LEAD_IN_MINUTES, STAFF_BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 import { minutesOfTime, minutesToTime } from "@/lib/capacity";
-import { BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 
 // Staff can book walk-ins of any size; the 4-person minimum is customer-only.
 const WALK_IN_MIN = 1;
@@ -609,7 +608,7 @@ export default function WalkInForm({
                 <DatePicker
                   value={x.date}
                   min={today}
-                  max={addDaysISO(today, BOOKING_WINDOW_DAYS)}
+                  max={addDaysISO(today, STAFF_BOOKING_WINDOW_DAYS)}
                   onChange={(v) => changeDate(x.key, v)}
                 />
               </div>

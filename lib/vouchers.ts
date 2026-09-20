@@ -116,7 +116,10 @@ export async function listVoucherPage(query: VoucherQuery = {}): Promise<Voucher
     // Commas and parens would break out of the or() grouping, so drop them.
     const safe = q.replace(/[(),*]/g, "").slice(0, 80);
     if (safe) {
-      const like = `*${safe}*`;
+      // Encoded, or the query string eats it: "+" reads as a space (so a
+      // plus-addressed purchaser email never matches), "&" and "#" cut the
+      // filter short and the whole search fails.
+      const like = `*${encodeURIComponent(safe)}*`;
       parts.push(`or=(code.ilike.${like},purchaser.ilike.${like},email.ilike.${like})`);
     }
   }
@@ -183,8 +186,10 @@ function isSpent(v: { redemptionType: string; remainingCents: number; spacesLeft
   return v.redemptionType === "spaces" ? (v.spacesLeft ?? 0) <= 0 : v.remainingCents <= 0;
 }
 
-async function patchVoucher(code: string, body: Record<string, unknown>): Promise<boolean> {
-  const res = await rest(`gift_vouchers?code=eq.${encodeURIComponent(code)}`, {
+// `expect` adds filters the row must still match (a compare-and-swap); false
+// back means it didn't, and nothing was written.
+async function patchVoucher(code: string, body: Record<string, unknown>, expect = ""): Promise<boolean> {
+  const res = await rest(`gift_vouchers?code=eq.${encodeURIComponent(code)}${expect}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(body),
@@ -328,39 +333,56 @@ export async function redeemVoucher(
   amount: number, // cents, or a number of spaces when redemptionType is "spaces"
   ctx: RedeemContext
 ): Promise<RedeemResult> {
-  const v = await getVoucher(code);
-  if (!v) return { ok: false, error: "No voucher with that code." };
+  // Each write only lands if the balance is still the one it was worked out
+  // from (the same compare-and-swap spendVoucher uses). A plain write here let
+  // the desk overwrite an online checkout spending the same code at that
+  // moment, leaving money on a voucher that had already paid it out.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const v = await getVoucher(code);
+    if (!v) return { ok: false, error: "No voucher with that code." };
 
-  const problem = voucherProblem(v, ctx);
-  if (problem) return { ok: false, error: problem };
-  if (!Number.isInteger(amount) || amount <= 0) {
-    return { ok: false, error: "Enter an amount greater than zero." };
-  }
+    const problem = voucherProblem(v, ctx);
+    if (problem) return { ok: false, error: problem };
+    if (!Number.isInteger(amount) || amount <= 0) {
+      return { ok: false, error: "Enter an amount greater than zero." };
+    }
 
-  if (v.redemptionType === "spaces") {
-    const left = v.spacesLeft ?? 0;
-    if (amount > left) return { ok: false, error: `Only ${left} space(s) left on this voucher.` };
-    // One-time use burns whatever is left, however little was actually spent.
-    const after = v.oneTimeUse ? 0 : left - amount;
-    await patchVoucher(code, {
-      spaces_left: after,
-      last_used_at: new Date().toISOString(),
-      ...(after <= 0 ? { active: false } : {}),
-    });
-    return { ok: true, spent: amount, remainingCents: v.remainingCents, spacesLeft: after, forfeitedCents: 0 };
-  }
+    if (v.redemptionType === "spaces") {
+      const left = v.spacesLeft ?? 0;
+      if (amount > left) return { ok: false, error: `Only ${left} space(s) left on this voucher.` };
+      // One-time use burns whatever is left, however little was actually spent.
+      const after = v.oneTimeUse ? 0 : left - amount;
+      const swapped = await patchVoucher(
+        code,
+        {
+          spaces_left: after,
+          last_used_at: new Date().toISOString(),
+          ...(after <= 0 ? { active: false } : {}),
+        },
+        `&spaces_left=eq.${left}`
+      );
+      if (!swapped) continue; // someone else used it — re-read and check again
+      return { ok: true, spent: amount, remainingCents: v.remainingCents, spacesLeft: after, forfeitedCents: 0 };
+    }
 
-  if (amount > v.remainingCents) {
-    return { ok: false, error: `Only $${(v.remainingCents / 100).toFixed(2)} left on this voucher.` };
+    if (amount > v.remainingCents) {
+      return { ok: false, error: `Only $${(v.remainingCents / 100).toFixed(2)} left on this voucher.` };
+    }
+    const after = v.oneTimeUse ? 0 : v.remainingCents - amount;
+    const forfeited = v.oneTimeUse ? v.remainingCents - amount : 0;
+    const swapped = await patchVoucher(
+      code,
+      {
+        remaining_cents: after,
+        last_used_at: new Date().toISOString(),
+        ...(after <= 0 ? { active: false } : {}),
+      },
+      `&remaining_cents=eq.${v.remainingCents}`
+    );
+    if (!swapped) continue; // someone else spent from it — re-read and check again
+    return { ok: true, spent: amount, remainingCents: after, spacesLeft: v.spacesLeft, forfeitedCents: forfeited };
   }
-  const after = v.oneTimeUse ? 0 : v.remainingCents - amount;
-  const forfeited = v.oneTimeUse ? v.remainingCents - amount : 0;
-  await patchVoucher(code, {
-    remaining_cents: after,
-    last_used_at: new Date().toISOString(),
-    ...(after <= 0 ? { active: false } : {}),
-  });
-  return { ok: true, spent: amount, remainingCents: after, spacesLeft: v.spacesLeft, forfeitedCents: forfeited };
+  return { ok: false, error: "That voucher is busy right now. Please try again in a moment." };
 }
 
 // ---------- reporting ----------

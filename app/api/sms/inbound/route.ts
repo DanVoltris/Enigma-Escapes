@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { confirmRequest, releaseRequest } from "@/lib/request-flow";
-import { latestRequestForPhone } from "@/lib/requests";
+import { liveRequestsForPhone } from "@/lib/requests";
+import { getBusinessDetails } from "@/lib/settings";
 import { verifyTwilioSignature } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,25 @@ export async function POST(req: NextRequest) {
   const word = (form.get("Body") ?? "").trim().toLowerCase().replace(/[^a-z]/g, "");
   if (!from) return twiml(null);
 
-  const request = await latestRequestForPhone(from);
+  const live = await liveRequestsForPhone(from);
+  const waiting = live.filter((r) => r.status === "accepted");
+  const request = waiting[0] ?? live.find((r) => r.status === "confirmed");
+
+  // Two of this number's requests are waiting on a reply at once (someone
+  // booking for two groups). A text says only which number it came from, so a
+  // "Y" here would confirm whichever was accepted last and let the other lapse
+  // — a coin toss on someone's booking. Neither is touched: staff confirm the
+  // right one from the Requests page when they call.
+  if (waiting.length > 1 && (YES.has(word) || NO.has(word))) {
+    const phone = await getBusinessDetails()
+      .then((b) => b.value?.phone || b.value?.cell || "")
+      .catch(() => "");
+    return twiml(
+      `You have ${waiting.length} bookings waiting on a reply, so we can't tell which one you mean. ` +
+        (phone ? `Please call us at ${phone} and we'll confirm the right one.` : "Please give us a call and we'll confirm the right one.")
+    );
+  }
+
   if (!request) {
     // Answer rather than sit silent: a customer texting us deserves a reply,
     // and it makes "text Y and see what comes back" a usable test of the wiring.
@@ -69,13 +88,16 @@ export async function POST(req: NextRequest) {
     return twiml(YES.has(word) ? "You're already confirmed — see you soon!" : null);
   }
 
+  // Either can find the request already settled by the time it lands (the
+  // sweep released it a moment earlier, or staff dealt with the booking) — then
+  // say so, rather than stay silent about a reply that did nothing.
+  const tooLate = "We couldn't update that booking by text — it changed just before your reply arrived. Please give us a call.";
   if (YES.has(word)) {
-    await confirmRequest(request);
-    return twiml(null); // confirmRequest sends the real confirmation
+    // confirmRequest sends the real confirmation
+    return twiml((await confirmRequest(request)) ? null : tooLate);
   }
   if (NO.has(word)) {
-    await releaseRequest(request, "declined-by-customer", req.nextUrl.origin);
-    return twiml(null);
+    return twiml((await releaseRequest(request, "declined-by-customer", req.nextUrl.origin)) ? null : tooLate);
   }
   return twiml("Sorry, we didn't catch that — please reply Y to confirm your booking or N to release it.");
 }

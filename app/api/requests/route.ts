@@ -5,7 +5,7 @@ import { bookedCount, busySessionsForDate, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES } from "@/lib/format";
 import { getLocationHours } from "@/lib/hours";
-import { createRequest } from "@/lib/requests";
+import { createRequest, heldSeats } from "@/lib/requests";
 import { notifyNewRequest } from "@/lib/sms";
 import { pushNewRequest } from "@/lib/staff-push";
 import { startTimesFor } from "@/lib/schedule";
@@ -77,10 +77,18 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const remaining = remainingSpots(exp, await bookedCount(exp.id, date, time));
+  // Seats another customer's live request is holding aren't free to ask for
+  // either; in a private room that request has the whole room.
+  const held = await heldSeats(exp.id, date, time);
+  const remaining = remainingSpots(exp, (await bookedCount(exp.id, date, time)) + held);
   if (remaining < quantity) {
     return NextResponse.json(
-      { error: `Only ${remaining} spot(s) remain at ${formatTime(time)} — lower the group size or pick another time.` },
+      {
+        error:
+          held > 0 && remaining === 0
+            ? `Someone has already requested ${formatTime(time)} — please pick another time.`
+            : `Only ${remaining} spot(s) remain at ${formatTime(time)} — lower the group size or pick another time.`,
+      },
       { status: 400 }
     );
   }

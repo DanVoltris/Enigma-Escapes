@@ -5,13 +5,16 @@ import { deleteTax, listTaxes, updateTax } from "@/lib/taxes";
 
 export const dynamic = "force-dynamic";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Taxes added here get a UUID, but seed-venue loads them with the id written in
+// the venue file ("tax-hst" at Time Zone), and those must be editable too.
+// Letters, digits and hyphens only, so the id can't reshape the database filter.
+const ID_RE = /^[a-z0-9-]{1,64}$/i;
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const guard = await apiGuard("settings");
   if (guard.response) return guard.response;
   const { id } = await ctx.params;
-  if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid tax id." }, { status: 400 });
+  if (!ID_RE.test(id)) return NextResponse.json({ error: "Invalid tax id." }, { status: 400 });
 
   let body: unknown;
   try {
@@ -56,7 +59,7 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   const guard = await apiGuard("settings");
   if (guard.response) return guard.response;
   const { id } = await ctx.params;
-  if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid tax id." }, { status: 400 });
+  if (!ID_RE.test(id)) return NextResponse.json({ error: "Invalid tax id." }, { status: 400 });
   try {
     const tax = (await listTaxes()).find((t) => t.id === id);
     if (!tax) return NextResponse.json({ error: "That tax no longer exists." }, { status: 404 });

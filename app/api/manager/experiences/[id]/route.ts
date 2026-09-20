@@ -44,6 +44,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   try {
     const existing = await getExperience(id);
     if (!existing) return NextResponse.json({ error: "That experience no longer exists." }, { status: 404 });
+    // Both ends: the room has to be theirs now, and can't be moved somewhere
+    // that isn't.
+    if (!canSeeLocation(guard.staff, existing.location) || !canSeeLocation(guard.staff, parsed.location)) {
+      return NextResponse.json({ error: "That room is at a location your account doesn't cover." }, { status: 403 });
+    }
     await updateExperience(id, parsed);
     await logActivity("Edited experience", `${parsed.name}${parsed.active ? "" : " (hidden)"}`);
     return NextResponse.json({ id });

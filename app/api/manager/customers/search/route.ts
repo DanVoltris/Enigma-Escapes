@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiGuard } from "@/lib/auth";
+import { allowedLocations, apiGuard } from "@/lib/auth";
 import { customerRosterPage, storedNamesFor } from "@/lib/customers";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json({ customers: [] });
 
   try {
-    const page = await customerRosterPage({ q, limit: 6, offset: 0 });
+    // Same location cut as the Customers list, so a limited account's lookup
+    // doesn't turn up people who have only booked elsewhere.
+    const page = await customerRosterPage({ q, locations: allowedLocations(guard.staff), limit: 6, offset: 0 });
     if (!page) return NextResponse.json({ customers: [] }); // SQL function not installed
     // The roster carries one display name; the form wants first and last
     // separately, so prefer the stored spelling where there is one.

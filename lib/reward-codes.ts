@@ -6,6 +6,7 @@
 // That tie is the whole point. Cancel the booking that earned it and the
 // reward dies with it — including retrospectively, if it has already been
 // spent, so nobody books, claims the discount, then cancels the first visit.
+import { venueDateTime } from "./format";
 import { rest, restError } from "./supabase";
 
 export const REWARD_PERCENT_OFF = 20;
@@ -112,7 +113,9 @@ export async function mintRewardFor(booking: {
     .map((i) => `${i.date}T${i.time}:00`)
     .sort();
   if (starts.length === 0) return undefined;
-  const validUntil = new Date(starts[0]).toISOString();
+  // In the venue's timezone: read as the server's (UTC on Vercel), a code
+  // earned by an 18:00 Winnipeg session died at 13:00.
+  const validUntil = venueDateTime(starts[0].slice(0, 10), starts[0].slice(11, 16)).toISOString();
 
   const code = await generateCode();
   const res = await rest("reward_codes?on_conflict=earned_booking", {
@@ -163,7 +166,8 @@ export function rewardProblem(r: RewardCode, ctx: RewardContext = {}): string | 
   if (ctx.sessionStart) {
     // Must be spent on a session LATER than the one that earned it: the reward
     // is for the next visit, not a cheaper version of a visit already booked.
-    if (new Date(ctx.sessionStart) <= dies) {
+    // Venue-local, like validUntil, so the two are compared on one clock.
+    if (venueDateTime(ctx.sessionStart.slice(0, 10), ctx.sessionStart.slice(11, 16)) <= dies) {
       return "That code only works on a session after your existing booking.";
     }
   }

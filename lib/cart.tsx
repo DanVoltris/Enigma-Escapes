@@ -23,6 +23,10 @@ type CartState = {
   // sessionStorage) so it survives reloads, tab changes and links opened from
   // a text message — checkout sends it so the server allows the booking.
   requestToken: string | null;
+  // The Stripe checkout this cart last started. Sent back if the customer
+  // backs out and pays again, so the server can let go of that attempt's hold
+  // instead of refusing the slot as already booked.
+  heldCheckout: { bookingId: string; sessionId: string } | null;
 };
 
 const EMPTY: CartState = {
@@ -33,6 +37,7 @@ const EMPTY: CartState = {
   paymentOption: "deposit",
   expiresAt: null,
   requestToken: null,
+  heldCheckout: null,
 };
 
 export function itemKey(i: { roomId: string; date: string; time: string }): string {
@@ -51,6 +56,7 @@ type CartContextValue = CartState & {
   setVoucher: (voucher: AppliedVoucher | null) => void;
   setPaymentOption: (option: PaymentOption) => void;
   setRequestToken: (token: string | null) => void;
+  setHeldCheckout: (held: CartState["heldCheckout"]) => void;
   clear: () => void;
 };
 
@@ -156,6 +162,10 @@ export function CartProvider({
     setState((s) => ({ ...s, requestToken }));
   }, []);
 
+  const setHeldCheckout = useCallback((heldCheckout: CartState["heldCheckout"]) => {
+    setState((s) => ({ ...s, heldCheckout }));
+  }, []);
+
   const clear = useCallback(() => setState(EMPTY), []);
 
   return (
@@ -173,6 +183,7 @@ export function CartProvider({
         setVoucher,
         setPaymentOption,
         setRequestToken,
+        setHeldCheckout,
         clear,
       }}
     >

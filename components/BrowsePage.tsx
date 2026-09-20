@@ -64,6 +64,8 @@ export default function BrowsePage({
   // records the look in the Demand report and nudges the booking-request timer,
   // so skipping it would quietly lose both.
   const seededDate = useRef<string | null>(initialSlots ? initialDate : null);
+  // The date of the most recent lookup — the only one whose answer is shown.
+  const wantedDate = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -137,6 +139,7 @@ export default function BrowsePage({
   const loadSlots = useCallback(async () => {
     const background = seededDate.current === date;
     seededDate.current = null;
+    wantedDate.current = date;
     if (!background) {
       setSlots(null);
       setError(null);
@@ -144,12 +147,16 @@ export default function BrowsePage({
     try {
       const res = await fetch(`/api/availability?date=${date}`);
       const data = await res.json();
+      // Clicking Next twice starts two lookups, and they can finish in either
+      // order: a day the customer has already moved past must not fill the
+      // list under the new day's heading.
+      if (wantedDate.current !== date) return;
       if (!res.ok) throw new Error(data.error ?? "Could not load availability.");
       setSlots(data.slots);
     } catch (e) {
       // A failed background refresh keeps the server's list rather than
       // replacing sessions already on screen with an error.
-      if (background) return;
+      if (background || wantedDate.current !== date) return;
       setError(e instanceof Error ? e.message : "Could not load availability. Check your connection and try again.");
     }
   }, [date]);

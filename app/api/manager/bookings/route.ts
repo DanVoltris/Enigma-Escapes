@@ -5,6 +5,7 @@ import { logActivity, saveBooking, takeVoucherFor } from "@/lib/db";
 import { markRewardUsed } from "@/lib/reward-codes";
 import { notifyBookingConfirmed } from "@/lib/sms";
 import { pushWalkIn } from "@/lib/staff-push";
+import { refundToVoucher } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,12 @@ export async function POST(req: NextRequest) {
     await saveBooking(result.booking);
   } catch (err) {
     console.error("saving walk-in booking failed:", err);
+    // The voucher was spent for a booking that doesn't exist: put it back, or
+    // the retry finds the balance gone.
+    if (p.voucherRedeemed && p.voucherCode) {
+      const back = await refundToVoucher(p.voucherCode, p.voucherCents ?? 0).catch(() => false);
+      if (!back) console.error(`$${((p.voucherCents ?? 0) / 100).toFixed(2)} taken from voucher ${p.voucherCode} for an unsaved booking could not be put back — add it back by hand.`);
+    }
     return NextResponse.json({ error: "Could not save the booking right now. Please try again." }, { status: 500 });
   }
   const b = result.booking;

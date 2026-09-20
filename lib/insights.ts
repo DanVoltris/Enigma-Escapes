@@ -1,4 +1,5 @@
 import { businessDateOf, businessWeekdayOf } from "./format";
+import { refundGoingBackCents } from "./pricing";
 import type { Booking } from "./types";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -57,7 +58,8 @@ export function computeInsights(bookings: Booking[], fromISO: string, toISO: str
     discountCents += b.pricing.discountCents;
     gstCents += b.pricing.gstCents;
     totalCents += b.pricing.totalCents;
-    collectedCents += b.pricing.paidCents;
+    // Refunds leave paidCents alone (lib/refunds.ts); money handed back wasn't kept.
+    collectedCents += b.pricing.paidCents - refundGoingBackCents(b.pricing);
     outstandingCents += b.pricing.balanceCents;
     // A walk-in with nothing taken is neither: it counts in outstanding money
     // above, and inflating either bucket here would misreport how people pay.

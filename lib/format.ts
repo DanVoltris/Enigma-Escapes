@@ -138,6 +138,34 @@ export function minutesUntilSlot(date: string, time: string): number {
   return dayDiff * 1440 + h * 60 + m - nowMinutesInBusinessTZ();
 }
 
+// The moment a venue-local date and time happens, e.g. 18:00 on 2026-09-20 in
+// Winnipeg is 23:00 UTC. `new Date("2026-09-20T18:00:00")` reads the time in
+// the server's own zone instead, which on Vercel is UTC — hours early.
+export function venueDateTime(date: string, time: string): Date {
+  const timeZone = localeConfig().timezone;
+  const [y, mo, d] = date.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  const wall = Date.UTC(y, mo - 1, d, h, mi);
+  // How far the venue's clock is ahead of UTC at a given instant.
+  const offsetAt = (instant: number): number => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(instant));
+    const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+    return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")) - instant;
+  };
+  // Twice, so a clock change between the first guess and the answer settles.
+  const guess = wall - offsetAt(wall);
+  return new Date(wall - offsetAt(guess));
+}
+
 // The venue-local calendar date of an ISO timestamp, e.g. "2026-07-20".
 export function businessDateOf(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: localeConfig().timezone }).format(new Date(iso));

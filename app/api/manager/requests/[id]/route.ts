@@ -50,7 +50,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
     try {
-      await confirmRequest(request, guard.staff.name);
+      if (!(await confirmRequest(request, guard.staff.name))) {
+        return NextResponse.json(
+          { error: "That request changed a moment ago (released or already confirmed) — refresh to see where it stands." },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ ok: true, bookingId: request.bookingId ?? null });
     } catch (err) {
       console.error("confirming request failed:", err);

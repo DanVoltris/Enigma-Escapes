@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { hasPermission, requirePermission } from "@/lib/auth";
+import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import EditCustomerProfile from "@/components/manager/EditCustomerProfile";
 import { notFound } from "next/navigation";
 import CustomerTabs, { type Payment, type Promo, type Purchase, type Tax } from "@/components/manager/CustomerTabs";
@@ -25,11 +25,18 @@ export default async function ManagerCustomerDetail({
 
   // This person's bookings and stored record only — the page used to load
   // every booking and all 44k customer records to show one profile.
-  const [bookings, experiences, record] = await Promise.all([
+  const [everyBooking, experiences, record] = await Promise.all([
     listBookingsForEmail(email),
     listExperiences(),
     getManualCustomer(email),
   ]);
+  // A location-limited account sees this person's bookings at its own
+  // locations only, the same cut the Customers list makes — every booking here
+  // is a link to its page.
+  const scope = allowedLocations(staff);
+  const bookings = scope
+    ? everyBooking.filter((b) => b.items.some((i) => scope.includes(i.location)))
+    : everyBooking;
 
   if (bookings.length === 0 && !record) notFound();
 

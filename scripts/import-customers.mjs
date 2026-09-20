@@ -347,6 +347,19 @@ const rowsToWrite = customers.map((c) => ({
   imported: c.imported,
 }));
 
+// Someone already on file keeps the contact details and email preference they
+// have here. Staff correct names and phones on the profile and untick
+// "subscribe" when a customer asks not to be emailed; a re-run putting the old
+// system's values back would quietly undo that and put them on the mailing list
+// again. The legacy history (`imported`) is still refreshed, and a detail left
+// blank here is filled in from the export.
+function keepContactOnFile(row, was) {
+  row.first_name = was.first_name || row.first_name;
+  row.last_name = was.last_name || row.last_name;
+  row.phone = was.phone || row.phone;
+  if (typeof was.subscribe === "boolean") row.subscribe = was.subscribe;
+}
+
 if (LOCAL) {
   if (!existsSync(LOCAL_FILE)) {
     console.error(
@@ -358,7 +371,11 @@ if (LOCAL) {
   const store = JSON.parse(readFileSync(LOCAL_FILE, "utf8"));
   const existing = Array.isArray(store.customers) ? store.customers : [];
   const merged = new Map(existing.map((r) => [String(r.email).toLowerCase(), r]));
-  for (const row of rowsToWrite) merged.set(row.email.toLowerCase(), { ...merged.get(row.email.toLowerCase()), ...row });
+  for (const row of rowsToWrite) {
+    const was = merged.get(row.email.toLowerCase());
+    if (was) keepContactOnFile(row, was);
+    merged.set(row.email.toLowerCase(), { ...was, ...row });
+  }
   store.customers = [...merged.values()];
   writeFileSync(LOCAL_FILE, JSON.stringify(store, null, 2));
   console.log(`Done — ${rowsToWrite.length} customers written to .local-data.json (local mode).`);
@@ -397,9 +414,35 @@ async function postChunk(chunk) {
   }
 }
 
+// The rows this chunk would land on, so keepContactOnFile can see them. A failed
+// read stops the run: writing blind is exactly the overwrite it exists to stop.
+async function existingCustomers(chunk) {
+  const emails = chunk.map((r) => `"${r.email.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",");
+  const res = await fetch(
+    `${BASE}/rest/v1/customers?select=email,first_name,last_name,phone,subscribe&email=in.(${encodeURIComponent(emails)})`,
+    { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } }
+  );
+  if (!res.ok) {
+    throw new Error(`Reading existing customers failed (HTTP ${res.status}): ${(await res.text().catch(() => "")).slice(0, 200)}`);
+  }
+  return new Map(((await res.json()) || []).map((r) => [String(r.email).toLowerCase(), r]));
+}
+
 let written = 0;
 for (let i = 0; i < rowsToWrite.length; i += CHUNK) {
   const chunk = rowsToWrite.slice(i, i + CHUNK);
+  let onFile;
+  try {
+    onFile = await existingCustomers(chunk);
+  } catch (err) {
+    console.error(`\n${err.cause?.code || err.message}`);
+    console.error(`${written} customers were written before this failed. Re-run the same command.`);
+    process.exit(1);
+  }
+  for (const row of chunk) {
+    const was = onFile.get(row.email);
+    if (was) keepContactOnFile(row, was);
+  }
   let res;
   try {
     res = await postChunk(chunk);

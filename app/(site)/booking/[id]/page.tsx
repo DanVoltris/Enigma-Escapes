@@ -8,6 +8,7 @@ import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
 import { minutesUntilFirstSession, selfServiceBlock } from "@/lib/manage-booking";
 import { getBusinessDetails } from "@/lib/settings";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -100,7 +101,7 @@ export default async function ManageBookingPage({ params }: { params: Promise<{ 
                 singleSession={booking.items.length === 1}
                 paidCents={booking.pricing.paidCents}
                 today={todayISO()}
-                windowDays={60}
+                windowDays={(await getSiteSettings()).windowDays}
                 hoursAway={hoursAway}
                 phone={phone}
                 canReschedule={!!exp}
