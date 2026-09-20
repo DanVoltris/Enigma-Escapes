@@ -22,3 +22,6 @@ next-env.d.ts
 # personal Claude Code config
 .claude/settings.local.json
 /.old-supabase-backup.json
+
+# Agent worktrees: local scratch copies of this repo, never part of it.
+.claude/worktrees/

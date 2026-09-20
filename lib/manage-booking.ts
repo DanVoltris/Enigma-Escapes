@@ -16,7 +16,7 @@ import { getExperience } from "./experiences";
 import { addDaysISO, formatMoney, formatTime, minutesUntilSlot, todayISO } from "./format";
 import { getSiteSettings } from "./site-settings";
 import { getLocationHours } from "./hours";
-import { computeTotals, refundGoingBackCents } from "./pricing";
+import { computeTotals, lineCents, refundGoingBackCents } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
 import { activeTaxPercent } from "./taxes";
 import { startTimesFor } from "./schedule";
@@ -328,12 +328,18 @@ export async function changePartySize(
   // moves money.
   const feeDiscountable = !booking.pricing.rewardCode;
   const listedBefore =
-    booking.items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0) +
+    booking.items.reduce((sum, i) => sum + lineCents(i), 0) +
     (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
-  const items: Booking["items"] = booking.items.map((i, idx) =>
-    idx === itemIndex ? { ...i, quantity } : i
-  );
+  // Resized to the party that turned up; the minimum charge is re-applied, so
+  // a booking cut from four to two still bills the venue's minimum.
+  const minCharged = (await getPricingMode()).minChargedGuests;
+  const items: Booking["items"] = booking.items.map((i, idx) => {
+    if (idx !== itemIndex) return i;
+    const { chargedQuantity: _was, ...rest } = i;
+    const charged = Math.max(quantity, minCharged);
+    return { ...rest, quantity, ...(charged > quantity ? { chargedQuantity: charged } : {}) };
+  });
   // The corporate fee is charged once for the booking and is not a per-person
   // price, so it rides through a resize untouched — it is neither multiplied by
   // the new party nor dropped by the rebuild.

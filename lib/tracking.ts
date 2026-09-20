@@ -3,6 +3,7 @@
 // (if the container is loaded); with neither configured these are no-ops.
 // Amounts arrive in cents and are reported in currency units.
 import { localeConfig } from "./format";
+import { lineCents } from "./pricing";
 import type { CartItem } from "./types";
 
 type Fbq = (...args: unknown[]) => void;
@@ -45,10 +46,10 @@ function firstParty(kind: string, props: Record<string, unknown>): void {
 }
 
 export function trackAddToCart(item: CartItem): void {
-  const value = (item.priceCents * item.quantity) / 100;
+  const value = lineCents(item) / 100;
   fb("AddToCart", { value, currency: currency(), content_name: item.roomName });
   gtm("add_to_cart", { value, currency: currency(), item_name: item.roomName, quantity: item.quantity });
-  firstParty("add_to_cart", { room: item.roomName, cents: item.priceCents * item.quantity });
+  firstParty("add_to_cart", { room: item.roomName, cents: lineCents(item) });
 }
 
 export function trackInitiateCheckout(subtotalCents: number, numItems: number): void {

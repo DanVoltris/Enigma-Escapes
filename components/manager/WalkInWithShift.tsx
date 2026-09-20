@@ -19,9 +19,11 @@ export type ShiftPerson = {
 export default function WalkInWithShift({
   people,
   corporateFeeCents,
+  minChargedGuests,
 }: {
   people: ShiftPerson[];
   corporateFeeCents: number;
+  minChargedGuests: number;
 }) {
   const [roomId, setRoomId] = useState("");
 
@@ -82,7 +84,7 @@ export default function WalkInWithShift({
         )}
       </div>
 
-      <WalkInForm onRoomChange={setRoomId} corporateFeeCents={corporateFeeCents} />
+      <WalkInForm onRoomChange={setRoomId} corporateFeeCents={corporateFeeCents} minChargedGuests={minChargedGuests} />
     </>
   );
 }

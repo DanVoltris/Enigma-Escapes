@@ -92,6 +92,8 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   }
 
   const today = todayISO();
+  // Read before the items are built: the minimum charge is stored on each one.
+  const pricingMode = await getPricingMode();
   const windowDays = (await getSiteSettings()).windowDays;
   const lastBookable = addDaysISO(
     today,
@@ -240,6 +242,10 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
             : `${exp.name} at ${formatTime(time)} only has ${remaining} spot(s) left.`
         );
       }
+      // A venue with a minimum charge bills a smaller group as the minimum.
+      // Stored on the booking, so what it was charged for stays true even if
+      // the rule changes later.
+      const charged = Math.max(quantity, pricingMode.minChargedGuests);
       items.push({
         roomId: exp.id,
         roomName: exp.name,
@@ -247,6 +253,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
         date,
         time,
         quantity,
+        ...(charged > quantity ? { chargedQuantity: charged } : {}),
         priceCents: exp.priceCents,
         durationMinutes: exp.durationMinutes,
         ...(leadInMinutes > 0 ? { leadInMinutes } : {}),
@@ -277,7 +284,6 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     if (problem) return err(problem);
   }
 
-  const pricingMode = await getPricingMode();
   const flatFeeCents = corporate ? pricingMode.corporateFeeCents : 0;
   const totals = computeTotals(
     items,

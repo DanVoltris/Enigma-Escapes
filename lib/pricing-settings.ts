@@ -9,6 +9,7 @@ export function normalizePricingMode(input: unknown): PricingMode {
   const o = (input ?? {}) as Record<string, unknown>;
   const flat = o.depositFlatCents;
   const fee = o.corporateFeeCents;
+  const minCharged = o.minChargedGuests;
   return {
     taxInclusive: o.taxInclusive === true,
     depositFlatCents:
@@ -17,6 +18,12 @@ export function normalizePricingMode(input: unknown): PricingMode {
     // keeps the default rather than silently making events free.
     corporateFeeCents:
       typeof fee === "number" && Number.isInteger(fee) && fee >= 0 && fee <= 10_000_00 ? fee : CORPORATE_FEE_CENTS,
+    // Capped well below a room's capacity: this bills a small group as a bigger
+    // one, and a typo here would quietly overcharge every booking.
+    minChargedGuests:
+      typeof minCharged === "number" && Number.isInteger(minCharged) && minCharged > 1 && minCharged <= 12
+        ? minCharged
+        : 0,
   };
 }
 

@@ -23,7 +23,28 @@ export type PricingMode = {
   // The corporate event fee (see CORPORATE_FEE_CENTS) — per venue, because a
   // team-building host costs what it costs where they work.
   corporateFeeCents: number;
+  // The smallest party a room is charged for. Enigma runs its rooms for two
+  // people but bills them as three, so a pair pays 3 x the per-person price.
+  // 0 means no such rule, which is every other venue.
+  minChargedGuests: number;
 };
+
+// How many people a line is charged for: the party, or the venue's minimum when
+// the party is smaller. `chargedQuantity` is what was stored when the booking
+// was taken; the mode is read as well so a rebuild (a party size changed at the
+// desk) applies today's rule rather than leaving an old line short.
+export function chargedGuests(item: Pick<CartItem, "quantity" | "chargedQuantity">, mode?: PricingMode): number {
+  return Math.max(item.quantity, item.chargedQuantity ?? 0, mode?.minChargedGuests ?? 0);
+}
+
+// What one session costs. Every screen that shows money for a line uses this,
+// so none of them can disagree with the total.
+export function lineCents(
+  item: Pick<CartItem, "quantity" | "chargedQuantity" | "priceCents">,
+  mode?: PricingMode
+): number {
+  return item.priceCents * chargedGuests(item, mode);
+}
 
 // A corporate event: half an hour of team building away from the rooms, a host,
 // then the games. One fee for the booking however many rooms it takes; the
@@ -36,6 +57,7 @@ export const DEFAULT_PRICING_MODE: PricingMode = {
   taxInclusive: false,
   depositFlatCents: null,
   corporateFeeCents: CORPORATE_FEE_CENTS,
+  minChargedGuests: 0,
 };
 
 export type Totals = {
@@ -49,11 +71,11 @@ export type Totals = {
 // Spend-weighted blend of each item's deposit percentage. Weighting by line
 // value means a $120 room at 25% and a $60 room at 50% average out fairly, and
 // the blended rate is always 0-100 so the deposit never exceeds the total.
-function blendedDepositPercent(items: CartItem[]): number {
-  const base = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
+function blendedDepositPercent(items: CartItem[], mode?: PricingMode): number {
+  const base = items.reduce((sum, i) => sum + lineCents(i, mode), 0);
   if (base === 0) return 0;
   const weighted = items.reduce(
-    (sum, i) => sum + i.priceCents * i.quantity * (i.depositPercent ?? DEFAULT_DEPOSIT_PERCENT),
+    (sum, i) => sum + lineCents(i, mode) * (i.depositPercent ?? DEFAULT_DEPOSIT_PERCENT),
     0
   );
   return weighted / base;
@@ -82,7 +104,7 @@ export function computeTotals(
   // take a cut of the host's time hands away $70 an event nobody chose to give.
   feeDiscountable = true
 ): Totals {
-  const roomsCents = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
+  const roomsCents = items.reduce((sum, i) => sum + lineCents(i, mode), 0);
   // Discounted along with everything else. It used to sit outside the discount
   // base on the theory that a promo is for the games and not the host's time —
   // which meant a 100% "prize" code left $350 to pay on a booking that was
@@ -108,7 +130,7 @@ export function computeTotals(
   const depositCents =
     mode.depositFlatCents != null
       ? Math.min(mode.depositFlatCents, totalCents)
-      : Math.round((totalCents * blendedDepositPercent(items)) / 100);
+      : Math.round((totalCents * blendedDepositPercent(items, mode)) / 100);
   return { subtotalCents, discountCents, gstCents, totalCents, depositCents };
 }
 

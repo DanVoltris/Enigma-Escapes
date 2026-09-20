@@ -19,6 +19,7 @@ export type PurchaseLine = {
   when: string;
   duration: string;
   quantity: number;
+  chargedQuantity?: number; // set when a smaller party is billed at the venue's minimum
   amountCents: number;
 };
 
@@ -150,6 +151,9 @@ function PurchasesTab({ purchases }: { purchases: PurchaseLine[] }) {
           </div>
           <div className="cust-purchase-qty">
             <span className="k">Quantity</span>×{p.quantity}
+            {p.chargedQuantity && p.chargedQuantity > p.quantity && (
+              <span className="sub">{` (charged for ${p.chargedQuantity})`}</span>
+            )}
           </div>
           <div className="cust-purchase-amt">
             <span className="k">Amount</span>

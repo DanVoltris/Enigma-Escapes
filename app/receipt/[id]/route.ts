@@ -3,6 +3,7 @@ import { currentStaff } from "@/lib/auth";
 import { getBooking } from "@/lib/db";
 import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { renderDocument, type DocumentLine } from "@/lib/documents";
+import { lineCents as lineOf } from "@/lib/pricing";
 import { getBusinessDetails } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -31,8 +32,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     date: i.date,
     time: i.time,
     quantity: i.quantity,
+    ...(i.chargedQuantity && i.chargedQuantity > i.quantity ? { chargedQuantity: i.chargedQuantity } : {}),
     unitCents: i.priceCents,
-    lineCents: i.priceCents * i.quantity,
+    lineCents: lineOf(i),
   }));
   if (p.flatFeeCents && p.flatFeeCents > 0) {
     lines.push({

@@ -11,7 +11,7 @@ import { getBooking, getBookingsByIds, listPromos } from "@/lib/db";
 import { getRewardCode, rewardForBooking } from "@/lib/reward-codes";
 import { listExperiences } from "@/lib/experiences";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { outstandingCents, refundGoingBackCents } from "@/lib/pricing";
+import { lineCents, outstandingCents, refundGoingBackCents } from "@/lib/pricing";
 import { emailConfigured } from "@/lib/email";
 import { stripeConfigured } from "@/lib/stripe";
 import { listTaxes } from "@/lib/taxes";
@@ -51,7 +51,8 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     when: `${formatDateLong(i.date)} · ${formatTime(i.time)}`,
     duration: `${i.durationMinutes} min`,
     quantity: i.quantity,
-    amountCents: i.priceCents * i.quantity,
+    ...(i.chargedQuantity && i.chargedQuantity > i.quantity ? { chargedQuantity: i.chargedQuantity } : {}),
+    amountCents: lineCents(i),
   }));
 
   const outstanding = outstandingCents(booking);

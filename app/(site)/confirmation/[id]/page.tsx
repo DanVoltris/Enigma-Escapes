@@ -8,6 +8,7 @@ import { finalizeBookingPayment, getBooking, logActivity } from "@/lib/db";
 import { hasGuessableId } from "@/lib/legacy-booking-id";
 import { getBookingPolicies, getIntegrations } from "@/lib/settings";
 import { notifyBookingConfirmed } from "@/lib/sms";
+import { lineCents } from "@/lib/pricing";
 import { pushOnlineBooking } from "@/lib/staff-push";
 import { retrieveCheckoutSession, stripeConfigured } from "@/lib/stripe";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
@@ -149,7 +150,10 @@ export default async function ConfirmationPage({
                     {formatDateLong(item.date)} — {formatTime(item.time)} ({item.durationMinutes} minutes)
                   </div>
                   <div className="meta">
-                    {item.quantity} × {formatMoney(item.priceCents)} = {formatMoney(item.quantity * item.priceCents)}
+                    {item.quantity} × {formatMoney(item.priceCents)} = {formatMoney(lineCents(item))}
+                    {item.chargedQuantity && item.chargedQuantity > item.quantity
+                      ? ` (charged for ${item.chargedQuantity}, our minimum)`
+                      : ""}
                   </div>
                 </div>
               </div>

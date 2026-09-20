@@ -24,6 +24,16 @@ export async function PUT(req: NextRequest) {
   if (o.corporateFeeCents != null && (!Number.isInteger(o.corporateFeeCents) || (o.corporateFeeCents as number) < 0)) {
     return NextResponse.json({ error: "Enter the corporate event fee as a dollar amount, or 0 for none." }, { status: 400 });
   }
+  if (
+    o.minChargedGuests != null &&
+    o.minChargedGuests !== "" &&
+    (!Number.isInteger(o.minChargedGuests) || (o.minChargedGuests as number) < 0 || (o.minChargedGuests as number) > 12)
+  ) {
+    return NextResponse.json(
+      { error: "Enter the smallest party you charge for as a whole number, or 0 for no minimum." },
+      { status: 400 }
+    );
+  }
   const mode = normalizePricingMode(o);
   try {
     await savePricingMode(mode);
@@ -31,7 +41,8 @@ export async function PUT(req: NextRequest) {
       "Pricing rules updated",
       `${mode.taxInclusive ? "Prices include tax" : "Tax added at checkout"}; deposit ${
         mode.depositFlatCents != null ? `$${(mode.depositFlatCents / 100).toFixed(2)} flat` : "by percentage"
-      }; corporate fee $${(mode.corporateFeeCents / 100).toFixed(2)}`
+      }; corporate fee $${(mode.corporateFeeCents / 100).toFixed(2)}` +
+        (mode.minChargedGuests > 0 ? `; smaller parties charged for ${mode.minChargedGuests}` : "")
     );
     return NextResponse.json({ ok: true, mode });
   } catch (err) {

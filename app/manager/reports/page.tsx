@@ -27,7 +27,7 @@ import {
   nowMinutesInBusinessTZ,
   todayISO,
 } from "@/lib/format";
-import { refundGoingBackCents } from "@/lib/pricing";
+import { lineCents, refundGoingBackCents } from "@/lib/pricing";
 import type { Booking } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -928,7 +928,7 @@ async function CapacityTab({
       const k = `${i.roomId}|${i.date}|${i.time}`;
       const cur = sold.get(k) ?? { guests: 0, revenueCents: 0 };
       cur.guests += i.quantity;
-      cur.revenueCents += i.priceCents * i.quantity;
+      cur.revenueCents += lineCents(i);
       sold.set(k, cur);
     }
   }
@@ -1429,10 +1429,10 @@ async function UpcomingTab({
   for (const b of bookings) {
     // Split this booking's payments across its items by value share, so a
     // multi-session booking attributes money to the right window.
-    const bookingValue = b.items.reduce((s, i) => s + i.priceCents * i.quantity, 0);
+    const bookingValue = b.items.reduce((s, i) => s + lineCents(i), 0);
     for (const i of b.items) {
       if (i.date < from || i.date > to) continue;
-      const itemValue = i.priceCents * i.quantity;
+      const itemValue = lineCents(i);
       guests += i.quantity;
       grossCents += itemValue;
       const share = bookingValue > 0 ? itemValue / bookingValue : 0;
