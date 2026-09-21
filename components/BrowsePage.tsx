@@ -48,7 +48,7 @@ export default function BrowsePage({
   initialExperiences: ExperienceSummary[] | null;
 }) {
   const router = useRouter();
-  const { items, addItem, pricingMode, taxPercent, taxLabel } = useCart();
+  const { items, addItem, pricingMode, taxPercent, taxLabel, hydrated } = useCart();
   // Tax-inclusive prices are LISTED pre-tax (like other booking sites), with the
   // tax added back at checkout so the all-in figure stays a round number.
   const unitCents = (cents: number) =>
@@ -109,6 +109,9 @@ export default function BrowsePage({
     }
   }
 
+  // The slot a deep link opened, until its party size has been seeded — see below.
+  const deepLinkKey = useRef<string | null>(null);
+
   // Deep-link support: /?date=YYYY-MM-DD&slot=roomId|HH:MM (used by "Edit booking"),
   // and /?expired=1 after a lapsed hold. Read once on mount.
   useEffect(() => {
@@ -118,13 +121,30 @@ export default function BrowsePage({
     if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) setDate(qDate);
     if (qDate && qSlot) {
       const [roomId, time] = qSlot.split("|");
-      if (roomId && time) setExpandedKey(`${roomId}|${qDate}|${time}`);
+      if (roomId && time) {
+        deepLinkKey.current = `${roomId}|${qDate}|${time}`;
+        setExpandedKey(deepLinkKey.current);
+      }
     }
     if (params.get("expired")) setExpiredNotice(true);
     if (qDate || qSlot || params.get("expired")) {
       window.history.replaceState(null, "", "/");
     }
   }, []);
+
+  // A deep-linked slot opens with the party size already in the cart ("Edit
+  // booking"), or the room's minimum. It used to open at 1, and pressing
+  // Continue silently replaced a party of 5 with 1 — refused only at Pay. The
+  // cart restores from localStorage after mount, so this waits for that.
+  useEffect(() => {
+    const key = deepLinkKey.current;
+    if (!key || !hydrated) return;
+    const existing = items.find((i) => itemKey(i) === key);
+    const slot = slots?.find((s) => itemKey(s) === key);
+    if (!existing && !slot) return; // sessions still loading
+    setQuantity(existing ? existing.quantity : (slot as Slot).minParty);
+    deepLinkKey.current = null;
+  }, [hydrated, items, slots]);
 
   // The experience list (for the filter) rarely changes — load it once, unless
   // the server already did.
@@ -237,7 +257,8 @@ export default function BrowsePage({
       location: slot.location,
       date: slot.date,
       time: slot.time,
-      quantity,
+      // Never below the room's minimum, whatever path set the stepper.
+      quantity: Math.max(slot.minParty, quantity),
       priceCents: slot.priceCents,
       durationMinutes: slot.durationMinutes,
       depositPercent: slot.depositPercent,
