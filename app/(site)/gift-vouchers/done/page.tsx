@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
 import { retrieveCheckoutSession, stripeConfigured } from "@/lib/stripe";
-import { fulfilVoucherSession } from "@/lib/voucher-shop";
+import { fulfilVoucherSession, NotAVoucherPayment } from "@/lib/voucher-shop";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,7 @@ export default async function VoucherDonePage({
         amountCents = Number(meta.amountCents) || (session.amount_total ?? 0);
         code = await fulfilVoucherSession({
           id: session.id,
+          kind: meta.kind,
           amountCents,
           buyerName: meta.buyerName || "Gift voucher",
           buyerEmail: meta.buyerEmail || "",
@@ -40,8 +41,12 @@ export default async function VoucherDonePage({
         });
       }
     } catch (err) {
-      console.error("voucher confirmation failed:", err);
-      problem = "We couldn't confirm that payment just now. Contact us and we'll look it up.";
+      if (err instanceof NotAVoucherPayment) {
+        problem = "We couldn't find that payment.";
+      } else {
+        console.error("voucher confirmation failed:", err);
+        problem = "We couldn't confirm that payment just now. Contact us and we'll look it up.";
+      }
     }
   }
 
