@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       try {
         const code = await fulfilVoucherSession({
           id: session.id as string,
+          kind: meta.kind,
           amountCents: Number(meta.amountCents) || ((session.amount_total as number | null) ?? 0),
           buyerName: meta.buyerName ?? "Gift voucher",
           buyerEmail: meta.buyerEmail ?? "",
