@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { confirmRequest, releaseRequest } from "@/lib/request-flow";
 import { liveRequestsForPhone } from "@/lib/requests";
 import { getBusinessDetails } from "@/lib/settings";
-import { verifyTwilioSignature } from "@/lib/sms";
+import { toGsmSafe, verifyTwilioSignature } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +17,11 @@ export const dynamic = "force-dynamic";
 const YES = new Set(["y", "yes", "yeah", "yep", "yup", "confirm", "confirmed", "ok", "okay", "sure"]);
 const NO = new Set(["n", "no", "nope", "cancel", "cancelled", "nah", "stop"]);
 
+// The reply is a text Twilio bills like any other, so it gets the same GSM-7
+// clean-up sendSms applies — one "—" or "’" doubles a one-segment reply.
 function twiml(message: string | null): NextResponse {
   const body = message
-    ? `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${message
+    ? `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${toGsmSafe(message)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")}</Message></Response>`
