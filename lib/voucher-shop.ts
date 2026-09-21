@@ -31,18 +31,34 @@ export async function generateVoucherCode(): Promise<string> {
   throw new Error("Could not generate a unique voucher code");
 }
 
+// Thrown when a paid Stripe session isn't a gift-voucher purchase.
+export class NotAVoucherPayment extends Error {
+  constructor() {
+    super("That payment isn't a gift voucher purchase.");
+  }
+}
+
 // Mints the voucher for a paid Stripe session, exactly once. The webhook and
 // the customer returning from Stripe both call this; the unique index on
 // stripe_session_id means the loser of that race just reads back the winner's
 // voucher instead of issuing a second one.
+//
+// Only a gift-voucher checkout may mint one. A booking's checkout is paid too,
+// and its session id sits in the customer's own address bar on the
+// confirmation page — pasted into /gift-vouchers/done it used to mint a free
+// voucher for the booking's full amount. The check lives here, not in the
+// callers, so no page can skip it.
 export async function fulfilVoucherSession(session: {
   id: string;
+  kind: string | undefined; // the Stripe session's metadata.kind
+
   amountCents: number;
   buyerName: string;
   buyerEmail: string;
   recipientEmail: string | null;
   message: string | null;
 }): Promise<string> {
+  if (session.kind !== "voucher") throw new NotAVoucherPayment();
   const existing = await rest(
     `gift_vouchers?stripe_session_id=eq.${encodeURIComponent(session.id)}&select=code&limit=1`
   );
