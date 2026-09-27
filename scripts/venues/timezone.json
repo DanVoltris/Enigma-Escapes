@@ -99,7 +99,8 @@
     },
     "pricing_mode": { "taxInclusive": false, "depositFlatCents": 3389, "corporateFeeCents": 45000 },
     "booking_site": {
-      "windowDays": 90,
+      "windowDays": 120,
+        "requestWindowMinutes": 60,
       "brandColor": "#1e2e42",
       "buttonBg": "#5a95cf",
       "buttonText": "#0e1a26",
