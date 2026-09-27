@@ -1,5 +1,6 @@
-// Booking requests: bookings that start within REQUEST_WINDOW_MINUTES go
-// through manager approval instead of instant checkout. Accepted requests
+// Booking requests: bookings that start inside the venue's request window
+// (SiteSettings.requestWindowMinutes) go through manager approval instead of
+// instant checkout. Accepted requests
 // carry a token the customer uses to finish (details + payment) — see
 // /request/[token] and the requestToken check in create-booking.
 import { randomBytes, randomUUID } from "crypto";
