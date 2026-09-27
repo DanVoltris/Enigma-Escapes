@@ -43,6 +43,9 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
   const created = new Date(booking.createdAt);
   const expMap = new Map(experiences.map((e) => [e.id, e]));
 
+  // Every room's list price added up — the denominator for working out what
+  // one room of several is worth on this booking.
+  const listedTotalCents = items.reduce((sum, i) => sum + lineCents(i), 0);
   const purchases: PurchaseLine[] = items.map((i) => ({
     roomName: i.roomName,
     imageUrl: expMap.get(i.roomId)?.imageUrl ?? null,
@@ -226,6 +229,15 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                   date: i.date,
                   time: i.time,
                   quantity: i.quantity,
+                  // What to offer back if only this room is cancelled: its share
+                  // of the booking's total, tax and any discount included, and
+                  // never more than was actually paid. The server caps it again.
+                  shareCents: Math.min(
+                    pricing.paidCents,
+                    listedTotalCents > 0
+                      ? Math.round((pricing.totalCents * lineCents(i)) / listedTotalCents)
+                      : 0
+                  ),
                 }))}
                 rooms={experiences
                   .filter((e) => e.active)
