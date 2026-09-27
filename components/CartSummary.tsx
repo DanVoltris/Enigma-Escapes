@@ -68,7 +68,10 @@ export default function CartSummary({
           <div className="summary-totals">
             <div className="summary-line">
               <span>Subtotal</span>
-              <span>{formatMoney(totals.subtotalCents)}</span>
+              {/* Before the promo, which has its own line below — subtotalCents is
+                  already net of it, so showing it here took the promo off twice.
+                  Same figure as the confirmation page and receipt. */}
+              <span>{formatMoney(totals.subtotalCents + totals.discountCents)}</span>
             </div>
             {totals.discountCents > 0 && (
               <div className="summary-line discount">

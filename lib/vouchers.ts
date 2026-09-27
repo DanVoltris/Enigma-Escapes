@@ -2,7 +2,7 @@
 // promo_codes). Each voucher carries a face value and a remaining balance —
 // partial redemptions are normal, so the two are tracked separately and the
 // outstanding balance is a real liability the business owes.
-import { rest, restError } from "./supabase";
+import { rest, restAllPages, restError } from "./supabase";
 import { voucherProblem, type RedeemContext, type Voucher } from "./voucher-types";
 
 export type { Voucher } from "./voucher-types";
@@ -406,21 +406,25 @@ export type VoucherReport = {
 // only a running balance and a last-used stamp, so the honest question is how
 // many vouchers were touched in the period, not how much came off them.
 export async function voucherReport(fromISO: string, toISO: string): Promise<VoucherReport> {
-  const res = await rest(
-    "gift_vouchers?select=code,face_cents,remaining_cents,active,created_at,last_used_at,expiry_date,kind,purchaser&limit=20000"
-  );
-  if (!res.ok) throw await restError(res, "Loading vouchers for the report");
-  const rows = (await res.json()) as {
-    code: string;
-    face_cents: number | null;
-    remaining_cents: number | null;
-    active: boolean | null;
-    created_at: string | null;
-    last_used_at: string | null;
-    expiry_date: string | null;
-    kind: string | null;
-    purchaser: string | null;
-  }[];
+  // Paged: PostgREST returns at most 1,000 rows however high `limit` is set, and
+  // Enigma has over 2,000 vouchers — one request quietly reported on about half
+  // of them, understating the outstanding balance. The order must be unique or
+  // rows shift between pages.
+  const rows =
+    (await restAllPages<{
+      code: string;
+      face_cents: number | null;
+      remaining_cents: number | null;
+      active: boolean | null;
+      created_at: string | null;
+      last_used_at: string | null;
+      expiry_date: string | null;
+      kind: string | null;
+      purchaser: string | null;
+    }>(
+      "gift_vouchers?select=code,face_cents,remaining_cents,active,created_at,last_used_at,expiry_date,kind,purchaser&order=code.asc",
+      "Loading vouchers for the report"
+    )) ?? [];
 
   const day = (v: string | null) => (v ? v.slice(0, 10) : null);
   const inPeriod = (v: string | null) => {

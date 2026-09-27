@@ -67,6 +67,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: `Already ${request.status}.` }, { status: 400 });
   }
 
+  const decided = action === "accept" ? "accepted" : "declined";
+  // Set once this call has claimed the request, so a failure can hand it back.
+  let claimed = false;
   try {
     if (action === "accept") {
       const exp = await getExperience(request.roomId);
@@ -96,6 +99,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         );
       }
     }
+    // Claim it before building anything: only a request still pending moves on.
+    // Two managers pressing Accept together used to both pass the check above
+    // and save two bookings for one slot, each texting the customer.
+    if (!(await setRequestStatus(id, decided, undefined, "pending"))) {
+      return NextResponse.json(
+        { error: "Someone else just handled this request — refresh to see where it stands." },
+        { status: 409 }
+      );
+    }
+    claimed = true;
+
     let bookingId: string | undefined;
     if (action === "accept") {
       // Built through the same path as any other booking, so pricing, capacity
@@ -117,12 +131,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         },
         "in_person" // staff acting at the desk: exempt from the online-only rules
       );
-      if ("error" in built) return NextResponse.json({ error: built.error }, { status: 400 });
+      if ("error" in built) {
+        await setRequestStatus(id, "pending", undefined, decided); // hand the claim back
+        claimed = false;
+        return NextResponse.json({ error: built.error }, { status: 400 });
+      }
       await saveBooking(built.booking);
       bookingId = built.booking.id;
+      claimed = false; // a booking exists now: never hand the request back after this
+      await setRequestStatus(id, decided, bookingId, decided); // attach the booking
     }
-
-    await setRequestStatus(id, action === "accept" ? "accepted" : "declined", bookingId);
+    claimed = false;
     await notifyRequestDecision(request, action === "accept", req.nextUrl.origin);
     await logActivity(
       `Booking request ${action === "accept" ? "accepted" : "declined"}`,
@@ -132,6 +151,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ ok: true, bookingId: bookingId ?? null });
   } catch (err) {
     console.error("deciding request failed:", err);
+    if (claimed) {
+      // Claimed but no booking saved — put it back so staff can try again.
+      await setRequestStatus(id, "pending", undefined, decided).catch((e) =>
+        console.error("could not hand the request back:", e)
+      );
+    }
     return NextResponse.json({ error: "Could not update the request right now. Please try again." }, { status: 500 });
   }
 }
