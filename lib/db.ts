@@ -668,7 +668,10 @@ export async function rescheduleBooking(id: string, items: Booking["items"]): Pr
 export async function updateBookingPartySize(
   id: string,
   items: Booking["items"],
-  pricing: Booking["pricing"]
+  pricing: Booking["pricing"],
+  // What the caller was doing, for the error a failure shows. Dropping one
+  // session from the booking writes the same two columns as a resize.
+  doing = "Changing the party size"
 ): Promise<void> {
   if (!UUID_RE.test(id)) throw new Error("Invalid booking id.");
   const res = await rest(`bookings?id=eq.${id}`, {
@@ -676,7 +679,7 @@ export async function updateBookingPartySize(
     headers: { Prefer: "return=minimal" },
     body: JSON.stringify({ items, pricing }),
   });
-  if (!res.ok) throw await restError(res, "Changing the party size");
+  if (!res.ok) throw await restError(res, doing);
 }
 
 // All booked spot counts for one date, keyed "roomId|time". One query per date

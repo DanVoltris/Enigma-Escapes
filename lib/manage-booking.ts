@@ -20,7 +20,7 @@ import { computeTotals, lineCents, refundGoingBackCents } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
 import { activeTaxPercent } from "./taxes";
 import { startTimesFor } from "./schedule";
-import { onlinePayment } from "./refunds";
+import { ONLINE_PAYMENT_ID, onlinePayment, refundBookingPayment } from "./refunds";
 import { refundPayment, stripeConfigured } from "./stripe";
 import { revokeRewardsFor } from "./reward-flow";
 import { refundToVoucher } from "./vouchers";
@@ -380,6 +380,142 @@ export async function changePartySize(
     staffName
   );
   return { items, pricing };
+}
+
+// Drop ONE session from a booking that holds several — the group of five rooms
+// that decides it wants three. Everything else survives: same reference, same
+// links, same confirmation, the other rooms priced exactly as they were sold.
+// The freed slot goes straight back on sale, because availability is counted
+// from a booking's items and this one is no longer among them.
+//
+// The whole-booking cancel is still the right call for the last session on a
+// booking: a reservation with nothing in it is a cancelled reservation, and
+// that path also returns vouchers and revokes rewards, which a partial can't
+// reason about.
+export async function cancelItemForStaff(
+  booking: Booking,
+  itemIndex: number,
+  refundCents: number,
+  staffName: string
+): Promise<
+  | { error: string }
+  | {
+      items: Booking["items"];
+      pricing: Booking["pricing"];
+      refundedCents: number; // what actually reached the customer
+      owedCents: number; // what was promised back, settled or not
+      removed: { roomName: string; date: string; time: string };
+    }
+> {
+  if (booking.status === "cancelled") return { error: "This booking is cancelled." };
+  const item = booking.items[itemIndex];
+  if (!item) return { error: "That session is no longer on this booking." };
+  if (booking.items.length < 2) {
+    return { error: "That is the only session on this booking — cancel the whole booking instead." };
+  }
+
+  // The refund goes first, while the booking still describes what was sold. It
+  // can fail (Stripe refusing, a card gone), and a refund that failed must not
+  // leave the session already dropped: nothing is written until it is settled.
+  const alreadyGoingBack = refundGoingBackCents(booking.pricing);
+  const wanted = Math.max(0, Math.min(Math.round(refundCents), booking.pricing.paidCents - alreadyGoingBack));
+  let pricingAfterRefund = booking.pricing;
+  let refundedCents = 0;
+  let owedCents = 0;
+  if (wanted > 0) {
+    // Only the checkout payment can be sent back from here. Money taken at the
+    // desk is refunded on the Refund panel against that specific payment, so
+    // anything beyond the card is recorded as owed rather than quietly dropped.
+    const online = onlinePayment(booking);
+    const toCard = Math.min(wanted, online?.refundableCents ?? 0);
+    if (toCard > 0) {
+      const out = await refundBookingPayment(booking, ONLINE_PAYMENT_ID, toCard, staffName);
+      if ("error" in out) return { error: out.error };
+      pricingAfterRefund = out.pricing;
+      refundedCents = out.toCard ? out.refundedCents : 0;
+      owedCents = toCard;
+    }
+    const byHand = wanted - toCard;
+    if (byHand > 0) {
+      pricingAfterRefund = {
+        ...pricingAfterRefund,
+        refundOwedCents: (pricingAfterRefund.refundOwedCents ?? 0) + byHand,
+        refundedAt: new Date().toISOString(),
+      };
+      owedCents += byHand;
+    }
+  }
+
+  // Rebuild the totals from the rooms they keep, the same way a party-size
+  // change does: per-person prices stay, and the discount rate the booking was
+  // sold at is carried across so a since-expired promo isn't taken away.
+  const remaining = booking.items.filter((_, idx) => idx !== itemIndex);
+  const feeDiscountable = !booking.pricing.rewardCode;
+  const listedBefore =
+    booking.items.reduce((sum, i) => sum + lineCents(i), 0) +
+    (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
+  const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
+  // The corporate fee is charged once per booking, not per room, so it rides
+  // through untouched — the group still gets the thing the fee paid for.
+  const totals = computeTotals(
+    remaining,
+    percentOff,
+    await activeTaxPercent(),
+    await getPricingMode(),
+    booking.pricing.flatFeeCents ?? 0,
+    feeDiscountable
+  );
+  // paidCents records what was collected and is left alone — the refund side
+  // carries the money going back, so the booking never starts showing a fresh
+  // balance due that staff might collect a second time.
+  //
+  // The balance counts what they keep, not what they handed over: money already
+  // promised back is not money paid towards the rooms they kept. Refund this
+  // room's share and the booking settles at zero; refund nothing and it shows
+  // that share as overpaid, which is exactly what it is until someone returns
+  // it. The same netting the booking page does (outstandingCents).
+  const pricing: Booking["pricing"] = {
+    ...pricingAfterRefund,
+    subtotalCents: totals.subtotalCents,
+    discountCents: totals.discountCents,
+    gstCents: totals.gstCents,
+    totalCents: totals.totalCents,
+    balanceCents:
+      totals.totalCents - Math.max(0, booking.pricing.paidCents - refundGoingBackCents(pricingAfterRefund)),
+  };
+  await updateBookingPartySize(booking.id, remaining, pricing, "Cancelling that session");
+
+  const which = `${item.roomName} ${formatTime(item.time)}`;
+  await logActivity(
+    "Session cancelled by staff",
+    `${booking.reference} — ${staffName} — ${which} dropped, ${remaining.length} session${
+      remaining.length === 1 ? "" : "s"
+    } left` +
+      (owedCents === 0
+        ? ", no refund"
+        : refundedCents >= owedCents
+          ? `, refunded ${formatMoney(refundedCents)}`
+          : `, REFUND OWED ${formatMoney(owedCents - refundedCents)}`)
+  );
+  await addBookingNote(
+    booking.id,
+    `${which} cancelled — that slot is back on sale. The booking now holds ${remaining.length} session${
+      remaining.length === 1 ? "" : "s"
+    }, total ${formatMoney(totals.totalCents)}. ` +
+      (owedCents === 0
+        ? "No refund given."
+        : refundedCents >= owedCents
+          ? `${formatMoney(refundedCents)} refunded to the card.`
+          : `${formatMoney(owedCents - refundedCents)} still to refund by hand.`),
+    staffName
+  );
+  return {
+    items: remaining,
+    pricing,
+    refundedCents,
+    owedCents,
+    removed: { roomName: item.roomName, date: item.date, time: item.time },
+  };
 }
 
 export async function rescheduleForStaff(

@@ -12,15 +12,24 @@ type Room = { id: string; name: string; location: string };
 // Sentinel value for the "Custom time…" entry in the start-time dropdown.
 const CUSTOM = "__custom";
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-export type Session = { roomName: string; roomId: string; date: string; time: string; quantity: number };
+export type Session = {
+  roomName: string;
+  roomId: string;
+  date: string;
+  time: string;
+  quantity: number;
+  // What this room came to as part of the booking, tax included: the refund
+  // offered when only this session is cancelled.
+  shareCents: number;
+};
 
 // Cancel or move a booking from the portal — the phone-call cases the
 // customer's own self-service link deliberately can't cover.
 //
 // A booking can hold several sessions: a group taking two rooms buys them on one
-// reference. Guest count and moves apply to ONE of them, chosen here and passed
-// to the API as an index; cancelling still takes the whole booking, because
-// that's what a booking is.
+// reference. Guest count, moves and cancelling one room all apply to ONE of
+// them, chosen here and passed to the API as an index. Cancelling the whole
+// booking is a separate button, and the only option when one session is left.
 export default function BookingActions({
   bookingId,
   paidCents,
@@ -35,7 +44,7 @@ export default function BookingActions({
   rooms: Room[];
 }) {
   const router = useRouter();
-  const [panel, setPanel] = useState<"none" | "cancel" | "move" | "party">("none");
+  const [panel, setPanel] = useState<"none" | "cancel" | "cancelSession" | "move" | "party">("none");
   // Which session the party/move panels are acting on.
   const [target, setTarget] = useState(0);
   const current = sessions[target] ?? sessions[0];
@@ -45,6 +54,11 @@ export default function BookingActions({
   const [partial, setPartial] = useState((paidCents / 100).toFixed(2));
   const [notifyCancel, setNotifyCancel] = useState(true);
   const [confirming, setConfirming] = useState(false);
+
+  // Cancel one session of several
+  const [sRefund, setSRefund] = useState<"share" | "partial" | "none">("share");
+  const [sPartial, setSPartial] = useState("0.00");
+  const [confirmingSession, setConfirmingSession] = useState(false);
 
   // Party size
   const [guests, setGuests] = useState(String(current.quantity));
@@ -69,10 +83,12 @@ export default function BookingActions({
 
   // Opening a panel seeds it from the session it will act on — otherwise the
   // second room's panel would come up showing the first room's time.
-  function open(next: "cancel" | "move" | "party", index = 0) {
+  function open(next: "cancel" | "cancelSession" | "move" | "party", index = 0) {
     const s = sessions[index] ?? sessions[0];
     setTarget(index);
     setGuests(String(s.quantity));
+    setSRefund("share");
+    setSPartial((s.shareCents / 100).toFixed(2));
     setRoomId(s.roomId);
     setDate(s.date);
     setTime(s.time);
@@ -84,6 +100,51 @@ export default function BookingActions({
 
   const refundCents =
     refund === "full" ? paidCents : refund === "partial" ? Math.round(Number(partial) * 100) || 0 : 0;
+
+  // Cancel one room of several. The booking survives; only this session goes.
+  async function cancelSession() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/manager/bookings/${bookingId}/cancel-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemIndex: target,
+          refund: sRefund,
+          amount: sRefund === "none" ? 0 : Number(sPartial),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Could not cancel that session.");
+      const d = data as {
+        removed: { roomName: string; time: string };
+        remaining: number;
+        totalCents: number;
+        refundedCents: number;
+        owedCents: number;
+      };
+      const money =
+        d.refundedCents > 0 && d.owedCents > d.refundedCents
+          ? `${formatMoney(d.refundedCents)} refunded to the card, ${formatMoney(d.owedCents - d.refundedCents)} still to refund by hand.`
+          : d.refundedCents > 0
+            ? `${formatMoney(d.refundedCents)} refunded.`
+            : d.owedCents > 0
+              ? `${formatMoney(d.owedCents)} still to refund by hand.`
+              : "No refund given.";
+      setDone(
+        `${d.removed.roomName} at ${formatTime(d.removed.time)} cancelled and back on sale. ` +
+          `${d.remaining} session${d.remaining === 1 ? "" : "s"} left, total now ${formatMoney(d.totalCents)}. ${money}`
+      );
+      setPanel("none");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel that session.");
+    } finally {
+      setBusy(false);
+      setConfirmingSession(false);
+    }
+  }
 
   async function cancel() {
     setBusy(true);
@@ -240,14 +301,18 @@ export default function BookingActions({
                         <button type="button" className="btn btn-outline" onClick={() => open("move", i)}>
                           Move this session
                         </button>
+                        <button type="button" className="btn btn-danger" onClick={() => open("cancelSession", i)}>
+                          Cancel this session
+                        </button>
                       </div>
                     </div>
                   </li>
                 ))}
               </ul>
               <p className="card-sub">
-                Cancelling takes the whole booking — every room on it — and refunds against the one
-                payment. To drop a single room, move the others onto a new booking first.
+                Cancelling a single session keeps the rest of the reservation — same reference, same
+                confirmation — and puts that slot back on sale. Cancelling the booking takes every room on
+                it.
               </p>
               <div className="vch-save">
                 <button type="button" className="btn btn-danger" onClick={() => open("cancel")}>
@@ -404,6 +469,73 @@ export default function BookingActions({
         </>
       )}
 
+      {panel === "cancelSession" && (
+        <>
+          <p className="card-sub" style={{ marginTop: 4 }}>
+            Cancelling <strong>{current.roomName}</strong> — {formatDateLong(current.date)},{" "}
+            {formatTime(current.time)}, {current.quantity} guest{current.quantity === 1 ? "" : "s"}.{" "}
+            {sessions.length - 1 === 1
+              ? "The other session on this booking stays as it is."
+              : `The other ${sessions.length - 1} sessions on this booking stay as they are.`}
+            {!stripeLive && paidCents > 0 && " Card payments aren't live yet, so any refund is recorded for you to settle by hand."}
+          </p>
+          <div className="field">
+            <label>Refund</label>
+            <div className="vch-days">
+              {(["share", "partial", "none"] as const).map((r) => (
+                <label key={r} className="vch-check">
+                  <input
+                    type="radio"
+                    name="session-refund"
+                    checked={sRefund === r}
+                    onChange={() => {
+                      setSRefund(r);
+                      if (r === "share") setSPartial((current.shareCents / 100).toFixed(2));
+                    }}
+                  />
+                  {r === "share"
+                    ? `Refund this room's share (${formatMoney(current.shareCents)})`
+                    : r === "partial"
+                      ? "Refund a different amount"
+                      : "No refund"}
+                </label>
+              ))}
+            </div>
+          </div>
+          {sRefund === "partial" && (
+            <div className="field" style={{ maxWidth: 160 }}>
+              <label htmlFor="ba-session-amount">Amount ($)</label>
+              <input
+                id="ba-session-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                max={(paidCents / 100).toFixed(2)}
+                value={sPartial}
+                onChange={(e) => setSPartial(e.target.value)}
+              />
+            </div>
+          )}
+          <p className="field-hint">
+            The customer isn&apos;t texted about a single room — tell them on the call. Their booking page
+            updates itself to show the rooms they kept.
+          </p>
+          <div className="vch-save">
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => setConfirmingSession(true)}
+              disabled={busy}
+            >
+              Cancel this session
+            </button>
+            <button type="button" className="btn btn-outline" onClick={() => setPanel("none")}>
+              Back
+            </button>
+          </div>
+        </>
+      )}
+
       {panel === "cancel" && (
         <>
           <p className="card-sub" style={{ marginTop: 4 }}>
@@ -449,6 +581,25 @@ export default function BookingActions({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmingSession}
+        title="Cancel this session?"
+        confirmLabel="Cancel this session"
+        busy={busy}
+        onConfirm={cancelSession}
+        onCancel={() => setConfirmingSession(false)}
+      >
+        <p>
+          {current.roomName} at {formatTime(current.time)} comes off this booking and the slot goes back on
+          sale straight away. This can&apos;t be undone.{" "}
+          {sRefund === "none"
+            ? "No money goes back."
+            : `${formatMoney(Math.round(Number(sPartial) * 100) || 0)} goes back to the customer${
+                stripeLive ? " automatically." : ", recorded for you to settle by hand."
+              }`}
+        </p>
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={confirming}
