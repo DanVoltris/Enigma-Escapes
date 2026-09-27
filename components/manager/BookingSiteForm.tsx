@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { minutesInWords } from "@/lib/format";
 import type { SiteSettings } from "@/lib/site-settings";
 
 type TabKey = "availability" | "colors" | "basket" | "content";
@@ -216,6 +217,27 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                   onChange={(e) => patch({ windowDays: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
                 />
                 <p className="field-hint">Customers can book from today up to this many days ahead.</p>
+              </div>
+              <div className="field" style={{ maxWidth: 320 }}>
+                <label htmlFor="bs-request-window">Ask for a request within (minutes of the start)</label>
+                <input
+                  id="bs-request-window"
+                  type="number"
+                  min="0"
+                  max="1440"
+                  step="15"
+                  value={s.requestWindowMinutes}
+                  onChange={(e) =>
+                    patch({ requestWindowMinutes: Math.max(0, Math.min(1440, Number(e.target.value) || 0)) })
+                  }
+                />
+                <p className="field-hint">
+                  A session starting this soon can&apos;t be booked straight from the site: the customer leaves their
+                  details, the slot is held, and staff accept or decline it on the Requests tab.{" "}
+                  {s.requestWindowMinutes > 0
+                    ? `Now ${minutesInWords(s.requestWindowMinutes)} — 60 is one hour, 240 is four.`
+                    : "Set to 0: no requests at all, and customers book right up to the start time."}
+                </p>
               </div>
               <div className="field-row-3">
                 <div className="field">

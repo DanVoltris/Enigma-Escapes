@@ -13,6 +13,7 @@ import {
   formatDateLong,
   formatMoney,
   formatTime,
+  minutesInWords,
   todayISO,
 } from "@/lib/format";
 import { preTaxUnitCents } from "@/lib/pricing";
@@ -462,7 +463,8 @@ export default function BrowsePage({
                     ) : slot.requestOnly ? (
                       <div className="request-form">
                         <p className="request-note">
-                          This session starts within 4 hours, so it needs a quick staff confirmation. Leave your
+                          This session starts within {minutesInWords(site.requestWindowMinutes)}, so it needs a quick staff
+                          confirmation. Leave your
                           details — no payment yet — and we&apos;ll text you within minutes.
                         </p>
                         <div className="panel-controls" style={{ borderTop: "none", paddingTop: 0 }}>

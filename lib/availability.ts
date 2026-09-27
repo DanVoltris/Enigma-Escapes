@@ -2,8 +2,9 @@ import { blockedKeysForDate, isBlocked } from "./blocks";
 import { overlappedBy, remainingSpots } from "./capacity";
 import { bookedCount, bookedCountsForDate, busySessionsForDate } from "./db";
 import { getExperience, listExperiences } from "./experiences";
-import { minutesUntilSlot, nowMinutesInBusinessTZ, REQUEST_WINDOW_MINUTES, todayISO } from "./format";
+import { minutesUntilSlot, nowMinutesInBusinessTZ, todayISO } from "./format";
 import { getLocationHours, locationHoursMap } from "./hours";
+import { getSiteSettings } from "./site-settings";
 import { heldSeats, heldSeatsForDate } from "./requests";
 import { startTimesFor } from "./schedule";
 import type { Slot } from "./types";
@@ -11,7 +12,7 @@ import type { Slot } from "./types";
 export async function slotsForDate(date: string): Promise<Slot[]> {
   const isToday = date === todayISO();
   const nowMinutes = nowMinutesInBusinessTZ();
-  const [experiences, booked, busy, hoursMap, blocked, held] = await Promise.all([
+  const [experiences, booked, busy, hoursMap, blocked, held, site] = await Promise.all([
     listExperiences({ activeOnly: true }),
     bookedCountsForDate(date),
     busySessionsForDate(date),
@@ -20,6 +21,7 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
     // Seats a live request is holding — someone else is mid-request for this
     // slot, so it isn't anyone else's to take yet.
     heldSeatsForDate(date),
+    getSiteSettings(),
   ]);
 
   const slots: Slot[] = [];
@@ -62,7 +64,8 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         badgeFg: exp.badgeFg,
         imageUrl: exp.imageUrl,
         // Starts soon → not self-serve; the customer sends a request instead.
-        requestOnly: minutesUntilSlot(date, time) <= REQUEST_WINDOW_MINUTES,
+        // The window is per venue (Settings → Booking site → Availability).
+        requestOnly: site.requestWindowMinutes > 0 && minutesUntilSlot(date, time) <= site.requestWindowMinutes,
       });
     }
   }

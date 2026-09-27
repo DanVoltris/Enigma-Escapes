@@ -3,8 +3,9 @@ import { isBlocked } from "@/lib/blocks";
 import { minutesToTime, overlappedBy, remainingSpots } from "@/lib/capacity";
 import { bookedCount, busySessionsForDate, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
-import { formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES } from "@/lib/format";
+import { formatTime, isValidISODate, minutesUntilSlot } from "@/lib/format";
 import { getLocationHours } from "@/lib/hours";
+import { getSiteSettings } from "@/lib/site-settings";
 import { createRequest, heldSeats } from "@/lib/requests";
 import { notifyNewRequest } from "@/lib/sms";
 import { pushNewRequest } from "@/lib/staff-push";
@@ -58,7 +59,11 @@ export async function POST(req: NextRequest) {
   if (untilStart <= 0) {
     return NextResponse.json({ error: `${formatTime(time)} has already started — pick a later time.` }, { status: 400 });
   }
-  if (untilStart > REQUEST_WINDOW_MINUTES) {
+  const requestWindow = (await getSiteSettings()).requestWindowMinutes;
+  if (requestWindow <= 0) {
+    return NextResponse.json({ error: "Requests aren't taken here — please book online or give us a call." }, { status: 400 });
+  }
+  if (untilStart > requestWindow) {
     return NextResponse.json(
       { error: "That session is far enough away to book normally — no request needed." },
       { status: 400 }

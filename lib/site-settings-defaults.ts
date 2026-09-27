@@ -3,11 +3,16 @@
 // from the database — so client components (e.g. lib/site-config.tsx) can import
 // the type and defaults without pulling server-only data code into the browser
 // bundle.
+import { REQUEST_WINDOW_MINUTES } from "./format";
 import { BOOKING_WINDOW_DAYS, HOLD_MINUTES } from "./pricing";
 
 export type SiteSettings = {
   // availability
   windowDays: number; // how far ahead customers can book
+  // A session starting within this many minutes can't be booked straight from
+  // the site: the customer sends a request and staff confirm it. 0 turns that
+  // off, so sessions stay self-serve right up to their start time.
+  requestWindowMinutes: number;
   availableLabel: string; // CTA on a bookable slot
   soldOutLabel: string; // label on a full slot
   // colours (customer site only)
@@ -33,6 +38,7 @@ export type SiteSettings = {
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   windowDays: BOOKING_WINDOW_DAYS,
+  requestWindowMinutes: REQUEST_WINDOW_MINUTES,
   availableLabel: "Book now",
   soldOutLabel: "Sold out",
   brandColor: "#87cefa",
@@ -68,6 +74,8 @@ export function normalizeSiteSettings(input: unknown): SiteSettings {
   const d = DEFAULT_SITE_SETTINGS;
   return {
     windowDays: int(o.windowDays, d.windowDays, 1, 365),
+    // Up to a day: beyond that every session on the site would be request-only.
+    requestWindowMinutes: int(o.requestWindowMinutes, d.requestWindowMinutes, 0, 1440),
     availableLabel: str(o.availableLabel, d.availableLabel, 30),
     soldOutLabel: str(o.soldOutLabel, d.soldOutLabel, 30),
     brandColor: hex(o.brandColor, d.brandColor),

@@ -127,9 +127,22 @@ export function nowMinutesInBusinessTZ(): number {
   return hour * 60 + minute;
 }
 
-// Bookings starting within this window aren't self-serve — they go through a
-// manager-approved request instead (the Requests tab).
+// Default for the request window: bookings starting within this many minutes
+// aren't self-serve — they go through a manager-approved request instead (the
+// Requests tab). Each venue can change it in Settings → Booking site, which is
+// what the live code reads (SiteSettings.requestWindowMinutes); this is only
+// the fallback for a venue that has never saved it.
 export const REQUEST_WINDOW_MINUTES = 4 * 60;
+
+// "4 hours", "90 minutes", "1 hour" — the request window in words, for copy
+// that has to match whatever the venue set.
+export function minutesInWords(minutes: number): string {
+  if (minutes % 60 === 0) {
+    const h = minutes / 60;
+    return `${h} hour${h === 1 ? "" : "s"}`;
+  }
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
 
 // Venue-local minutes from now until a slot starts (negative = already started).
 export function minutesUntilSlot(date: string, time: string): number {

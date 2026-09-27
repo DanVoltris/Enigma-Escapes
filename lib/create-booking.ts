@@ -4,7 +4,7 @@ import { blockedKeysForDate, isBlocked } from "./blocks";
 import { maxPerBooking, minPerBooking, minutesOfTime, minutesToTime, overlappedBy, remainingSpots } from "./capacity";
 import { bookedCountsForDate, busySessionsForDate, getPromo } from "./db";
 import { getExperience } from "./experiences";
-import { addDaysISO, formatTime, isValidISODate, minutesUntilSlot, REQUEST_WINDOW_MINUTES, todayISO } from "./format";
+import { addDaysISO, formatTime, isValidISODate, minutesUntilSlot, todayISO } from "./format";
 import { getLocationHours } from "./hours";
 import { getRequestByToken } from "./requests";
 import { getRewardCode, rewardProblem } from "./reward-codes";
@@ -94,7 +94,11 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   const today = todayISO();
   // Read before the items are built: the minimum charge is stored on each one.
   const pricingMode = await getPricingMode();
-  const windowDays = (await getSiteSettings()).windowDays;
+  const site = await getSiteSettings();
+  const windowDays = site.windowDays;
+  // Sessions this close to starting need an accepted request behind them; per
+  // venue, 0 = off (Settings → Booking site → Availability).
+  const requestWindow = site.requestWindowMinutes;
   const lastBookable = addDaysISO(
     today,
     source === "in_person" ? Math.max(windowDays, STAFF_BOOKING_WINDOW_DAYS) : windowDays
@@ -180,7 +184,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       // Slots starting within the request window aren't self-serve: they need
       // an ACCEPTED request behind them (staff walk-ins are exempt — that's
       // the manager acting directly). Blocks crafted checkout calls too.
-      if (source === "online" && minutesUntilSlot(date, time) <= REQUEST_WINDOW_MINUTES) {
+      if (source === "online" && requestWindow > 0 && minutesUntilSlot(date, time) <= requestWindow) {
         if (minutesUntilSlot(date, time) <= 0) return err(`${exp.name}: that time has already started.`);
         const token = typeof raw.requestToken === "string" ? raw.requestToken : "";
         const request = token ? await getRequestByToken(token) : undefined;
