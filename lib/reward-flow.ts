@@ -4,10 +4,18 @@
 // Kept apart from lib/reward-codes.ts (which only talks to the table) so the
 // table layer stays free of SMS and booking-repricing concerns, and apart from
 // lib/db.ts so there's no import cycle through the SMS module.
-import { addBookingNote, getBooking, logActivity, updateBookingFields } from "./db";
+import {
+  addBookingNote,
+  bookingsUsingReward,
+  getBooking,
+  getPromo,
+  logActivity,
+  updateBookingFields,
+} from "./db";
 import { computeTotals } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
-import { markRewardUsed, mintRewardFor, revokeRewardFor } from "./reward-codes";
+import { markRewardUsed, mintRewardFor, revokeRewardFor, REWARD_PERCENT_OFF } from "./reward-codes";
+import { getRewardSettings } from "./reward-settings";
 import { notifyRewardCode } from "./sms";
 import { activeTaxPercent } from "./taxes";
 import type { Booking } from "./types";
@@ -39,8 +47,21 @@ export async function settleRewardsFor(booking: Booking): Promise<void> {
   // it would be texted to whoever's name happened to be on the booking.
   if (booking.pricing.corporate) return;
 
+  // What this booking earns, if anything. A promo code can carry its own offer
+  // — "book with the hotel's code and here's 20% off for a week" — and that
+  // beats the house rule. Otherwise the venue decides whether every booking
+  // earns the standard code at all.
+  const promo = booking.promoCode ? await getPromo(booking.promoCode).catch(() => undefined) : undefined;
+  const terms =
+    promo && promo.rewardPercent > 0
+      ? { percentOff: promo.rewardPercent, validDays: promo.rewardDays, multiUse: promo.rewardMultiUse }
+      : (await getRewardSettings()).everyBooking
+        ? { percentOff: REWARD_PERCENT_OFF, validDays: 0 }
+        : null;
+  if (!terms) return;
+
   try {
-    const minted = await mintRewardFor(booking);
+    const minted = await mintRewardFor(booking, terms);
     if (minted?.created) {
       await notifyRewardCode(booking, minted.reward.code, minted.reward.percentOff, minted.reward.validUntil);
       await logActivity(
@@ -79,45 +100,64 @@ export async function revokeRewardsFor(booking: Booking): Promise<string | null>
   if (!revoked.usedBooking) return `Reward code ${revoked.code} cancelled with it.`;
 
   try {
-    const affected = await getBooking(revoked.usedBooking);
-    if (!affected || affected.status === "cancelled") return `Reward code ${revoked.code} cancelled with it.`;
+    // A reusable code can be on several bookings, so every one of them goes
+    // back to full price — found from the bookings rather than from the code,
+    // which only remembers the most recent.
+    const spentOn = revoked.multiUse
+      ? await bookingsUsingReward(revoked.code)
+      : [await getBooking(revoked.usedBooking)];
+    const live = spentOn.filter((b): b is Booking => !!b && b.status !== "cancelled");
+    if (live.length === 0) return `Reward code ${revoked.code} cancelled with it.`;
+    let repriced = 0;
+    let owedCents = 0;
+    // Named here so the note can point at one of them when there is only one.
+    let lastReference = "";
+    for (const affected of live) {
+      // Re-price at full: same sessions, no discount. balanceCents is always
+      // total - paid, so the money now owed shows up by itself on the Today
+      // board, the Bookings list and the booking's own Total due.
+      const totals = computeTotals(
+        affected.items,
+        0,
+        await activeTaxPercent(),
+        await getPricingMode(),
+        affected.pricing.flatFeeCents ?? 0
+      );
+      const extraCents = totals.totalCents - affected.pricing.totalCents;
+      if (extraCents <= 0) continue;
 
-    // Re-price at full: same sessions, no discount. balanceCents is always
-    // total - paid, so the money now owed shows up by itself on the Today
-    // board, the Bookings list and the booking's own Total due.
-    const totals = computeTotals(
-      affected.items,
-      0,
-      await activeTaxPercent(),
-      await getPricingMode(),
-      affected.pricing.flatFeeCents ?? 0
-    );
-    const extraCents = totals.totalCents - affected.pricing.totalCents;
-    if (extraCents <= 0) return `Reward code ${revoked.code} cancelled with it.`;
+      await updateBookingFields(affected.id, {
+        pricing: {
+          ...affected.pricing,
+          subtotalCents: totals.subtotalCents,
+          discountCents: 0,
+          gstCents: totals.gstCents,
+          totalCents: totals.totalCents,
+          balanceCents: totals.totalCents - affected.pricing.paidCents,
+          rewardVoidedAt: new Date().toISOString(),
+          rewardOwedCents: extraCents,
+        },
+      });
 
-    await updateBookingFields(affected.id, {
-      pricing: {
-        ...affected.pricing,
-        subtotalCents: totals.subtotalCents,
-        discountCents: 0,
-        gstCents: totals.gstCents,
-        totalCents: totals.totalCents,
-        balanceCents: totals.totalCents - affected.pricing.paidCents,
-        rewardVoidedAt: new Date().toISOString(),
-        rewardOwedCents: extraCents,
-      },
-    });
+      const money = `$${(extraCents / 100).toFixed(2)}`;
+      await addBookingNote(
+        affected.id,
+        `The ${revoked.code} discount was taken off this booking because the booking that earned it (${booking.reference}) was cancelled. This booking is back at full price — collect ${money} from the customer.`
+      );
+      await logActivity(
+        "Discount voided — payment owed",
+        `${affected.reference} — ${money} to collect after ${booking.reference} was cancelled`
+      );
+      repriced++;
+      owedCents += extraCents;
+      lastReference = affected.reference;
+    }
 
-    const money = `$${(extraCents / 100).toFixed(2)}`;
-    await addBookingNote(
-      affected.id,
-      `The ${revoked.code} discount was taken off this booking because the booking that earned it (${booking.reference}) was cancelled. This booking is back at full price — collect ${money} from the customer.`
-    );
-    await logActivity(
-      "Discount voided — payment owed",
-      `${affected.reference} — ${money} to collect after ${booking.reference} was cancelled`
-    );
-    return `${affected.reference} is back at full price — ${money} to collect.`;
+    if (repriced === 0) return `Reward code ${revoked.code} cancelled with it.`;
+    const money = `$${(owedCents / 100).toFixed(2)}`;
+    return repriced === 1
+      ? `${lastReference} is back at full price — ${money} to collect.`
+      : `${repriced} bookings that used ${revoked.code} are back at full price — ${money} to collect.`;
   } catch (err) {
     console.error(`could not re-price the booking that used ${revoked.code}:`, err);
     return `Reward code ${revoked.code} cancelled with it — check ${revoked.usedBooking} manually.`;

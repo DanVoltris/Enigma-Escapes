@@ -758,10 +758,37 @@ export async function bookingsForDate(date: string): Promise<Booking[]> {
 
 // staff_only was added after the table: rows written before it read as
 // undefined, which means the same as false.
-type PromoRow = { code: string; percent_off: number; active: boolean; staff_only?: boolean | null };
+type PromoRow = {
+  code: string;
+  percent_off: number;
+  active: boolean;
+  staff_only?: boolean | null;
+  // Added by migration 0007; absent on a database that hasn't had it.
+  reward_percent?: number | null;
+  reward_days?: number | null;
+  reward_multi_use?: boolean | null;
+};
 
 function toPromo(r: PromoRow): Promo {
-  return { code: r.code, percentOff: r.percent_off, active: r.active, staffOnly: r.staff_only === true };
+  return {
+    code: r.code,
+    percentOff: r.percent_off,
+    active: r.active,
+    staffOnly: r.staff_only === true,
+    rewardPercent: r.reward_percent ?? 0,
+    rewardDays: r.reward_days ?? 0,
+    rewardMultiUse: r.reward_multi_use === true,
+  };
+}
+
+// Bookings that were paid for with a particular reward code. Asked of the
+// bookings themselves rather than tracked on the code: a reusable code can be
+// spent several times, and two checkouts racing each other must not be able to
+// drop one of them from a list.
+export async function bookingsUsingReward(code: string): Promise<Booking[]> {
+  const res = await rest(`bookings?pricing->>rewardCode=eq.${encodeURIComponent(code)}&select=*`);
+  if (!res.ok) throw await restError(res, "Finding bookings that used that code");
+  return ((await res.json()) as BookingRow[]).map(toBooking);
 }
 
 export async function getPromo(code: string): Promise<Promo | undefined> {
@@ -788,6 +815,15 @@ export async function createPromo(promo: Promo): Promise<void> {
       percent_off: promo.percentOff,
       active: promo.active,
       ...(promo.staffOnly ? { staff_only: true } : {}),
+      // Same reasoning as staff_only above: only sent when set, so a database
+      // that hasn't had migration 0007 still takes an ordinary promo code.
+      ...(promo.rewardPercent > 0
+        ? {
+            reward_percent: promo.rewardPercent,
+            reward_days: promo.rewardDays,
+            reward_multi_use: promo.rewardMultiUse,
+          }
+        : {}),
     }),
   });
   if (!res.ok) throw await restError(res, "Creating the promo code");
@@ -795,12 +831,22 @@ export async function createPromo(promo: Promo): Promise<void> {
 
 export async function updatePromo(
   code: string,
-  patch: { percentOff?: number; active?: boolean; staffOnly?: boolean }
+  patch: {
+    percentOff?: number;
+    active?: boolean;
+    staffOnly?: boolean;
+    rewardPercent?: number;
+    rewardDays?: number;
+    rewardMultiUse?: boolean;
+  }
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (patch.percentOff !== undefined) row.percent_off = patch.percentOff;
   if (patch.active !== undefined) row.active = patch.active;
   if (patch.staffOnly !== undefined) row.staff_only = patch.staffOnly;
+  if (patch.rewardPercent !== undefined) row.reward_percent = patch.rewardPercent;
+  if (patch.rewardDays !== undefined) row.reward_days = patch.rewardDays;
+  if (patch.rewardMultiUse !== undefined) row.reward_multi_use = patch.rewardMultiUse;
   const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },

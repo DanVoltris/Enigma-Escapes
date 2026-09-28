@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown };
+  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown };
   const staffOnly = d.staffOnly === true;
 
   const code = typeof d.code === "string" ? d.code.trim().toUpperCase() : "";
@@ -38,8 +38,38 @@ export async function POST(req: NextRequest) {
     if (await getPromo(code)) {
       return NextResponse.json({ error: `${code} already exists. Edit it in the list instead.` }, { status: 409 });
     }
-    await createPromo({ code, percentOff, active: true, staffOnly });
-    await logActivity("Created promo code", `${code} — ${percentOff}% off${staffOnly ? " (staff only)" : ""}`);
+    // A code can hand the customer a follow-up code with the confirmation —
+    // "book with this and here's 20% off for a week". 0 = it grants nothing.
+    const rewardPercent = Math.round(Number(d.rewardPercent ?? 0)) || 0;
+    const rewardDays = Math.round(Number(d.rewardDays ?? 0)) || 0;
+    if (rewardPercent < 0 || rewardPercent > 100) {
+      return NextResponse.json(
+        { error: "The follow-up discount must be between 1 and 100 percent." },
+        { status: 400 }
+      );
+    }
+    if (rewardPercent > 0 && (rewardDays < 1 || rewardDays > 365)) {
+      return NextResponse.json(
+        { error: "Say how many days the follow-up code lasts — 1 to 365." },
+        { status: 400 }
+      );
+    }
+    await createPromo({
+      code,
+      percentOff,
+      active: true,
+      staffOnly,
+      rewardPercent,
+      rewardDays,
+      rewardMultiUse: rewardPercent > 0 && d.rewardMultiUse === true,
+    });
+    await logActivity(
+      "Created promo code",
+      `${code} — ${percentOff}% off${staffOnly ? " (staff only)" : ""}` +
+        (rewardPercent > 0
+          ? `, earns ${rewardPercent}% off for ${rewardDays} days${d.rewardMultiUse === true ? ", reusable" : ""}`
+          : "")
+    );
     return NextResponse.json({ code }, { status: 201 });
   } catch (err) {
     console.error("creating promo failed:", err);

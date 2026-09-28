@@ -137,6 +137,16 @@ export type Promo = {
   active: boolean;
   // Only the desk can apply it — on a walk-in, never at the online checkout.
   staffOnly: boolean;
+  // Booking with this code earns a follow-up code, texted with the
+  // confirmation: `rewardPercent`% off, good for `rewardDays` days after the
+  // session they just booked. 0 = this code grants nothing, which is what an
+  // ordinary promo code does.
+  rewardPercent: number;
+  rewardDays: number;
+  // The follow-up code can be spent again and again until it expires — the
+  // hotel guest playing a different room every night of their stay. False is
+  // the house behaviour: one use.
+  rewardMultiUse: boolean;
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
