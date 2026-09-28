@@ -5,6 +5,7 @@ import { bookedCount, busySessionsForDate, logActivity } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { formatTime, isValidISODate, minutesUntilSlot } from "@/lib/format";
 import { getLocationHours } from "@/lib/hours";
+import { requestWindowFor } from "@/lib/request-window";
 import { getSiteSettings } from "@/lib/site-settings";
 import { createRequest, heldSeats } from "@/lib/requests";
 import { notifyNewRequest } from "@/lib/sms";
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
   if (untilStart <= 0) {
     return NextResponse.json({ error: `${formatTime(time)} has already started — pick a later time.` }, { status: 400 });
   }
-  const requestWindow = (await getSiteSettings()).requestWindowMinutes;
+  const requestWindow = requestWindowFor(await getSiteSettings(), date, time);
   if (requestWindow <= 0) {
     return NextResponse.json({ error: "Requests aren't taken here — please book online or give us a call." }, { status: 400 });
   }

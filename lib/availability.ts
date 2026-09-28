@@ -5,6 +5,7 @@ import { getExperience, listExperiences } from "./experiences";
 import { minutesUntilSlot, nowMinutesInBusinessTZ, todayISO } from "./format";
 import { getLocationHours, locationHoursMap } from "./hours";
 import { getSiteSettings } from "./site-settings";
+import { requestWindowFor } from "./request-window";
 import { heldSeats, heldSeatsForDate } from "./requests";
 import { startTimesFor } from "./schedule";
 import type { Slot } from "./types";
@@ -35,6 +36,7 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
       // Manager-blocked slots vanish from the site entirely (cleaner than
       // showing them sold out — no "why is 3pm full?" questions).
       if (blocked.has(`${exp.id}|${time}`)) continue;
+      const window = requestWindowFor(site, date, time);
       const taken = booked.get(`${exp.id}|${time}`) ?? 0;
       const onHold = held.get(`${exp.id}|${time}`) ?? 0;
       // A game running through this start time takes the room with it, whatever
@@ -64,8 +66,10 @@ export async function slotsForDate(date: string): Promise<Slot[]> {
         badgeFg: exp.badgeFg,
         imageUrl: exp.imageUrl,
         // Starts soon → not self-serve; the customer sends a request instead.
-        // The window is per venue (Settings → Booking site → Availability).
-        requestOnly: site.requestWindowMinutes > 0 && minutesUntilSlot(date, time) <= site.requestWindowMinutes,
+        // The window is per venue, and can differ by weekday and time of day
+        // (Settings → Booking site → Availability).
+        requestOnly: window > 0 && minutesUntilSlot(date, time) <= window,
+        requestWindowMinutes: window,
       });
     }
   }
