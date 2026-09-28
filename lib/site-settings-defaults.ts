@@ -13,6 +13,16 @@ export type SiteSettings = {
   // the site: the customer sends a request and staff confirm it. 0 turns that
   // off, so sessions stay self-serve right up to their start time.
   requestWindowMinutes: number;
+  // More notice for sessions EARLY in the day, on chosen weekdays — the shift
+  // that runs thin until the evening crew arrives. Sessions starting at or
+  // before `untilTime` on those days need `minutes` of notice instead of the
+  // window above; everything else uses the window above. null = same rule all
+  // day, every day.
+  earlyRequestWindow: {
+    minutes: number;
+    untilTime: string; // "HH:MM", inclusive
+    days: number[]; // 0 = Sunday … 6 = Saturday
+  } | null;
   availableLabel: string; // CTA on a bookable slot
   soldOutLabel: string; // label on a full slot
   // colours (customer site only)
@@ -39,6 +49,7 @@ export type SiteSettings = {
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   windowDays: BOOKING_WINDOW_DAYS,
   requestWindowMinutes: REQUEST_WINDOW_MINUTES,
+  earlyRequestWindow: null,
   availableLabel: "Book now",
   soldOutLabel: "Sold out",
   brandColor: "#87cefa",
@@ -69,6 +80,23 @@ function int(v: unknown, fallback: number, min: number, max: number): number {
   return Number.isFinite(n) && Number.isInteger(n) && n >= min && n <= max ? n : fallback;
 }
 
+// A stored early-day rule, or null if it isn't usable. Anything malformed falls
+// back to null rather than a half-rule: the venue then simply runs one window
+// all day, which is the behaviour it had before this setting existed.
+function earlyWindow(value: unknown): SiteSettings["earlyRequestWindow"] {
+  if (!value || typeof value !== "object") return null;
+  const o = value as Record<string, unknown>;
+  const minutes = Math.round(Number(o.minutes));
+  if (!Number.isFinite(minutes) || minutes < 0 || minutes > 1440) return null;
+  const untilTime = typeof o.untilTime === "string" ? o.untilTime : "";
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(untilTime)) return null;
+  const days = Array.isArray(o.days)
+    ? [...new Set(o.days.map((d) => Math.round(Number(d))).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))]
+    : [];
+  if (days.length === 0) return null;
+  return { minutes, untilTime, days: days.sort((a, b) => a - b) };
+}
+
 export function normalizeSiteSettings(input: unknown): SiteSettings {
   const o = (input ?? {}) as Record<string, unknown>;
   const d = DEFAULT_SITE_SETTINGS;
@@ -76,6 +104,7 @@ export function normalizeSiteSettings(input: unknown): SiteSettings {
     windowDays: int(o.windowDays, d.windowDays, 1, 365),
     // Up to a day: beyond that every session on the site would be request-only.
     requestWindowMinutes: int(o.requestWindowMinutes, d.requestWindowMinutes, 0, 1440),
+    earlyRequestWindow: earlyWindow(o.earlyRequestWindow),
     availableLabel: str(o.availableLabel, d.availableLabel, 30),
     soldOutLabel: str(o.soldOutLabel, d.soldOutLabel, 30),
     brandColor: hex(o.brandColor, d.brandColor),

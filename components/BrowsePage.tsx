@@ -555,8 +555,8 @@ export default function BrowsePage({
                     ) : slot.requestOnly ? (
                       <div className="request-form">
                         <p className="request-note">
-                          This session starts within {minutesInWords(site.requestWindowMinutes)}, so it needs a quick staff
-                          confirmation. Leave your
+                          This session starts within {minutesInWords(slot.requestWindowMinutes)}, so it needs a quick
+                          staff confirmation. Leave your
                           details — no payment yet — and we&apos;ll text you within minutes.
                         </p>
                         <div className="panel-controls" style={{ borderTop: "none", paddingTop: 0 }}>

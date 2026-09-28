@@ -76,6 +76,10 @@ export type Slot = {
   badgeFg: string;
   imageUrl: string | null;
   requestOnly: boolean; // starts within the request window — needs manager approval
+  // Minutes of notice THIS slot needs, which can differ by weekday and time
+  // of day (lib/request-window.ts). Sent so the site's wording matches the
+  // rule the server will apply to it.
+  requestWindowMinutes: number;
   heldSeats: number; // seats a live request is holding; > 0 means someone got there first
 };
 
