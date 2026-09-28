@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import DatePicker from "@/components/DatePicker";
 import ImageUpload from "@/components/manager/ImageUpload";
 import LocationPicker from "@/components/manager/LocationPicker";
 import TimesEditor from "@/components/manager/TimesEditor";
@@ -93,6 +94,10 @@ export default function ExperienceForm({
   const [posterMode, setPosterMode] = useState<"colour" | "image">(initial?.imageUrl ? "image" : "colour");
   const [imageUrl, setImageUrl] = useState<string | null>(initial?.imageUrl ?? null);
   const [active, setActive] = useState(initial?.active ?? true);
+  // A seasonal room (the Christmas rooms) only runs between two dates. Blank at
+  // both ends is every other room: on sale whenever it is switched on.
+  const [availableFrom, setAvailableFrom] = useState(initial?.availableFrom ?? "");
+  const [availableTo, setAvailableTo] = useState(initial?.availableTo ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -151,6 +156,8 @@ export default function ExperienceForm({
         badgeFg: COLOR_PRESETS[colorIdx].fg,
         imageUrl: posterMode === "image" ? imageUrl : null,
         active,
+        availableFrom: availableFrom || null,
+        availableTo: availableTo || null,
       };
       const res = await fetch(initial ? `/api/manager/experiences/${initial.id}` : "/api/manager/experiences", {
         method: initial ? "PATCH" : "POST",
@@ -412,6 +419,32 @@ export default function ExperienceForm({
           <ImageUpload value={imageUrl} onChange={setImageUrl} />
         </div>
       )}
+
+      <div className="field">
+        <label>Runs between these dates</label>
+        <div className="field-row" style={{ maxWidth: 460 }}>
+          <div className="field">
+            <span className="field-hint">First day</span>
+            <DatePicker value={availableFrom} min="" max={availableTo} onChange={setAvailableFrom} />
+          </div>
+          <div className="field">
+            <span className="field-hint">Last day</span>
+            <DatePicker value={availableTo} min={availableFrom} max="" onChange={setAvailableTo} />
+          </div>
+        </div>
+        <p className="field-hint">
+          For a room that only runs part of the year — the Christmas rooms, say. Outside these dates it isn&apos;t
+          shown or bookable, and it takes no space on the calendar. Leave both blank for a room that runs all year.
+          {(availableFrom || availableTo) && (
+            <>
+              {" "}
+              <button type="button" className="link-button" onClick={() => { setAvailableFrom(""); setAvailableTo(""); }}>
+                Clear both
+              </button>
+            </>
+          )}
+        </p>
+      </div>
 
       <label className="checkbox-row">
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
