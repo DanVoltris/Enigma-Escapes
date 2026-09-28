@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { minutesInWords } from "@/lib/format";
+import TimeSelect from "@/components/manager/TimeSelect";
+import { requestWindowSentence } from "@/lib/request-window";
 import type { SiteSettings } from "@/lib/site-settings";
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type TabKey = "availability" | "colors" | "basket" | "content";
 
@@ -237,6 +241,89 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                   {s.requestWindowMinutes > 0
                     ? `Now ${minutesInWords(s.requestWindowMinutes)} — 60 is one hour, 240 is four.`
                     : "Set to 0: no requests at all, and customers book right up to the start time."}
+                </p>
+              </div>
+
+              {/* Earlier sessions can need more notice than the rest of the day —
+                  the daytime shift that runs thin until the evening crew arrives. */}
+              <div className="field">
+                <label className="intg-toggle">
+                  <input
+                    type="checkbox"
+                    checked={s.earlyRequestWindow !== null}
+                    onChange={(e) =>
+                      patch({
+                        earlyRequestWindow: e.target.checked
+                          ? { minutes: 120, untilTime: "16:00", days: [1, 2, 3, 4] }
+                          : null,
+                      })
+                    }
+                  />
+                  Earlier sessions need more notice on some days
+                </label>
+                {s.earlyRequestWindow && (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="vch-days">
+                      {DAY_LABELS.map((label, day) => (
+                        <label key={label} className="vch-check">
+                          <input
+                            type="checkbox"
+                            checked={s.earlyRequestWindow?.days.includes(day) ?? false}
+                            onChange={(e) => {
+                              const cur = s.earlyRequestWindow;
+                              if (!cur) return;
+                              const days = e.target.checked
+                                ? [...cur.days, day].sort((a, b) => a - b)
+                                : cur.days.filter((d) => d !== day);
+                              patch({ earlyRequestWindow: { ...cur, days } });
+                            }}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="field-row-3" style={{ marginTop: 10 }}>
+                      <div className="field">
+                        <label htmlFor="bs-early-minutes">Notice needed (minutes)</label>
+                        <input
+                          id="bs-early-minutes"
+                          type="number"
+                          min="0"
+                          max="1440"
+                          step="15"
+                          value={s.earlyRequestWindow.minutes}
+                          onChange={(e) => {
+                            const cur = s.earlyRequestWindow;
+                            if (!cur) return;
+                            patch({
+                              earlyRequestWindow: {
+                                ...cur,
+                                minutes: Math.max(0, Math.min(1440, Number(e.target.value) || 0)),
+                              },
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="bs-early-until">For sessions starting up to</label>
+                        <TimeSelect
+                          ariaLabel="Sessions starting up to this time need the longer notice"
+                          value={s.earlyRequestWindow.untilTime}
+                          onChange={(v) => {
+                            const cur = s.earlyRequestWindow;
+                            if (cur) patch({ earlyRequestWindow: { ...cur, untilTime: v } });
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <p className="field-hint">
+                      That time counts as early itself: the session starting exactly then needs the longer notice,
+                      the next one along doesn&apos;t. Tick no days and the rule is off.
+                    </p>
+                  </div>
+                )}
+                <p className="field-hint">
+                  <strong>The rule now:</strong> {requestWindowSentence(s)}.
                 </p>
               </div>
               <div className="field-row-3">

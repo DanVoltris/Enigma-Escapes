@@ -101,6 +101,7 @@
     "booking_site": {
       "windowDays": 120,
         "requestWindowMinutes": 60,
+        "earlyRequestWindow": { "minutes": 120, "untilTime": "16:00", "days": [1, 2, 3, 4] },
       "brandColor": "#1e2e42",
       "buttonBg": "#5a95cf",
       "buttonText": "#0e1a26",
