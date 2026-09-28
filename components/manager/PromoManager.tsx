@@ -12,6 +12,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
   const [earns, setEarns] = useState(false);
   const [rewardPercent, setRewardPercent] = useState("20");
   const [rewardDays, setRewardDays] = useState("7");
+  const [rewardMultiUse, setRewardMultiUse] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCode, setConfirmCode] = useState<string | null>(null); // code pending delete confirmation
@@ -30,6 +31,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
           staffOnly,
           rewardPercent: earns ? Number(rewardPercent) : 0,
           rewardDays: earns ? Number(rewardDays) : 0,
+          rewardMultiUse: earns && rewardMultiUse,
         }),
       });
       const data = await res.json();
@@ -141,6 +143,14 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                   style={{ width: 100 }}
                 />
               </div>
+              <label className="checkbox-row" style={{ alignSelf: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={rewardMultiUse}
+                  onChange={(e) => setRewardMultiUse(e.target.checked)}
+                />
+                <span>They can use it on every game until it expires, not just once</span>
+              </label>
             </>
           )}
           <button type="submit" className="btn" disabled={busy}>
@@ -180,7 +190,8 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                     <td>{p.staffOnly ? "Desk only" : "Website + desk"}</td>
                     <td>
                       {p.rewardPercent > 0
-                        ? `${p.rewardPercent}% off, ${p.rewardDays} day${p.rewardDays === 1 ? "" : "s"}`
+                        ? `${p.rewardPercent}% off, ${p.rewardDays} day${p.rewardDays === 1 ? "" : "s"}` +
+                          (p.rewardMultiUse ? ", every game" : ", once")
                         : "—"}
                     </td>
                     <td>

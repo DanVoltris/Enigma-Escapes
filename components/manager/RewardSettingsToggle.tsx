@@ -47,6 +47,10 @@ export default function RewardSettingsToggle({ everyBooking }: { everyBooking: b
           ? "Every booking earns one, spendable on a later session before the visit that earned it starts."
           : "Only bookings made with a promo code that grants a follow-up code get one — set that up per code above."}
       </p>
+      <p className="field-hint">
+        A code a promo code grants keeps its own terms either way: its own discount, its own expiry, and
+        whether it works on one game or every game until then.
+      </p>
       {error && <p className="field-error">{error}</p>}
     </div>
   );

@@ -143,6 +143,10 @@ export type Promo = {
   // ordinary promo code does.
   rewardPercent: number;
   rewardDays: number;
+  // The follow-up code can be spent again and again until it expires — the
+  // hotel guest playing a different room every night of their stay. False is
+  // the house behaviour: one use.
+  rewardMultiUse: boolean;
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
