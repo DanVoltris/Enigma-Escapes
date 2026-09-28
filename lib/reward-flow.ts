@@ -4,10 +4,11 @@
 // Kept apart from lib/reward-codes.ts (which only talks to the table) so the
 // table layer stays free of SMS and booking-repricing concerns, and apart from
 // lib/db.ts so there's no import cycle through the SMS module.
-import { addBookingNote, getBooking, logActivity, updateBookingFields } from "./db";
+import { addBookingNote, getBooking, getPromo, logActivity, updateBookingFields } from "./db";
 import { computeTotals } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
-import { markRewardUsed, mintRewardFor, revokeRewardFor } from "./reward-codes";
+import { markRewardUsed, mintRewardFor, revokeRewardFor, REWARD_PERCENT_OFF } from "./reward-codes";
+import { getRewardSettings } from "./reward-settings";
 import { notifyRewardCode } from "./sms";
 import { activeTaxPercent } from "./taxes";
 import type { Booking } from "./types";
@@ -39,8 +40,21 @@ export async function settleRewardsFor(booking: Booking): Promise<void> {
   // it would be texted to whoever's name happened to be on the booking.
   if (booking.pricing.corporate) return;
 
+  // What this booking earns, if anything. A promo code can carry its own offer
+  // — "book with the hotel's code and here's 20% off for a week" — and that
+  // beats the house rule. Otherwise the venue decides whether every booking
+  // earns the standard code at all.
+  const promo = booking.promoCode ? await getPromo(booking.promoCode).catch(() => undefined) : undefined;
+  const terms =
+    promo && promo.rewardPercent > 0
+      ? { percentOff: promo.rewardPercent, validDays: promo.rewardDays }
+      : (await getRewardSettings()).everyBooking
+        ? { percentOff: REWARD_PERCENT_OFF, validDays: 0 }
+        : null;
+  if (!terms) return;
+
   try {
-    const minted = await mintRewardFor(booking);
+    const minted = await mintRewardFor(booking, terms);
     if (minted?.created) {
       await notifyRewardCode(booking, minted.reward.code, minted.reward.percentOff, minted.reward.validUntil);
       await logActivity(

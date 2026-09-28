@@ -1,11 +1,13 @@
 import BoardPage from "@/components/manager/BoardPage";
 import NewStaffCode from "@/components/manager/NewStaffCode";
 import RewardCodeList from "@/components/manager/RewardCodeList";
+import RewardSettingsToggle from "@/components/manager/RewardSettingsToggle";
 import PromoManager from "@/components/manager/PromoManager";
 import VoucherManager from "@/components/manager/VoucherManager";
 import { requirePermission } from "@/lib/auth";
 import { getBookingsByIds, listPromos } from "@/lib/db";
 import { listRewardCodes } from "@/lib/reward-codes";
+import { getRewardSettings } from "@/lib/reward-settings";
 import { listVoucherPage, voucherTotalsFromDb } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +16,12 @@ export default async function ManagerPromos() {
   await requirePermission("promos", "/manager/promos");
   // Only the first page of codes travels with the HTML; searching and paging
   // go back to the database. There are a couple of thousand of these.
-  const [promos, page, totals, rewards] = await Promise.all([
+  const [promos, page, totals, rewards, rewardSettings] = await Promise.all([
     listPromos(),
     listVoucherPage({ limit: 60 }),
     voucherTotalsFromDb(),
     listRewardCodes(),
+    getRewardSettings(),
   ]);
   // Both ends of every reward in one query, so each row can link the booking
   // that earned it to the booking that spent it.
@@ -47,9 +50,10 @@ export default async function ManagerPromos() {
         Reward codes
       </h2>
       <p className="mgr-page-sub">
-        The 20% off texted to every customer when they book, for their next visit. Each one is tied to the booking
+        The discount texted to a customer when they book, for their next visit. Each one is tied to the booking
         that earned it — cancel that booking and the discount is taken back off whatever it was spent on.
       </p>
+      <RewardSettingsToggle everyBooking={rewardSettings.everyBooking} />
       <RewardCodeList rewards={rewards} bookings={rewardBookings} />
     </>
   );

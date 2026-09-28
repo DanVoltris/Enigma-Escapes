@@ -9,6 +9,9 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
   const [staffOnly, setStaffOnly] = useState(false);
+  const [earns, setEarns] = useState(false);
+  const [rewardPercent, setRewardPercent] = useState("20");
+  const [rewardDays, setRewardDays] = useState("7");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCode, setConfirmCode] = useState<string | null>(null); // code pending delete confirmation
@@ -21,7 +24,13 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
       const res = await fetch("/api/manager/promos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, percentOff: Number(percent), staffOnly }),
+        body: JSON.stringify({
+          code,
+          percentOff: Number(percent),
+          staffOnly,
+          rewardPercent: earns ? Number(rewardPercent) : 0,
+          rewardDays: earns ? Number(rewardDays) : 0,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save the code.");
@@ -101,6 +110,39 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
             <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} />
             <span>Staff only — works at the desk, never on the website</span>
           </label>
+          {/* A code can hand the customer a second code with their confirmation
+              text — the hotel guest who books at 10% off and gets 20% off for
+              the rest of the week. */}
+          <label className="checkbox-row" style={{ alignSelf: "center" }}>
+            <input type="checkbox" checked={earns} onChange={(e) => setEarns(e.target.checked)} />
+            <span>Texts them a follow-up code with their confirmation</span>
+          </label>
+          {earns && (
+            <>
+              <div className="field">
+                <label htmlFor="promo-reward-percent">Follow-up discount (%)</label>
+                <input
+                  id="promo-reward-percent"
+                  type="text"
+                  inputMode="numeric"
+                  value={rewardPercent}
+                  onChange={(e) => setRewardPercent(e.target.value)}
+                  style={{ width: 100 }}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="promo-reward-days">Good for (days)</label>
+                <input
+                  id="promo-reward-days"
+                  type="text"
+                  inputMode="numeric"
+                  value={rewardDays}
+                  onChange={(e) => setRewardDays(e.target.value)}
+                  style={{ width: 100 }}
+                />
+              </div>
+            </>
+          )}
           <button type="submit" className="btn" disabled={busy}>
             {busy ? "Adding…" : "Add code"}
           </button>
@@ -123,6 +165,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                   <th>Code</th>
                   <th className="num">Discount</th>
                   <th>Works</th>
+                  <th>Follow-up code</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
@@ -135,6 +178,11 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                     </td>
                     <td className="num">{p.percentOff}% off</td>
                     <td>{p.staffOnly ? "Desk only" : "Website + desk"}</td>
+                    <td>
+                      {p.rewardPercent > 0
+                        ? `${p.rewardPercent}% off, ${p.rewardDays} day${p.rewardDays === 1 ? "" : "s"}`
+                        : "—"}
+                    </td>
                     <td>
                       <span className={`mgr-pill${p.active ? " on" : ""}`}>{p.active ? "Active" : "Off"}</span>
                     </td>
