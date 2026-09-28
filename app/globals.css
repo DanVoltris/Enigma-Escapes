@@ -5205,3 +5205,14 @@ textarea:focus {
   color: var(--text-secondary);
   font-size: 14px;
 }
+
+/* A room that hasn't opened yet (a seasonal one, seen before its first day).
+   Same row as a bookable session, dimmed a shade, with the opening date where
+   the start time would be. */
+.slot-row.is-upcoming {
+  background: var(--muted-bg);
+  padding-inline: 12px;
+}
+.slot-row.is-upcoming .slot-time {
+  font-size: 20px;
+}

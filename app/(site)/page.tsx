@@ -25,7 +25,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
       return null;
     }),
     listExperiences({ activeOnly: true })
-      .then((list): ExperienceSummary[] => list.map((e) => ({ id: e.id, name: e.name, location: e.location })))
+      .then((list): ExperienceSummary[] =>
+        list.map((e) => ({
+          id: e.id,
+          name: e.name,
+          location: e.location,
+          tagline: e.tagline,
+          priceCents: e.priceCents,
+          badgeBg: e.badgeBg,
+          badgeFg: e.badgeFg,
+          availableFrom: e.availableFrom,
+          availableTo: e.availableTo,
+        }))
+      )
       .catch((): ExperienceSummary[] | null => null),
   ]);
 
