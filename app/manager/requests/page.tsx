@@ -2,7 +2,7 @@ import BoardPage from "@/components/manager/BoardPage";
 import RequestsBoard from "@/components/manager/RequestsBoard";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import { slotRemaining } from "@/lib/availability";
-import { minutesInWords } from "@/lib/format";
+import { requestWindowSentence } from "@/lib/request-window";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sweepIfDue } from "@/lib/request-flow";
 import { listRequests } from "@/lib/requests";
@@ -14,7 +14,7 @@ export default async function RequestsPage() {
   const staff = await requirePermission("requests", "/manager/requests");
   const scope = allowedLocations(staff);
   const all = await listRequests();
-  const { requestWindowMinutes } = await getSiteSettings();
+  const site = await getSiteSettings();
   // Scoped staff only decide requests for their own stores.
   const requests = scope ? all.filter((q) => scope.includes(q.location)) : all;
   // Live remaining capacity per pending request, so the decision is informed.
@@ -27,7 +27,7 @@ export default async function RequestsPage() {
       <BoardPage />
       <h1 className="mgr-page-title">Booking requests</h1>
       <p className="mgr-page-sub">
-        Sessions starting within {minutesInWords(requestWindowMinutes)} can&apos;t be booked directly — customers request them here, and the slot is
+        {requestWindowSentence(site)} — customers request them here, and the slot is
         held from the moment they ask. Accepting books it{smsConfigured() ? " and texts them to reply Y" : " (texts aren't configured yet — call them to confirm)"};
         they pay when they arrive. If they don&apos;t reply within 30 minutes (less when the session is close — the text tells them how long) the
         hold is released. Requests die
