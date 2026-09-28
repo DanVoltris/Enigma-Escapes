@@ -22,7 +22,19 @@ import type { Slot } from "@/lib/types";
 
 const FILTER_ALL_LABEL = "Filter: all experiences";
 
-export type ExperienceSummary = { id: string; name: string; location: string };
+export type ExperienceSummary = {
+  id: string;
+  name: string;
+  location: string;
+  // A seasonal room is shown before it opens, with the day it opens on, so the
+  // Christmas rooms aren't a secret in October.
+  tagline?: string;
+  priceCents?: number;
+  badgeBg?: string;
+  badgeFg?: string;
+  availableFrom?: string | null;
+  availableTo?: string | null;
+};
 
 // Location and experience are two facets combined with AND: a slot must be in
 // one of the selected locations (if any) AND be one of the selected experiences
@@ -186,6 +198,9 @@ export default function BrowsePage({
     loadSlots();
   }, [loadSlots]);
 
+  const today = todayISO();
+  const lastBookable = addDaysISO(today, site.windowDays);
+
   // Only the rooms that run on the day being shown. A seasonal room — the
   // Christmas ones — would otherwise sit in the filter list all year and, when
   // picked in July, show an empty day rather than saying it isn't running.
@@ -193,9 +208,13 @@ export default function BrowsePage({
   const shown = useMemo(() => {
     if (!slots) return experiences;
     const running = new Set(slots.map((s) => s.roomId));
-    const open = experiences.filter((e) => running.has(e.id));
+    // Plus the ones that open later and are shown as such below.
+    const soon = new Set(
+      experiences.filter((e) => e.availableFrom && e.availableFrom > date && e.availableFrom <= lastBookable).map((e) => e.id)
+    );
+    const open = experiences.filter((e) => running.has(e.id) || soon.has(e.id));
     return open.length > 0 ? open : experiences;
-  }, [experiences, slots]);
+  }, [experiences, slots, date, lastBookable]);
 
   const locations = useMemo(
     () =>
@@ -248,8 +267,20 @@ export default function BrowsePage({
     [slots, filters]
   );
 
-  const today = todayISO();
-  const lastBookable = addDaysISO(today, site.windowDays);
+  // Rooms that open after the day being shown — the Christmas rooms seen in
+  // October. They are advertised rather than hidden, and tapping one moves the
+  // page to their opening day, which is the first date they can be booked on.
+  // Out beyond the booking window there is nothing to move to, so they wait.
+  const upcoming = useMemo(() => {
+    const rooms = filters.filter((f) => f.startsWith("room:")).map((f) => f.slice(5));
+    const locations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
+    return experiences
+      .filter((e) => e.availableFrom && e.availableFrom > date && e.availableFrom <= lastBookable)
+      .filter((e) => rooms.length === 0 || rooms.includes(e.id))
+      .filter((e) => locations.length === 0 || locations.includes(e.location))
+      .sort((a, b) => (a.availableFrom ?? "").localeCompare(b.availableFrom ?? "") || a.name.localeCompare(b.name));
+  }, [experiences, date, lastBookable, filters]);
+
 
   function toggleSlot(slot: Slot) {
     const key = itemKey(slot);
@@ -360,8 +391,58 @@ export default function BrowsePage({
         </div>
       )}
       {!error && slots === null && <p className="empty-state">Loading availability…</p>}
-      {!error && slots !== null && visibleSlots.length === 0 && (
+      {!error && slots !== null && visibleSlots.length === 0 && upcoming.length === 0 && (
         <p className="empty-state">No time slots available for this selection. Try another date.</p>
+      )}
+      {!error && slots !== null && visibleSlots.length === 0 && upcoming.length > 0 && (
+        <p className="empty-state">
+          Nothing running on this date{filters.length > 0 ? " for this selection" : ""} — but these open soon.
+        </p>
+      )}
+
+      {upcoming.length > 0 && (
+        <ul className="slot-list">
+          {upcoming.map((e) => {
+            const opens = e.availableFrom as string;
+            const badge = dateBadgeParts(opens);
+            return (
+              <li key={`soon:${e.id}`}>
+                <div className="slot-row is-upcoming">
+                  <div className="slot-time">
+                    {badge.day}
+                    <span className="period">{badge.month}</span>
+                  </div>
+                  <RoomBadge name={e.name} bg={e.badgeBg ?? "#0B2540"} fg={e.badgeFg ?? "#ffffff"} />
+                  <div className="slot-info">
+                    <div className="slot-name">
+                      {e.name} — {e.location}
+                    </div>
+                    <div className="slot-tagline">{e.tagline}</div>
+                  </div>
+                  {e.priceCents != null && (
+                    <div className="slot-price">
+                      <span className="label">From</span>
+                      <span className="amount">{formatMoney(unitCents(e.priceCents))}</span>
+                      <span className="label">{pricingMode.taxInclusive ? `each + ${taxLabel}` : "each"}</span>
+                    </div>
+                  )}
+                  <div className="slot-action">
+                    <button
+                      type="button"
+                      className="btn btn-block btn-outline"
+                      onClick={() => {
+                        setDate(opens);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
+                      Opens {formatDateLong(opens)}
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       <ul className="slot-list">
