@@ -137,6 +137,12 @@ export type Promo = {
   active: boolean;
   // Only the desk can apply it — on a walk-in, never at the online checkout.
   staffOnly: boolean;
+  // Booking with this code earns a follow-up code, texted with the
+  // confirmation: `rewardPercent`% off, good for `rewardDays` days after the
+  // session they just booked. 0 = this code grants nothing, which is what an
+  // ordinary promo code does.
+  rewardPercent: number;
+  rewardDays: number;
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The

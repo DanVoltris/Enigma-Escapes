@@ -18,9 +18,13 @@ export type RewardCode = {
   percentOff: number;
   earnedBooking: string;
   customerPhone: string;
-  // The start of the earning booking's first session. The reward has to be
-  // spent before then, and only on a session later than it.
+  // When the code dies. Until migration 0007 this was always the earning
+  // session's start; a code earned through a promo can outlive that visit.
   validUntil: string; // ISO timestamp
+  // The start of the earning booking's first session. What "a LATER session"
+  // is measured against. Older rows never had it: for them it equals
+  // validUntil, which is exactly what they were compared against before.
+  earnedStart: string; // ISO timestamp
   usedBooking: string | null;
   status: RewardStatus;
   createdAt: string;
@@ -32,6 +36,7 @@ type Row = {
   earned_booking: string;
   customer_phone: string;
   valid_until: string;
+  earned_start?: string | null;
   used_booking: string | null;
   status: string;
   created_at: string;
@@ -44,6 +49,7 @@ function toReward(r: Row): RewardCode {
     earnedBooking: r.earned_booking,
     customerPhone: r.customer_phone,
     validUntil: r.valid_until,
+    earnedStart: r.earned_start ?? r.valid_until,
     usedBooking: r.used_booking,
     status: r.status === "used" ? "used" : r.status === "revoked" ? "revoked" : "active",
     createdAt: r.created_at,
@@ -97,11 +103,16 @@ export async function rewardForBooking(bookingId: string): Promise<RewardCode | 
 // Mints the reward for a booking, exactly once. earned_booking is unique, so
 // when the Stripe webhook and the customer's return both land here the loser
 // reads back the winner's code instead of issuing a second one.
-export async function mintRewardFor(booking: {
-  id: string;
-  customer: { phone: string };
-  items: { date: string; time: string }[];
-}): Promise<{ reward: RewardCode; created: boolean } | undefined> {
+export async function mintRewardFor(
+  booking: {
+    id: string;
+    customer: { phone: string };
+    items: { date: string; time: string }[];
+  },
+  // What this booking earns. The default is the house rule every booking used
+  // to get: 20% off, dead once the session it was earned on starts.
+  terms: { percentOff: number; validDays: number } = { percentOff: REWARD_PERCENT_OFF, validDays: 0 }
+): Promise<{ reward: RewardCode; created: boolean } | undefined> {
   const existing = await rewardForBooking(booking.id);
   if (existing) return { reward: existing, created: false };
 
@@ -115,7 +126,14 @@ export async function mintRewardFor(booking: {
   if (starts.length === 0) return undefined;
   // In the venue's timezone: read as the server's (UTC on Vercel), a code
   // earned by an 18:00 Winnipeg session died at 13:00.
-  const validUntil = venueDateTime(starts[0].slice(0, 10), starts[0].slice(11, 16)).toISOString();
+  const earnedStart = venueDateTime(starts[0].slice(0, 10), starts[0].slice(11, 16));
+  // A code with days on it lives past the visit that earned it — "come back
+  // this week". With none, it dies as the session starts, as it always did.
+  const dies =
+    terms.validDays > 0
+      ? new Date(earnedStart.getTime() + terms.validDays * 86_400_000)
+      : earnedStart;
+  const validUntil = dies.toISOString();
 
   const code = await generateCode();
   const res = await rest("reward_codes?on_conflict=earned_booking", {
@@ -125,10 +143,11 @@ export async function mintRewardFor(booking: {
     headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
     body: JSON.stringify({
       code,
-      percent_off: REWARD_PERCENT_OFF,
+      percent_off: terms.percentOff,
       earned_booking: booking.id,
       customer_phone: phone,
       valid_until: validUntil,
+      earned_start: earnedStart.toISOString(),
       status: "active",
       created_at: new Date().toISOString(),
     }),
@@ -159,15 +178,20 @@ export function rewardProblem(r: RewardCode, ctx: RewardContext = {}): string | 
     return "That code belongs to a different phone number.";
   }
   const dies = new Date(r.validUntil);
+  const earned = new Date(r.earnedStart);
   const now = ctx.now ?? new Date();
   if (now >= dies) {
-    return "That code has expired — it had to be used before your last visit started.";
+    // Two different codes, two different explanations: one that outlived its
+    // visit simply ran out of days, one that didn't had to be spent first.
+    return dies > earned
+      ? "That code has expired."
+      : "That code has expired — it had to be used before your last visit started.";
   }
   if (ctx.sessionStart) {
     // Must be spent on a session LATER than the one that earned it: the reward
     // is for the next visit, not a cheaper version of a visit already booked.
-    // Venue-local, like validUntil, so the two are compared on one clock.
-    if (venueDateTime(ctx.sessionStart.slice(0, 10), ctx.sessionStart.slice(11, 16)) <= dies) {
+    // Venue-local, like the stored instants, so they compare on one clock.
+    if (venueDateTime(ctx.sessionStart.slice(0, 10), ctx.sessionStart.slice(11, 16)) <= earned) {
       return "That code only works on a session after your existing booking.";
     }
   }
