@@ -1,7 +1,10 @@
 import { parseISODate } from "./format";
+import { inSeason } from "./season";
+export { inSeason };
 import type { DayHours, DayWindow, Experience, LocationHours } from "./types";
 
 export const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 
 export function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
@@ -30,6 +33,10 @@ function seriesInclusive(firstMin: number, lastMin: number, intervalMin: number)
 // The start times an experience offers on a given date, from its schedule mode.
 // `hours` is the experience's location's opening hours (needed for "store" mode).
 export function startTimesFor(exp: Experience, date: string, hours?: LocationHours | null): string[] {
+  // Out of season, a room runs nothing — no times means it is not offered, is
+  // refused by create-booking and the requests API, and takes no space on the
+  // calendar. Checked first, so not even a one-off date list can reopen it.
+  if (!inSeason(exp, date)) return [];
   // A date with its own list runs exactly that list — it replaces the weekday's
   // schedule rather than adding to it. That's what these are for: a day short of
   // staff runs fewer, differently spaced games, so the normal grid has to go,

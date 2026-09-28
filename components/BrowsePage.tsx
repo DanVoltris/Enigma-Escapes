@@ -186,13 +186,24 @@ export default function BrowsePage({
     loadSlots();
   }, [loadSlots]);
 
+  // Only the rooms that run on the day being shown. A seasonal room — the
+  // Christmas ones — would otherwise sit in the filter list all year and, when
+  // picked in July, show an empty day rather than saying it isn't running.
+  // Before the day's sessions have loaded, the full list stands in.
+  const shown = useMemo(() => {
+    if (!slots) return experiences;
+    const running = new Set(slots.map((s) => s.roomId));
+    const open = experiences.filter((e) => running.has(e.id));
+    return open.length > 0 ? open : experiences;
+  }, [experiences, slots]);
+
   const locations = useMemo(
     () =>
-      experiences.reduce<string[]>((acc, e) => {
+      shown.reduce<string[]>((acc, e) => {
         if (!acc.includes(e.location)) acc.push(e.location);
         return acc;
       }, []),
-    [experiences]
+    [shown]
   );
 
   // Once a location is chosen, experiences at other locations no longer apply —
@@ -220,12 +231,12 @@ export default function BrowsePage({
     }
     const selectedLocations = filters.filter((f) => f.startsWith("loc:")).map((f) => f.slice(4));
     const scoped = selectedLocations.length
-      ? experiences.filter((e) => selectedLocations.includes(e.location))
-      : experiences;
+      ? shown.filter((e) => selectedLocations.includes(e.location))
+      : shown;
     items.push({ heading: "Experiences" });
     for (const e of scoped) items.push({ value: `room:${e.id}`, label: e.name });
     return items;
-  }, [experiences, locations, filters]);
+  }, [shown, locations, filters]);
 
   const toggleFilter = (value: string) =>
     setFilters((fs) =>

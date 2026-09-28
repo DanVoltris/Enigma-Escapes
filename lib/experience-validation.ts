@@ -136,6 +136,21 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     imageUrl = d.imageUrl;
   }
 
+  // The season a room runs in. Blank means always, which is most rooms.
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const season = (v: unknown, label: string): string | null | { error: string } => {
+    if (v == null || v === "") return null;
+    if (typeof v !== "string" || !DATE_RE.test(v)) return { error: `${label} must be a date, or left blank.` };
+    return v;
+  };
+  const availableFrom = season(d.availableFrom, "The first date this room runs");
+  if (availableFrom && typeof availableFrom === "object") return availableFrom;
+  const availableTo = season(d.availableTo, "The last date this room runs");
+  if (availableTo && typeof availableTo === "object") return availableTo;
+  if (availableFrom && availableTo && availableTo < availableFrom) {
+    return { error: "The last date this room runs is before the first one." };
+  }
+
   // One-off starts, keyed by date. Left undefined when the caller doesn't send
   // them, so saving a room from the editor can't wipe a slot added for a day.
   let dateTimes: Record<string, string[]> | undefined;
@@ -167,6 +182,8 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     intervalMinutes,
     windows,
     dateTimes,
+    availableFrom: availableFrom as string | null,
+    availableTo: availableTo as string | null,
     badgeBg,
     badgeFg,
     imageUrl,

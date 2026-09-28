@@ -36,6 +36,11 @@ export type Experience = {
   // day's usual schedule — for a day that runs a different timetable (short of
   // staff, a private hire) without touching what the weekday does every week.
   dateTimes: Record<string, string[]>;
+  // A room that only runs for part of the year — the Christmas rooms are built
+  // in November and taken apart in January. Both ends are inclusive and either
+  // may stand alone; null at both means always on sale, which is most rooms.
+  availableFrom: string | null; // "YYYY-MM-DD"
+  availableTo: string | null;
   badgeBg: string;
   badgeFg: string;
   imageUrl: string | null; // poster image; when set, shown instead of the colour block
