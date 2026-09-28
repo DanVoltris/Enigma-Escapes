@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown };
+  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown };
   const staffOnly = d.staffOnly === true;
 
   const code = typeof d.code === "string" ? d.code.trim().toUpperCase() : "";
@@ -54,11 +54,21 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    await createPromo({ code, percentOff, active: true, staffOnly, rewardPercent, rewardDays });
+    await createPromo({
+      code,
+      percentOff,
+      active: true,
+      staffOnly,
+      rewardPercent,
+      rewardDays,
+      rewardMultiUse: rewardPercent > 0 && d.rewardMultiUse === true,
+    });
     await logActivity(
       "Created promo code",
       `${code} — ${percentOff}% off${staffOnly ? " (staff only)" : ""}` +
-        (rewardPercent > 0 ? `, earns ${rewardPercent}% off for ${rewardDays} days` : "")
+        (rewardPercent > 0
+          ? `, earns ${rewardPercent}% off for ${rewardDays} days${d.rewardMultiUse === true ? ", reusable" : ""}`
+          : "")
     );
     return NextResponse.json({ code }, { status: 201 });
   } catch (err) {

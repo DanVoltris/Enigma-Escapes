@@ -26,6 +26,8 @@ export type RewardCode = {
   // validUntil, which is exactly what they were compared against before.
   earnedStart: string; // ISO timestamp
   usedBooking: string | null;
+  // Spendable again until it expires, rather than dying on first use.
+  multiUse: boolean;
   status: RewardStatus;
   createdAt: string;
 };
@@ -38,6 +40,7 @@ type Row = {
   valid_until: string;
   earned_start?: string | null;
   used_booking: string | null;
+  multi_use?: boolean | null;
   status: string;
   created_at: string;
 };
@@ -51,6 +54,7 @@ function toReward(r: Row): RewardCode {
     validUntil: r.valid_until,
     earnedStart: r.earned_start ?? r.valid_until,
     usedBooking: r.used_booking,
+    multiUse: r.multi_use === true,
     status: r.status === "used" ? "used" : r.status === "revoked" ? "revoked" : "active",
     createdAt: r.created_at,
   };
@@ -111,7 +115,10 @@ export async function mintRewardFor(
   },
   // What this booking earns. The default is the house rule every booking used
   // to get: 20% off, dead once the session it was earned on starts.
-  terms: { percentOff: number; validDays: number } = { percentOff: REWARD_PERCENT_OFF, validDays: 0 }
+  terms: { percentOff: number; validDays: number; multiUse?: boolean } = {
+    percentOff: REWARD_PERCENT_OFF,
+    validDays: 0,
+  }
 ): Promise<{ reward: RewardCode; created: boolean } | undefined> {
   const existing = await rewardForBooking(booking.id);
   if (existing) return { reward: existing, created: false };
@@ -148,6 +155,7 @@ export async function mintRewardFor(
       customer_phone: phone,
       valid_until: validUntil,
       earned_start: earnedStart.toISOString(),
+      multi_use: terms.multiUse === true,
       status: "active",
       created_at: new Date().toISOString(),
     }),
@@ -201,14 +209,20 @@ export function rewardProblem(r: RewardCode, ctx: RewardContext = {}): string | 
 // Marks the reward spent. Conditional on it still being active, so two
 // checkouts racing the same code can't both claim the discount.
 export async function markRewardUsed(code: string, bookingId: string): Promise<boolean> {
+  // A reusable code is spent without being used up: it stays active until its
+  // expiry date, so the hotel guest can spend it again tomorrow night. The
+  // booking recorded is the most recent one; revoking looks the full set up
+  // from the bookings themselves (db.bookingsUsingReward).
+  const existing = await getRewardCode(code);
+  const body: Record<string, unknown> = {
+    used_booking: bookingId,
+    used_at: new Date().toISOString(),
+    ...(existing?.multiUse ? {} : { status: "used" }),
+  };
   const res = await rest(`reward_codes?code=eq.${encodeURIComponent(code)}&status=eq.active`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      status: "used",
-      used_booking: bookingId,
-      used_at: new Date().toISOString(),
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw await restError(res, "Applying that reward code");
   return ((await res.json()) as Row[]).length > 0;
@@ -218,7 +232,7 @@ export async function markRewardUsed(code: string, bookingId: string): Promise<b
 // had already been spent, the booking that now has to go back to full price.
 export async function revokeRewardFor(
   bookingId: string
-): Promise<{ code: string; usedBooking: string | null } | undefined> {
+): Promise<{ code: string; usedBooking: string | null; multiUse: boolean } | undefined> {
   const reward = await rewardForBooking(bookingId);
   if (!reward || reward.status === "revoked") return undefined;
 
@@ -228,7 +242,7 @@ export async function revokeRewardFor(
     body: JSON.stringify({ status: "revoked", revoked_at: new Date().toISOString() }),
   });
   if (!res.ok) throw await restError(res, "Revoking that reward code");
-  return { code: reward.code, usedBooking: reward.usedBooking };
+  return { code: reward.code, usedBooking: reward.usedBooking, multiUse: reward.multiUse };
 }
 
 // Every reward ever issued, newest first — the supervisor's view of who was
