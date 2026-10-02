@@ -4,12 +4,15 @@
 // Twilio number texts come from). Without them every send is a silent no-op,
 // so the app runs unchanged until keys exist (keys-later, like Stripe).
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { toGsmSafe } from "./gsm";
 import { hasGuessableId } from "./legacy-booking-id";
 import { replyWindow } from "./requests";
 import { alertRecipients } from "./request-alerts";
 import { getBusinessDetails, getCompanyName } from "./settings";
 import { formatDateLong, formatTime, formatTimestampDate, minutesUntilSlot } from "./format";
 import type { Booking } from "./types";
+
+export { toGsmSafe };
 
 // Whole minutes, rounded down so a text never promises more time than there is,
 // and never below one.
@@ -36,30 +39,6 @@ function toE164(phone: string): string | null {
   return null;
 }
 
-// Characters that read the same but cost three times as much.
-//
-// A text is 160 characters per segment only while every character is in the
-// GSM-7 alphabet. One that isn't — an em dash, a curly apostrophe, an ellipsis —
-// silently re-encodes the WHOLE message as UCS-2 at 70 characters a segment,
-// and Twilio bills per segment. Our copy is written in prose style, so a single
-// "—" was turning a two-segment confirmation into a five-segment one.
-//
-// Swapped here rather than policed in the templates: this way the copy can go on
-// being written naturally and can never quietly get expensive again.
-const GSM_SAFE: [RegExp, string][] = [
-  [/[\u2010-\u2015\u2212]/g, "-"], // ‐ ‑ ‒ – — ― and the minus sign
-  [/[\u2018\u2019\u201B\u2032]/g, "'"],
-  [/[\u201C\u201D\u201F\u2033]/g, '"'],
-  [/\u2026/g, "..."],
-  [/\u2192/g, "->"],
-  [/\u00A0/g, " "], // non-breaking space
-  [/[\u2022\u00B7]/g, "*"],
-];
-
-export function toGsmSafe(body: string): string {
-  return GSM_SAFE.reduce((text, [re, to]) => text.replace(re, to), body);
-}
-
 async function sendSms(to: string, body: string): Promise<void> {
   if (!smsConfigured()) return;
   const dest = toE164(to);
@@ -76,6 +55,48 @@ async function sendSms(to: string, body: string): Promise<void> {
   if (!res.ok) {
     const msg = await res.text().catch(() => "");
     throw new Error(`Twilio send failed (${res.status}): ${msg.slice(0, 200)}`);
+  }
+}
+
+// One marketing text. Unlike every other send here it reports what happened
+// rather than swallowing it: a campaign records a result per number, and a
+// number Twilio refuses permanently must not be retried.
+//
+// 21610 is Twilio's "this number replied STOP to you" — the carrier holds that
+// list, so the first the app hears of an opt-out can be this error.
+export async function sendCampaignText(
+  to: string,
+  body: string
+): Promise<{ ok: true } | { ok: false; error: string; optedOut: boolean }> {
+  if (!smsConfigured()) return { ok: false, error: "Texting isn't set up (no Twilio keys).", optedOut: false };
+  const dest = toE164(to);
+  if (!dest) return { ok: false, error: "Not a phone number we can text.", optedOut: false };
+  try {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${SID}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${SID}:${TOKEN}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ To: dest, From: FROM as string, Body: toGsmSafe(body) }).toString(),
+    });
+    if (res.ok) return { ok: true };
+    const text = await res.text().catch(() => "");
+    let code = 0;
+    try {
+      code = Number((JSON.parse(text) as { code?: number }).code) || 0;
+    } catch {
+      code = 0;
+    }
+    const reason =
+      code === 21610
+        ? "They replied STOP to us before."
+        : code === 21614 || code === 21211
+          ? "Not a mobile number."
+          : `Twilio ${res.status}${code ? ` (${code})` : ""}`;
+    return { ok: false, error: reason, optedOut: code === 21610 };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message.slice(0, 200) : "Send failed.", optedOut: false };
   }
 }
 

@@ -21,6 +21,7 @@ const TABS: { href: string; label: string; need?: Permission | Permission[] }[] 
   { href: "/manager/checklists", label: "Checklists", need: "checklists" },
   { href: "/manager/notes", label: "Notes", need: "notes" },
   { href: "/manager/reports", label: "Reports", need: "reports" },
+  { href: "/manager/marketing", label: "Marketing", need: "marketing" },
   { href: "/manager/settings", label: "Settings", need: ["settings", "staff"] },
   { href: "/manager/help", label: "Help" },
 ];

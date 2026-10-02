@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { confirmRequest, releaseRequest } from "@/lib/request-flow";
 import { liveRequestsForPhone } from "@/lib/requests";
-import { getBusinessDetails } from "@/lib/settings";
+import { addOptOut, removeOptOut } from "@/lib/campaigns";
+import { getBusinessDetails, getCompanyName } from "@/lib/settings";
 import { toGsmSafe, verifyTwilioSignature } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,12 @@ export const dynamic = "force-dynamic";
 // clear yes or no gets a short nudge rather than a guess — mistaking "no thanks
 // I'll rebook" for a confirmation would hold a slot nobody wants.
 const YES = new Set(["y", "yes", "yeah", "yep", "yup", "confirm", "confirmed", "ok", "okay", "sure"]);
-const NO = new Set(["n", "no", "nope", "cancel", "cancelled", "nah", "stop"]);
+const NO = new Set(["n", "no", "nope", "cancel", "cancelled", "nah"]);
+// The words people and carriers use to get off a marketing list. Answered
+// before anything else: "stop" used to count as declining a held booking, so
+// someone opting out of a Halloween text could lose their game.
+const STOP = new Set(["stop", "stopall", "unsubscribe", "cancelall", "end", "quit", "optout"]);
+const START = new Set(["start", "unstop", "resubscribe"]);
 
 // The reply is a text Twilio bills like any other, so it gets the same GSM-7
 // clean-up sendSms applies — one "—" or "’" doubles a one-segment reply.
@@ -56,6 +62,26 @@ export async function POST(req: NextRequest) {
   const from = form.get("From") ?? "";
   const word = (form.get("Body") ?? "").trim().toLowerCase().replace(/[^a-z]/g, "");
   if (!from) return twiml(null);
+
+  // Opting out comes first, and never touches a booking.
+  if (STOP.has(word)) {
+    try {
+      await addOptOut(from, "reply");
+    } catch (err) {
+      console.error("recording an opt-out failed:", err);
+    }
+    return twiml(
+      `You're unsubscribed from ${await getCompanyName()} offers and won't get any more. Booking texts still come through. Reply START to get offers again.`
+    );
+  }
+  if (START.has(word)) {
+    try {
+      await removeOptOut(from);
+    } catch (err) {
+      console.error("undoing an opt-out failed:", err);
+    }
+    return twiml(`You'll get ${await getCompanyName()} offers again. Reply STOP any time to stop.`);
+  }
 
   const live = await liveRequestsForPhone(from);
   const waiting = live.filter((r) => r.status === "accepted");

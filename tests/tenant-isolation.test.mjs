@@ -86,10 +86,13 @@ const SEED = {
   site_events: (k) => [`insert into site_events (kind, tenant_id) values ($1, $2)`, [`view_${k}`]],
   booking_email_stats: (k) => [`insert into booking_email_stats (key, email, name, phone, subscribe, booked_at, bookings, guests, spent, itemised_sessions, itemised_paid, last_booked, tenant_id) values ($1, $1, 'N', 'P', false, now(), 1, 4, 1000, 0, 0, now(), $2)`, [`stats-${k}@example.invalid`]],
   booking_id_reissues: (k) => [`insert into booking_id_reissues (old_id, new_id, reference, tenant_id) values (gen_random_uuid(), gen_random_uuid(), $1, $2)`, [`VB-L${k}`]],
+  sms_optouts: (k) => [`insert into sms_optouts (phone, tenant_id) values ($1, $2)`, [`204555${String(k).padStart(4, "0")}`]],
+  campaigns: (k) => [`insert into campaigns (name, body, tenant_id) values ($1, 'Halloween at ours. Reply STOP to stop.', $2)`, [`campaign-${k}`]],
+  campaign_recipients: (k) => [`insert into campaign_recipients (campaign_id, phone, tenant_id) values ((select id from campaigns where tenant_id = $2 limit 1), $1, $2)`, [`204555${String(k).padStart(4, "0")}`]],
   push_subscriptions: (k) => [`insert into push_subscriptions (staff_id, endpoint, p256dh, auth, tenant_id) values ((select id from staff_accounts where tenant_id = $2 limit 1), $1, 'p256dh', 'auth', $2)`, [`https://push.example.invalid/${k}`]],
 };
 // Tables whose rows need another table's row of the same business first.
-const ORDER = ["staff_accounts", "staff_members"];
+const ORDER = ["staff_accounts", "staff_members", "campaigns"];
 
 const ROWS = { A: 2, B: 3 }; // different counts, so a leak changes a number
 
