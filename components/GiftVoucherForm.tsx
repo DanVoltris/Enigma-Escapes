@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SingleSelect from "@/components/SingleSelect";
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
 import { voucherLabel, type ShopProduct } from "@/lib/voucher-shop-config";
@@ -155,23 +156,18 @@ export default function GiftVoucherForm({
         <form className="form-card" onSubmit={buy} noValidate>
           <h3>Buy a gift voucher</h3>
           <div className={`field ${errors.amount ? "invalid" : ""}`} style={{ maxWidth: 360 }}>
-            <label htmlFor="gv-select">
+            <label>
               Select gift voucher <span className="req">*</span>
             </label>
-            <select
-              id="gv-select"
-              value={amountCents}
-              onChange={(e) => {
-                setAmountCents(Number(e.target.value));
+            <SingleSelect
+              ariaLabel="Select gift voucher"
+              value={String(amountCents)}
+              onChange={(v) => {
+                setAmountCents(Number(v));
                 setErrors((er) => ({ ...er, amount: undefined }));
               }}
-            >
-              {products.map((p) => (
-                <option key={p.cents} value={p.cents}>
-                  {voucherLabel(p)}
-                </option>
-              ))}
-            </select>
+              options={products.map((p) => ({ value: String(p.cents), label: voucherLabel(p) }))}
+            />
           </div>
           {errors.amount && <p className="field-error">{errors.amount}</p>}
 

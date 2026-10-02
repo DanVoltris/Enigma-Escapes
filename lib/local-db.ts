@@ -88,6 +88,46 @@ function persist(): void {
   }
 }
 
+// Who a campaign would reach, the same rules as the SQL in migrations/0009, so
+// local mode shows the audience the venues would text.
+type AudiencePerson = { phone: string; name: string | null; last_booked: string | null };
+
+function localAudience(db: Record<string, Row[]>, body: Row): AudiencePerson[] {
+  const months = body.months == null ? null : Number(body.months);
+  const areas = Array.isArray(body.area_codes) ? (body.area_codes as string[]) : null;
+  const locations = Array.isArray(body.locations) ? (body.locations as string[]) : null;
+  const key = (p: unknown) => String(p ?? "").replace(/\D/g, "").slice(-10);
+  const cutoff = months == null ? null : new Date(Date.now() - months * 30.44 * 86400000).toISOString().slice(0, 10);
+  const people = new Map<string, AudiencePerson>();
+  for (const b of db.bookings ?? []) {
+    const phone = key((b.customer as Row | undefined)?.phone);
+    if (phone.length !== 10) continue;
+    for (const i of (b.items as Row[]) ?? []) {
+      if (locations && locations.length > 0 && !locations.includes(String(i.location))) continue;
+      const when = String(i.date ?? b.created_at ?? "").slice(0, 10);
+      if (cutoff && when < cutoff) continue;
+      const prev = people.get(phone);
+      people.set(phone, {
+        phone,
+        name: prev?.name ?? String((b.customer as Row).firstName ?? ""),
+        last_booked: prev && prev.last_booked && prev.last_booked > when ? prev.last_booked : when,
+      });
+    }
+  }
+  if (body.include_subscribers !== false) {
+    for (const c of db.customers ?? []) {
+      if (c.subscribe !== true) continue;
+      const phone = key(c.phone);
+      if (phone.length !== 10 || people.has(phone)) continue;
+      people.set(phone, { phone, name: String(c.first_name ?? ""), last_booked: null });
+    }
+  }
+  const stopped = new Set((db.sms_optouts ?? []).map((o) => String(o.phone)));
+  return [...people.values()]
+    .filter((p) => !stopped.has(p.phone) && (!areas || areas.length === 0 || areas.includes(p.phone.slice(0, 3))))
+    .sort((a, b) => a.phone.localeCompare(b.phone));
+}
+
 // ---------- PostgREST-compatible request handling ----------
 
 // Entry point used by lib/supabase.ts. Mirrors the shape of a fetch() Response
@@ -128,44 +168,38 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
       }
       return json([...by.values()], 200);
     }
-    if (table === "rpc/campaign_audience") {
-      // The same rules as the SQL in migrations/0009, so local mode shows the
-      // same audience the venues would text.
-      const body = parseBody(init) as Row;
-      const months = body.months == null ? null : Number(body.months);
-      const areas = Array.isArray(body.area_codes) ? (body.area_codes as string[]) : null;
-      const locations = Array.isArray(body.locations) ? (body.locations as string[]) : null;
-      const key = (p: unknown) => String(p ?? "").replace(/\D/g, "").slice(-10);
-      const cutoff = months == null ? null : new Date(Date.now() - months * 30.44 * 86400000).toISOString().slice(0, 10);
-      const people = new Map<string, { phone: string; name: string | null; last_booked: string | null }>();
-      for (const b of db.bookings ?? []) {
-        const phone = key((b.customer as Row | undefined)?.phone);
-        if (phone.length !== 10) continue;
-        for (const i of (b.items as Row[]) ?? []) {
-          if (locations && locations.length > 0 && !locations.includes(String(i.location))) continue;
-          const when = String(i.date ?? b.created_at ?? "").slice(0, 10);
-          if (cutoff && when < cutoff) continue;
-          const prev = people.get(phone);
-          people.set(phone, {
-            phone,
-            name: prev?.name ?? String((b.customer as Row).firstName ?? ""),
-            last_booked: prev && prev.last_booked && prev.last_booked > when ? prev.last_booked : when,
-          });
-        }
-      }
-      if (body.include_subscribers !== false) {
-        for (const c of db.customers ?? []) {
-          if (c.subscribe !== true) continue;
-          const phone = key(c.phone);
-          if (phone.length !== 10 || people.has(phone)) continue;
-          people.set(phone, { phone, name: String(c.first_name ?? ""), last_booked: null });
-        }
-      }
-      const stopped = new Set((db.sms_optouts ?? []).map((o) => String(o.phone)));
-      const out = [...people.values()].filter(
-        (p) => !stopped.has(p.phone) && (!areas || areas.length === 0 || areas.includes(p.phone.slice(0, 3)))
+    // The same counting the database does in migrations/0010.
+    if (table === "rpc/campaign_area_codes") {
+      const people = localAudience(db, { months: null, include_subscribers: true, area_codes: null, locations: null });
+      const counts = new Map<string, number>();
+      for (const p of people) counts.set(p.phone.slice(0, 3), (counts.get(p.phone.slice(0, 3)) ?? 0) + 1);
+      return json(
+        [...counts.entries()].map(([code, n]) => ({ code, people: n })).sort((a, b) => b.people - a.people),
+        200
       );
-      return json(out, 200);
+    }
+    if (table === "rpc/campaign_audience_count") {
+      return json(localAudience(db, parseBody(init) as Row).length, 200);
+    }
+    if (table === "rpc/campaign_progress" || table === "rpc/campaign_progress_all") {
+      const body = parseBody(init) as Row;
+      const rows = (db.campaign_recipients ?? []).filter(
+        (r) => table === "rpc/campaign_progress_all" || r.campaign_id === body.p_campaign_id
+      );
+      const tally = (list: Row[]) => ({
+        sent: list.filter((r) => r.status === "sent").length,
+        failed: list.filter((r) => r.status === "failed").length,
+        pending: list.filter((r) => r.status === "pending").length,
+      });
+      if (table === "rpc/campaign_progress") return json([tally(rows)], 200);
+      const byCampaign = new Map<string, Row[]>();
+      for (const r of rows) byCampaign.set(String(r.campaign_id), [...(byCampaign.get(String(r.campaign_id)) ?? []), r]);
+      return json([...byCampaign.entries()].map(([campaign_id, list]) => ({ campaign_id, ...tally(list) })), 200);
+    }
+    if (table === "rpc/campaign_audience") {
+      const limit = Number(params.get("limit") ?? 0);
+      const people = localAudience(db, parseBody(init) as Row);
+      return json(limit > 0 ? people.slice(0, limit) : people, 200);
     }
     return json({ message: `unknown function ${table}` }, 404);
   }

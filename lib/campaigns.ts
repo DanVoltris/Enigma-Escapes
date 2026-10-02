@@ -88,6 +88,38 @@ export async function countOptOuts(): Promise<number> {
 const PAGE = 1000;
 const MAX_AUDIENCE = 100_000;
 
+// Just the number of people, for the composer's count. The whole list is only
+// read when a campaign is actually created.
+export async function audienceCount(filters: CampaignFilters): Promise<number> {
+  const res = await rest("rpc/campaign_audience_count", {
+    method: "POST",
+    body: JSON.stringify({
+      months: filters.months,
+      include_subscribers: filters.includeSubscribers,
+      area_codes: filters.areaCodes.length ? filters.areaCodes : null,
+      locations: filters.locations.length ? filters.locations : null,
+    }),
+  });
+  if (!res.ok) throw await restError(res, "Counting who this would reach");
+  const value = await res.json();
+  return typeof value === "number" ? value : Number(value?.[0]?.campaign_audience_count ?? 0);
+}
+
+// A handful of names, to show the filters picked who the manager expected.
+export async function audienceSample(filters: CampaignFilters, limit = 5): Promise<AudienceMember[]> {
+  const res = await rest(`rpc/campaign_audience?limit=${limit}&order=phone.asc`, {
+    method: "POST",
+    body: JSON.stringify({
+      months: filters.months,
+      include_subscribers: filters.includeSubscribers,
+      area_codes: filters.areaCodes.length ? filters.areaCodes : null,
+      locations: filters.locations.length ? filters.locations : null,
+    }),
+  });
+  if (!res.ok) return [];
+  return (await res.json()) as AudienceMember[];
+}
+
 export async function audienceFor(filters: CampaignFilters): Promise<AudienceMember[]> {
   const body = JSON.stringify({
     months: filters.months,
@@ -149,20 +181,34 @@ export async function getCampaign(id: string): Promise<Campaign | undefined> {
   return rows[0] ? toCampaign(rows[0]) : undefined;
 }
 
+// One query, not three: this is asked for after every batch while a campaign
+// sends, so it sits in the middle of the send loop.
 export async function progressFor(id: string): Promise<CampaignProgress> {
-  const counts = await Promise.all(
-    (["pending", "sent", "failed"] as const).map(async (status) => {
-      const res = await rest(
-        `campaign_recipients?campaign_id=eq.${encodeURIComponent(id)}&status=eq.${status}&select=id`,
-        { headers: { Prefer: "count=exact" } }
-      );
-      if (!res.ok) return 0;
-      const range = res.headers.get("content-range");
-      return range ? Number(range.split("/")[1]) || 0 : 0;
+  const res = await rest("rpc/campaign_progress", {
+    method: "POST",
+    body: JSON.stringify({ p_campaign_id: id }),
+  });
+  if (!res.ok) return { pending: 0, sent: 0, failed: 0, total: 0 };
+  const [row] = (await res.json()) as { sent: number; failed: number; pending: number }[];
+  const sent = Number(row?.sent ?? 0);
+  const failed = Number(row?.failed ?? 0);
+  const pending = Number(row?.pending ?? 0);
+  return { sent, failed, pending, total: sent + failed + pending };
+}
+
+// Every campaign's progress in one go, for the list.
+export async function progressForAll(): Promise<Map<string, CampaignProgress>> {
+  const res = await rest("rpc/campaign_progress_all", { method: "POST", body: "{}" });
+  if (!res.ok) return new Map();
+  const rows = (await res.json()) as { campaign_id: string; sent: number; failed: number; pending: number }[];
+  return new Map(
+    rows.map((r) => {
+      const sent = Number(r.sent ?? 0);
+      const failed = Number(r.failed ?? 0);
+      const pending = Number(r.pending ?? 0);
+      return [r.campaign_id, { sent, failed, pending, total: sent + failed + pending }];
     })
   );
-  const [pending, sent, failed] = counts;
-  return { pending, sent, failed, total: pending + sent + failed };
 }
 
 // Writes the campaign and the list of numbers it will go to. Returns the

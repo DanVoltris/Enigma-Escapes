@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import SingleSelect from "@/components/SingleSelect";
 import { campaignText, segmentsFor } from "@/lib/campaign-text";
 import { CONSENT_MONTHS, type CampaignFilters } from "@/lib/campaign-filters";
 
@@ -136,23 +137,22 @@ export default function CampaignComposer({
 
           <h3 className="intg-subhead">Who gets it</h3>
           <div className="field" style={{ maxWidth: 420 }}>
-            <label htmlFor="c-months">Booked in the last</label>
-            <select
-              id="c-months"
-              className="mgr-select"
+            <label>Booked in the last</label>
+            <SingleSelect
+              ariaLabel="Booked in the last"
               value={months === null ? "all" : String(months)}
-              onChange={(e) => {
-                const v = e.target.value;
+              onChange={(v) => {
                 setMonths(v === "all" ? null : Number(v));
                 setPreview(null);
               }}
-            >
-              <option value="3">3 months</option>
-              <option value="6">6 months</option>
-              <option value="12">12 months</option>
-              <option value="24">24 months — everyone you may text</option>
-              <option value="all">Any time — including customers from years ago</option>
-            </select>
+              options={[
+                { value: "3", label: "3 months" },
+                { value: "6", label: "6 months" },
+                { value: "12", label: "12 months" },
+                { value: "24", label: "24 months — everyone you may text" },
+                { value: "all", label: "Any time — including customers from years ago" },
+              ]}
+            />
           </div>
           {beyondConsent && (
             <p className="card-sub warn">
@@ -249,13 +249,16 @@ export default function CampaignComposer({
 
           <h3 className="intg-subhead">Try it on your own phone first</h3>
           <div className="push-actions">
-            <input
-              type="tel"
-              value={testPhone}
-              placeholder="204 555 0134"
-              onChange={(e) => setTestPhone(e.target.value)}
-              style={{ maxWidth: 200 }}
-            />
+            <div className="field" style={{ maxWidth: 220 }}>
+              <label htmlFor="c-test">Your phone number</label>
+              <input
+                id="c-test"
+                type="tel"
+                value={testPhone}
+                placeholder="204 555 0134"
+                onChange={(e) => setTestPhone(e.target.value)}
+              />
+            </div>
             <button
               type="button"
               className="btn btn-outline"
