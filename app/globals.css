@@ -887,7 +887,7 @@ a:hover {
 .checkbox-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 0;
   margin-bottom: 20px;
   color: var(--text-secondary);
   font-size: 15px;
@@ -2053,7 +2053,7 @@ a:hover {
 .intg-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   font-weight: 600;
   cursor: pointer;
 }
@@ -5258,8 +5258,11 @@ textarea:focus {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  margin: 0;
-  border: 1px solid var(--text-secondary);
+  /* The space to the label is set here rather than by the row's flex gap:
+     Safari doesn't apply gap to a bare text label (one written without a
+     <span> around it), which left the box jammed against its words. */
+  margin: 0 10px 0 0;
+  border: 1px solid #9aa4ad;
   background: #fff;
   display: inline-grid;
   place-content: center;
@@ -5268,6 +5271,7 @@ textarea:focus {
 .intg-toggle input[type="checkbox"] {
   width: 16px;
   height: 16px;
+  margin-right: 8px;
 }
 .checkbox-row input[type="checkbox"]::before,
 .intg-toggle input[type="checkbox"]::before {
