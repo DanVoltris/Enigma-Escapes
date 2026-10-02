@@ -21,6 +21,7 @@ export const PERMISSIONS = [
   "settings",
   "staff",
   "alerts",
+  "marketing",
   "roster",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
@@ -42,6 +43,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   settings: "Change business & booking-site settings",
   staff: "Manage staff accounts and their access",
   alerts: "Manage who gets texted when a booking request comes in",
+  marketing: "Send marketing texts to customers",
   roster: "Manage the staff list and room training",
 };
 
@@ -70,7 +72,11 @@ const CLERK_PERMISSIONS: Permission[] = [
 // two shared one permission.
 //
 // Admin gets the lot.
-const MANAGER_PERMISSIONS: Permission[] = PERMISSIONS.filter((p) => p !== "staff" && p !== "reports");
+// Marketing is off for a new manager too: texting thousands of customers is a
+// decision an owner makes, so it is ticked on per person rather than inherited.
+const MANAGER_PERMISSIONS: Permission[] = PERMISSIONS.filter(
+  (p) => p !== "staff" && p !== "reports" && p !== "marketing"
+);
 
 export function defaultPermissionsFor(role: StaffRole): Permission[] {
   if (role === "admin") return [...PERMISSIONS];

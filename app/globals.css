@@ -5216,3 +5216,33 @@ textarea:focus {
 .slot-row.is-upcoming .slot-time {
   font-size: 20px;
 }
+
+/* marketing campaigns */
+.campaign-preview {
+  background: var(--muted-bg);
+  border-left: 3px solid var(--accent);
+  padding: 12px 14px;
+  margin: 12px 0 18px;
+}
+.campaign-preview .label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.campaign-preview p {
+  margin: 0;
+}
+.campaign-bar {
+  height: 10px;
+  background: var(--muted-bg);
+  border: 1px solid var(--border);
+  margin: 6px 0 10px;
+}
+.campaign-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}

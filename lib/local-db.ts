@@ -38,6 +38,9 @@ const PK: Record<string, string> = {
   staff_members: "id", // the people who run the games (not logins)
   staff_shifts: "id", // check in / check out records
   quotes: "id", // invoices raised before a booking exists
+  sms_optouts: "phone", // numbers that replied STOP
+  campaigns: "id", // marketing texts
+  campaign_recipients: "id",
   push_subscriptions: "id", // phones staff turned notifications on for
 };
 
@@ -125,6 +128,45 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
       }
       return json([...by.values()], 200);
     }
+    if (table === "rpc/campaign_audience") {
+      // The same rules as the SQL in migrations/0009, so local mode shows the
+      // same audience the venues would text.
+      const body = parseBody(init) as Row;
+      const months = body.months == null ? null : Number(body.months);
+      const areas = Array.isArray(body.area_codes) ? (body.area_codes as string[]) : null;
+      const locations = Array.isArray(body.locations) ? (body.locations as string[]) : null;
+      const key = (p: unknown) => String(p ?? "").replace(/\D/g, "").slice(-10);
+      const cutoff = months == null ? null : new Date(Date.now() - months * 30.44 * 86400000).toISOString().slice(0, 10);
+      const people = new Map<string, { phone: string; name: string | null; last_booked: string | null }>();
+      for (const b of db.bookings ?? []) {
+        const phone = key((b.customer as Row | undefined)?.phone);
+        if (phone.length !== 10) continue;
+        for (const i of (b.items as Row[]) ?? []) {
+          if (locations && locations.length > 0 && !locations.includes(String(i.location))) continue;
+          const when = String(i.date ?? b.created_at ?? "").slice(0, 10);
+          if (cutoff && when < cutoff) continue;
+          const prev = people.get(phone);
+          people.set(phone, {
+            phone,
+            name: prev?.name ?? String((b.customer as Row).firstName ?? ""),
+            last_booked: prev && prev.last_booked && prev.last_booked > when ? prev.last_booked : when,
+          });
+        }
+      }
+      if (body.include_subscribers !== false) {
+        for (const c of db.customers ?? []) {
+          if (c.subscribe !== true) continue;
+          const phone = key(c.phone);
+          if (phone.length !== 10 || people.has(phone)) continue;
+          people.set(phone, { phone, name: String(c.first_name ?? ""), last_booked: null });
+        }
+      }
+      const stopped = new Set((db.sms_optouts ?? []).map((o) => String(o.phone)));
+      const out = [...people.values()].filter(
+        (p) => !stopped.has(p.phone) && (!areas || areas.length === 0 || areas.includes(p.phone.slice(0, 3)))
+      );
+      return json(out, 200);
+    }
     return json({ message: `unknown function ${table}` }, 404);
   }
 
@@ -176,6 +218,10 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
         }
       }
       if (item.created_at == null) item.created_at = nowISO(); // mimic DB default now()
+      // Same for a uuid primary key the database fills itself. Without this a
+      // row arrives with no id, and a later "where id = ..." matches every
+      // other id-less row — which is how a one-row update became thirty.
+      if (PK[table] === "id" && item.id == null) item.id = randomUUID();
       rows.push(item);
       written.push(item);
     }
