@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SingleSelect from "@/components/SingleSelect";
 import { formatMoney } from "@/lib/format";
 import {
   ALL_DAYS,
@@ -186,18 +187,19 @@ export default function VoucherDetail({
         <p className="card-sub">How this voucher is spent when a customer redeems it.</p>
         <div className="vch-row">
           <div className="field">
-            <label htmlFor="rtype">Redemption type</label>
-            <select
-              id="rtype"
+            <label>Redemption type</label>
+            <SingleSelect
+              ariaLabel="Redemption type"
               value={redemptionType}
-              onChange={(e) => {
-                setRedemptionType(e.target.value as RedemptionType);
+              onChange={(v) => {
+                setRedemptionType(v as RedemptionType);
                 setSaved(false);
               }}
-            >
-              <option value="value">Value amount</option>
-              <option value="spaces">Spaces</option>
-            </select>
+              options={[
+                { value: "value", label: "Value amount" },
+                { value: "spaces", label: "Spaces" },
+              ]}
+            />
           </div>
           {redemptionType === "value" ? (
             <div className="field">
@@ -255,18 +257,19 @@ export default function VoucherDetail({
         <h2>Items</h2>
         <p className="card-sub">Which experiences this voucher can be spent on.</p>
         <div className="field" style={{ maxWidth: 320 }}>
-          <label htmlFor="scope">Select option</label>
-          <select
-            id="scope"
+          <label>Select option</label>
+          <SingleSelect
+            ariaLabel="Which experiences this voucher can be spent on"
             value={itemsScope}
-            onChange={(e) => {
-              setItemsScope(e.target.value as ItemsScope);
+            onChange={(v) => {
+              setItemsScope(v as ItemsScope);
               setSaved(false);
             }}
-          >
-            <option value="all">Apply to all items</option>
-            <option value="selected">Apply to selected items</option>
-          </select>
+            options={[
+              { value: "all", label: "Apply to all items" },
+              { value: "selected", label: "Apply to selected items" },
+            ]}
+          />
         </div>
         {itemsScope === "selected" && (
           <div className="vch-items">
@@ -287,18 +290,19 @@ export default function VoucherDetail({
 
         <div className="vch-row">
           <div className="field">
-            <label htmlFor="dopt">Select date option</label>
-            <select
-              id="dopt"
+            <label>Select date option</label>
+            <SingleSelect
+              ariaLabel="Select date option"
               value={dateOption}
-              onChange={(e) => {
-                setDateOption(e.target.value as DateOption);
+              onChange={(v) => {
+                setDateOption(v as DateOption);
                 setSaved(false);
               }}
-            >
-              <option value="any">Available any dates</option>
-              <option value="range">Available between dates</option>
-            </select>
+              options={[
+                { value: "any", label: "Available any dates" },
+                { value: "range", label: "Available between dates" },
+              ]}
+            />
           </div>
           {dateOption === "range" && (
             <>
@@ -332,18 +336,19 @@ export default function VoucherDetail({
 
         <div className="vch-row">
           <div className="field">
-            <label htmlFor="topt">Select time option</label>
-            <select
-              id="topt"
+            <label>Select time option</label>
+            <SingleSelect
+              ariaLabel="Select time option"
               value={timeOption}
-              onChange={(e) => {
-                setTimeOption(e.target.value as TimeOption);
+              onChange={(v) => {
+                setTimeOption(v as TimeOption);
                 setSaved(false);
               }}
-            >
-              <option value="any">Available any time</option>
-              <option value="range">Available between times</option>
-            </select>
+              options={[
+                { value: "any", label: "Available any time" },
+                { value: "range", label: "Available between times" },
+              ]}
+            />
           </div>
           {timeOption === "range" && (
             <>
@@ -436,18 +441,19 @@ export default function VoucherDetail({
         <p className="card-sub">A specific date after which this voucher can no longer be redeemed.</p>
         <div className="vch-row">
           <div className="field" style={{ maxWidth: 320 }}>
-            <label htmlFor="eopt">Expiry options</label>
-            <select
-              id="eopt"
+            <label>Expiry options</label>
+            <SingleSelect
+              ariaLabel="Expiry options"
               value={expiryOn ? "date" : "none"}
-              onChange={(e) => {
-                setExpiryOn(e.target.value === "date");
+              onChange={(v) => {
+                setExpiryOn(v === "date");
                 setSaved(false);
               }}
-            >
-              <option value="none">Gift voucher has no expiry date</option>
-              <option value="date">Expires on a set date</option>
-            </select>
+              options={[
+                { value: "none", label: "Gift voucher has no expiry date" },
+                { value: "date", label: "Expires on a set date" },
+              ]}
+            />
           </div>
           {expiryOn && (
             <div className="field">
@@ -501,15 +507,13 @@ export default function VoucherDetail({
             <input id="rt" type="time" value={rTime} onChange={(e) => setRTime(e.target.value)} />
           </div>
           <div className="field">
-            <label htmlFor="rr">Experience</label>
-            <select id="rr" value={rRoom} onChange={(e) => setRRoom(e.target.value)}>
-              <option value="">Any</option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
+            <label>Experience</label>
+            <SingleSelect
+              ariaLabel="Experience"
+              value={rRoom}
+              onChange={setRRoom}
+              options={[{ value: "", label: "Any" }, ...rooms.map((r) => ({ value: r.id, label: r.name }))]}
+            />
           </div>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>

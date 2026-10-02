@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
-import { audienceFor, campaignText, countOptOuts, normalizeFilters, segmentsFor } from "@/lib/campaigns";
+import { audienceCount, audienceSample, campaignText, countOptOuts, normalizeFilters, segmentsFor } from "@/lib/campaigns";
 import { getCompanyName } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -14,13 +14,13 @@ export async function POST(req: NextRequest) {
   const filters = normalizeFilters(o.filters);
   const body = typeof o.body === "string" ? o.body : "";
   try {
-    const audience = await audienceFor(filters);
+    const [recipients, sample] = await Promise.all([audienceCount(filters), audienceSample(filters)]);
     const preview = campaignText(await getCompanyName(), body || "Your message goes here.");
     const { segments, unicode, characters } = segmentsFor(preview);
     return NextResponse.json({
-      recipients: audience.length,
+      recipients,
       optedOut: await countOptOuts(),
-      sample: audience.slice(0, 5).map((a) => ({
+      sample: sample.map((a) => ({
         name: a.name,
         phone: `•••-•••-${a.phone.slice(-4)}`,
         lastBooked: a.last_booked,

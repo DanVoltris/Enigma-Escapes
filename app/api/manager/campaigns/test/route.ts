@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { campaignText } from "@/lib/campaigns";
+import { logActivity } from "@/lib/db";
 import { getCompanyName } from "@/lib/settings";
 import { sendCampaignText, smsConfigured } from "@/lib/sms";
 
@@ -23,5 +24,8 @@ export async function POST(req: NextRequest) {
   if (body.length < 10) return NextResponse.json({ error: "Write the message first." }, { status: 400 });
   const result = await sendCampaignText(to, campaignText(await getCompanyName(), body));
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 502 });
+  // Logged so a text that turns up on someone's phone can always be accounted
+  // for — without this, a test looked exactly like a campaign nobody can find.
+  await logActivity("Campaign test sent", `to ${to} by ${guard.staff.name || guard.staff.email}`).catch(() => null);
   return NextResponse.json({ ok: true });
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import CampaignComposer from "@/components/manager/CampaignComposer";
 import { requirePermission } from "@/lib/auth";
-import { listCampaigns, progressFor } from "@/lib/campaigns";
+import { listCampaigns, progressForAll } from "@/lib/campaigns";
 import { formatTimestamp } from "@/lib/format";
 import { listAllLocations } from "@/lib/hours";
 import { getCompanyName } from "@/lib/settings";
@@ -18,10 +18,7 @@ export default async function MarketingPage() {
     areaCodeCounts().catch(() => []),
     listCampaigns().catch(() => []),
   ]);
-  const progress = await Promise.all(
-    campaigns.slice(0, 10).map(async (c) => ({ id: c.id, ...(await progressFor(c.id).catch(() => null) ?? { total: 0, sent: 0, failed: 0, pending: 0 }) }))
-  );
-  const byId = new Map(progress.map((p) => [p.id, p]));
+  const byId = await progressForAll().catch(() => new Map());
 
   return (
     <>
