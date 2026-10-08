@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     // Best-effort: the request is already saved, so a failed text must never
     // turn into an error the customer sees.
     await notifyNewRequest(
-      { roomName: exp.name, location: exp.location, date, time, quantity, firstName, lastName, phone },
+      { id: request.id, roomName: exp.name, location: exp.location, date, time, quantity, firstName, lastName, phone },
       req.nextUrl.origin
     );
     pushNewRequest(request, req.nextUrl.origin);

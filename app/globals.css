@@ -3482,6 +3482,75 @@ a.mgr-pill.on:hover {
 .req-decline:hover {
   border-color: var(--danger);
 }
+
+/* A request row that opens to show how to reach the person. The whole left
+   side is a real button, so Enter and Space work and it takes focus; Escape
+   closes it (handled in RequestsBoard). */
+.mgr-notes li.req-expandable {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.req-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+.req-reveal {
+  flex: 1;
+  display: block;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.req-reveal .sub {
+  display: block;
+}
+.req-reveal:hover .req-reveal-name {
+  text-decoration: underline;
+}
+.req-reveal:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.req-reveal[aria-expanded="true"] .req-reveal-name {
+  text-decoration: underline;
+}
+.req-contact {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 13px;
+}
+.req-contact dt {
+  color: var(--text-secondary);
+}
+.req-contact dd {
+  margin: 0;
+}
+.req-stopped {
+  color: var(--danger);
+  font-weight: 700;
+}
+@media (max-width: 640px) {
+  .req-contact {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .req-contact dt {
+    margin-top: 6px;
+  }
+}
 @media (max-width: 640px) {
   .req-grid {
     grid-template-columns: 1fr;

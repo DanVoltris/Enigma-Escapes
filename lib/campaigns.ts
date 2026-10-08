@@ -72,6 +72,19 @@ export async function isOptedOut(phone: string): Promise<boolean> {
   return ((await res.json()) as unknown[]).length > 0;
 }
 
+// Which of these numbers have opted out — one query for a whole screenful.
+// Staff need this on the Requests board: a number that replied STOP cannot be
+// reached by ANY text from our number, booking confirmations included, so the
+// only way to answer that customer is to ring them.
+export async function optedOutAmong(phones: string[]): Promise<Set<string>> {
+  const keys = [...new Set(phones.map(phoneKey).filter((k) => k.length === 10))];
+  if (keys.length === 0) return new Set();
+  const res = await rest(`sms_optouts?phone=in.(${keys.join(",")})&select=phone`);
+  if (!res.ok) return new Set(); // a lookup failure must never hide a request
+  const rows = (await res.json()) as { phone: string }[];
+  return new Set(rows.map((r) => r.phone));
+}
+
 export async function countOptOuts(): Promise<number> {
   const res = await rest("sms_optouts?select=phone", { headers: { Prefer: "count=exact" } });
   if (!res.ok) return 0;

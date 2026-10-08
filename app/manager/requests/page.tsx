@@ -6,6 +6,8 @@ import { requestWindowSentence } from "@/lib/request-window";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sweepIfDue } from "@/lib/request-flow";
 import { listRequests } from "@/lib/requests";
+import { optedOutAmong, phoneKey } from "@/lib/campaigns";
+import { lastSmsAbout, smsOutcome } from "@/lib/sms-log";
 import { smsConfigured } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,21 @@ export default async function RequestsPage() {
   for (const r of requests) {
     if (r.status === "pending") remaining[r.id] = await slotRemaining(r.roomId, r.date, r.time, r.quantity);
   }
+  // Numbers that have replied STOP: Twilio refuses every text to them from our
+  // number, so the accept/confirm text silently never arrives. Flagged on the
+  // board so staff ring those customers instead of waiting for a Y.
+  const stopped = await optedOutAmong(requests.map((r) => r.phone));
+  // What became of the text about each request. A text Twilio accepted can
+  // still be dropped by the carrier minutes later, so "we sent it" is not an
+  // answer staff can give a customer — this is.
+  const sent = await lastSmsAbout(requests.map((r) => r.id));
+  const texts: Record<string, { text: string; bad: boolean }> = {};
+  for (const r of requests) {
+    const outcome = smsOutcome(sent.get(r.id));
+    if (outcome) texts[r.id] = outcome;
+  }
+  const optedOut: Record<string, boolean> = {};
+  for (const r of requests) optedOut[r.id] = stopped.has(phoneKey(r.phone));
   return (
     <>
       <BoardPage />
@@ -33,7 +50,7 @@ export default async function RequestsPage() {
         hold is released. Requests die
         automatically when their start time passes.
       </p>
-      <RequestsBoard initialRequests={requests} remaining={remaining} />
+      <RequestsBoard initialRequests={requests} remaining={remaining} optedOut={optedOut} texts={texts} />
     </>
   );
 }

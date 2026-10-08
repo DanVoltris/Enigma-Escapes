@@ -6,17 +6,19 @@ import { formatTimestamp } from "@/lib/format";
 import { listAllLocations } from "@/lib/hours";
 import { getCompanyName } from "@/lib/settings";
 import { smsConfigured } from "@/lib/sms";
+import { getSmsRateCents, TEXTS_PER_MINUTE } from "@/lib/sms-rate";
 import { areaCodeCounts } from "@/lib/campaign-stats";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketingPage() {
   const staff = await requirePermission("marketing", "/manager/marketing");
-  const [company, locations, areaCodes, campaigns] = await Promise.all([
+  const [company, locations, areaCodes, campaigns, rateCents] = await Promise.all([
     getCompanyName(),
     listAllLocations(),
     areaCodeCounts().catch(() => []),
     listCampaigns().catch(() => []),
+    getSmsRateCents(),
   ]);
   const byId = await progressForAll().catch(() => new Map());
 
@@ -31,6 +33,8 @@ export default async function MarketingPage() {
         areaCodes={areaCodes}
         myPhone={staff.phone}
         smsReady={smsConfigured()}
+        rateCents={rateCents}
+        textsPerMinute={TEXTS_PER_MINUTE}
       />
 
       <div className="mgr-card">

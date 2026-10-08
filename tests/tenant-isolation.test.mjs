@@ -88,6 +88,10 @@ const SEED = {
   booking_id_reissues: (k) => [`insert into booking_id_reissues (old_id, new_id, reference, tenant_id) values (gen_random_uuid(), gen_random_uuid(), $1, $2)`, [`VB-L${k}`]],
   sms_optouts: (k) => [`insert into sms_optouts (phone, tenant_id) values ($1, $2)`, [`204555${String(k).padStart(4, "0")}`]],
   campaigns: (k) => [`insert into campaigns (name, body, tenant_id) values ($1, 'Halloween at ours. Reply STOP to stop.', $2)`, [`campaign-${k}`]],
+  sms_messages: (k) => [
+    `insert into sms_messages (phone, kind, about, tenant_id) values ($1, 'request_accepted', $1, $2)`,
+    [`204555${String(k).padStart(4, "0")}`],
+  ],
   campaign_recipients: (k) => [`insert into campaign_recipients (campaign_id, phone, tenant_id) values ((select id from campaigns where tenant_id = $2 limit 1), $1, $2)`, [`204555${String(k).padStart(4, "0")}`]],
   push_subscriptions: (k) => [`insert into push_subscriptions (staff_id, endpoint, p256dh, auth, tenant_id) values ((select id from staff_accounts where tenant_id = $2 limit 1), $1, 'p256dh', 'auth', $2)`, [`https://push.example.invalid/${k}`]],
 };
