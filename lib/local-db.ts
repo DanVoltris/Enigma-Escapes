@@ -188,15 +188,22 @@ export async function localRest(reqPath: string, init?: RequestInit): Promise<Re
       const rows = (db.campaign_recipients ?? []).filter(
         (r) => table === "rpc/campaign_progress_all" || r.campaign_id === body.p_campaign_id
       );
-      const tally = (list: Row[]) => ({
+      // People who replied STOP after that campaign texted them (migration 0012).
+      const stopped = (id: unknown) =>
+        (db.sms_optouts ?? []).filter((o) => o.campaign_id != null && o.campaign_id === id).length;
+      const tally = (list: Row[], id: unknown) => ({
         sent: list.filter((r) => r.status === "sent").length,
         failed: list.filter((r) => r.status === "failed").length,
         pending: list.filter((r) => r.status === "pending").length,
+        unsubscribed: stopped(id),
       });
-      if (table === "rpc/campaign_progress") return json([tally(rows)], 200);
+      if (table === "rpc/campaign_progress") return json([tally(rows, body.p_campaign_id)], 200);
       const byCampaign = new Map<string, Row[]>();
       for (const r of rows) byCampaign.set(String(r.campaign_id), [...(byCampaign.get(String(r.campaign_id)) ?? []), r]);
-      return json([...byCampaign.entries()].map(([campaign_id, list]) => ({ campaign_id, ...tally(list) })), 200);
+      return json(
+        [...byCampaign.entries()].map(([campaign_id, list]) => ({ campaign_id, ...tally(list, campaign_id) })),
+        200
+      );
     }
     if (table === "rpc/campaign_audience") {
       const limit = Number(params.get("limit") ?? 0);

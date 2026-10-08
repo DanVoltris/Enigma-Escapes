@@ -26,3 +26,4 @@ jobs:
       - run: npm run test:season
       - run: npm run test:capacity
       - run: npm run test:voucher
+      - run: npm run test:unsubscribes

@@ -182,6 +182,14 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   texts share one Twilio number, so a STOP to a campaign silences that customer's booking
   confirmations too** — 525 numbers were in that position after the October 2026 campaign, and
   the Requests page flags them. A second number for marketing is the fix.
+- What a campaign cost in customers: `sms_optouts.campaign_id` (migration 0012) records which
+  campaign last texted someone before they replied STOP, so the Marketing list and each
+  campaign's page show how many people it unsubscribed, and what share of those it reached.
+  Set as the reply arrives (the inbound webhook), and backfilled for history. An opt-out
+  Twilio reports by refusing a send (error 21610, `source: "carrier"`) is deliberately
+  attributed to nothing — that person left earlier. `npm run test:unsubscribes` builds a real
+  Postgres at 0011, gives it a venue's history and then applies 0012, which is the only honest
+  way to check a backfill (shared harness: `tests/pg-harness.mjs`).
 - Checklists: daily staff task lists at `/manager/checklists` (definitions + today's ticks in
   settings keys `checklists` / `checklist_state`; ticks reset at date rollover).
 - Surveys: public post-game form at `/feedback` (linked with the reference from every

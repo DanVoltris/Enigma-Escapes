@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { confirmRequest, releaseRequest } from "@/lib/request-flow";
 import { liveRequestsForPhone } from "@/lib/requests";
-import { addOptOut, removeOptOut } from "@/lib/campaigns";
+import { addOptOut, campaignThatLastTexted, removeOptOut } from "@/lib/campaigns";
 import { getBusinessDetails, getCompanyName } from "@/lib/settings";
 import { toGsmSafe, verifyTwilioSignature } from "@/lib/sms";
 
@@ -66,7 +66,10 @@ export async function POST(req: NextRequest) {
   // Opting out comes first, and never touches a booking.
   if (STOP.has(word)) {
     try {
-      await addOptOut(from, "reply");
+      // Recorded against whichever campaign last texted them: this is the reply
+      // to that message, and it is the only moment the connection is knowable.
+      const campaignId = await campaignThatLastTexted(from).catch(() => null);
+      await addOptOut(from, "reply", campaignId);
     } catch (err) {
       console.error("recording an opt-out failed:", err);
     }

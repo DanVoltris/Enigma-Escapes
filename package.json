@@ -13,7 +13,8 @@
     "test:pricing": "node --test tests/pricing.test.mjs",
     "test:season": "node --test tests/season.test.mjs",
     "test:capacity": "node --import ./tests/resolve-ts.mjs --test tests/capacity.test.mjs",
-    "test:voucher": "node --import ./tests/resolve-ts.mjs --test tests/voucher-minimum.test.mjs"
+    "test:voucher": "node --import ./tests/resolve-ts.mjs --test tests/voucher-minimum.test.mjs",
+    "test:unsubscribes": "node --test tests/campaign-optouts.test.mjs"
   },
   "dependencies": {
     "next": "^16.2.10",

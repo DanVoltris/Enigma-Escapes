@@ -33,7 +33,14 @@ export type Campaign = {
   finishedAt: string | null;
 };
 
-export type CampaignProgress = { total: number; sent: number; failed: number; pending: number };
+export type CampaignProgress = {
+  total: number;
+  sent: number;
+  failed: number;
+  pending: number;
+  // People who replied STOP after this campaign texted them (migration 0012).
+  unsubscribed: number;
+};
 
 export type AudienceMember = { phone: string; name: string | null; last_booked: string | null };
 
@@ -43,13 +50,21 @@ export type AudienceMember = { phone: string; name: string | null; last_booked: 
 // to a phone number.
 export const phoneKey = (phone: string): string => phone.replace(/\D/g, "").slice(-10);
 
-export async function addOptOut(phone: string, source: "reply" | "staff"): Promise<void> {
+// source says how we learned about it: "reply" is a STOP text, "staff" is
+// somebody taking a number off the list by hand, and "carrier" is Twilio
+// refusing a send because that person had already opted out of this number —
+// an older decision, which is why those carry no campaign.
+export async function addOptOut(
+  phone: string,
+  source: "reply" | "staff" | "carrier",
+  campaignId?: string | null
+): Promise<void> {
   const key = phoneKey(phone);
   if (key.length !== 10) return;
   const res = await rest("sms_optouts?on_conflict=tenant_id,phone", {
     method: "POST",
     headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
-    body: JSON.stringify([{ phone: key, source }]),
+    body: JSON.stringify([{ phone: key, source, campaign_id: campaignId ?? null }]),
   });
   if (!res.ok && res.status !== 404) throw await restError(res, "Recording the opt-out");
 }
@@ -62,6 +77,20 @@ export async function removeOptOut(phone: string): Promise<void> {
     headers: { Prefer: "return=minimal" },
   });
   if (!res.ok && res.status !== 404) throw await restError(res, "Undoing the opt-out");
+}
+
+// The campaign that last texted this number, which is the one a STOP arriving
+// now is answering. Null when we have never texted them a campaign — a booking
+// text can be replied to with STOP as well, and that is nobody's campaign.
+export async function campaignThatLastTexted(phone: string): Promise<string | null> {
+  const key = phoneKey(phone);
+  if (key.length !== 10) return null;
+  const res = await rest(
+    `campaign_recipients?phone=eq.${key}&status=eq.sent&select=campaign_id,sent_at&order=sent_at.desc&limit=1`
+  );
+  if (!res.ok) return null;
+  const [row] = (await res.json()) as { campaign_id: string }[];
+  return row?.campaign_id ?? null;
 }
 
 export async function isOptedOut(phone: string): Promise<boolean> {
@@ -201,25 +230,51 @@ export async function progressFor(id: string): Promise<CampaignProgress> {
     method: "POST",
     body: JSON.stringify({ p_campaign_id: id }),
   });
-  if (!res.ok) return { pending: 0, sent: 0, failed: 0, total: 0 };
-  const [row] = (await res.json()) as { sent: number; failed: number; pending: number }[];
+  if (!res.ok) return { pending: 0, sent: 0, failed: 0, total: 0, unsubscribed: 0 };
+  const [row] = (await res.json()) as {
+    sent: number;
+    failed: number;
+    pending: number;
+    unsubscribed?: number;
+  }[];
   const sent = Number(row?.sent ?? 0);
   const failed = Number(row?.failed ?? 0);
   const pending = Number(row?.pending ?? 0);
-  return { sent, failed, pending, total: sent + failed + pending };
+  return {
+    sent,
+    failed,
+    pending,
+    total: sent + failed + pending,
+    unsubscribed: Number(row?.unsubscribed ?? 0),
+  };
 }
 
 // Every campaign's progress in one go, for the list.
 export async function progressForAll(): Promise<Map<string, CampaignProgress>> {
   const res = await rest("rpc/campaign_progress_all", { method: "POST", body: "{}" });
   if (!res.ok) return new Map();
-  const rows = (await res.json()) as { campaign_id: string; sent: number; failed: number; pending: number }[];
+  const rows = (await res.json()) as {
+    campaign_id: string;
+    sent: number;
+    failed: number;
+    pending: number;
+    unsubscribed?: number;
+  }[];
   return new Map(
     rows.map((r) => {
       const sent = Number(r.sent ?? 0);
       const failed = Number(r.failed ?? 0);
       const pending = Number(r.pending ?? 0);
-      return [r.campaign_id, { sent, failed, pending, total: sent + failed + pending }];
+      return [
+        r.campaign_id,
+        {
+          sent,
+          failed,
+          pending,
+          total: sent + failed + pending,
+          unsubscribed: Number(r.unsubscribed ?? 0),
+        },
+      ];
     })
   );
 }
@@ -320,7 +375,7 @@ export async function sendNextBatch(
     // later campaign tries again.
     if (!result.ok && result.optedOut) {
       try {
-        await addOptOut(person.phone, "reply");
+        await addOptOut(person.phone, "carrier");
       } catch {
         // The send result still gets recorded below.
       }

@@ -80,6 +80,9 @@ export default async function MarketingPage() {
                       <td>
                         {p ? `${p.sent.toLocaleString()} of ${p.total.toLocaleString()}` : "—"}
                         {p && p.failed > 0 && <span className="sub"> · {p.failed} failed</span>}
+                        {p && p.unsubscribed > 0 && (
+                          <span className="sub"> · {p.unsubscribed.toLocaleString()} unsubscribed</span>
+                        )}
                       </td>
                       <td>
                         <Link href={`/manager/marketing/${c.id}`}>Open</Link>
