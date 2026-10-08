@@ -42,10 +42,12 @@ export default function RequestsBoard({
   initialRequests,
   remaining,
   optedOut,
+  texts,
 }: {
   initialRequests: BookingRequest[];
   remaining: Record<string, number | null>;
   optedOut: Record<string, boolean>;
+  texts: Record<string, { text: string; bad: boolean }>;
 }) {
   const router = useRouter();
   const [requests, setRequests] = useState(initialRequests);
@@ -104,6 +106,12 @@ export default function RequestsBoard({
             <dd>
               <a href={`mailto:${r.email}`}>{r.email}</a>
             </dd>
+          </>
+        )}
+        {texts[r.id] && (
+          <>
+            <dt>Text</dt>
+            <dd className={texts[r.id].bad ? "req-stopped" : undefined}>{texts[r.id].text}</dd>
           </>
         )}
         <dt>Asked</dt>
@@ -252,6 +260,7 @@ export default function RequestsBoard({
                     </span>
                     <span className="sub">
                       {r.phone}
+                      {texts[r.id]?.bad && <span className="req-stopped"> · {texts[r.id].text}</span>}
                       {optedOut[r.id] && (
                         <>
                           {" "}

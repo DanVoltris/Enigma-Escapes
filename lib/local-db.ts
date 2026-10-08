@@ -41,6 +41,7 @@ const PK: Record<string, string> = {
   sms_optouts: "phone", // numbers that replied STOP
   campaigns: "id", // marketing texts
   campaign_recipients: "id",
+  sms_messages: "id", // what became of each text sent
   push_subscriptions: "id", // phones staff turned notifications on for
 };
 

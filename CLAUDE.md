@@ -160,6 +160,17 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   `booking_requests`; managers accept/decline on `/manager/requests` (accept texts a completion
   link `/request/<token>` that seeds the cart and passes `requestToken` through checkout, which
   create-booking requires for sub-4h slots; walk-ins exempt). Requests expire at session start.
+  Clicking a request row on that page opens the customer's phone, email and what became of
+  the text to them.
+- Every service text is written down (`sms_messages`, migration 0011, `lib/sms-log.ts`): sending
+  one only ever gets "queued" back, so each message carries a `StatusCallback` to
+  `/api/sms/status` (Twilio-signed, like the inbound webhook) and the row is updated when the
+  carrier reports back. Nothing to configure in the Twilio console — the callback URL is sent
+  with each message, derived from `VERCEL_PROJECT_PRODUCTION_URL`. Marketing is not logged here;
+  `campaign_recipients` already holds a row per number per campaign. **Marketing and booking
+  texts share one Twilio number, so a STOP to a campaign silences that customer's booking
+  confirmations too** — 525 numbers were in that position after the October 2026 campaign, and
+  the Requests page flags them. A second number for marketing is the fix.
 - Checklists: daily staff task lists at `/manager/checklists` (definitions + today's ticks in
   settings keys `checklists` / `checklist_state`; ticks reset at date rollover).
 - Surveys: public post-game form at `/feedback` (linked with the reference from every
