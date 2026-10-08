@@ -9,6 +9,7 @@ import { hasGuessableId } from "./legacy-booking-id";
 import { replyWindow } from "./requests";
 import { alertRecipients } from "./request-alerts";
 import { getBusinessDetails, getCompanyName } from "./settings";
+import { recordSms, type SmsKind } from "./sms-log";
 import { formatDateLong, formatTime, formatTimestampDate, minutesUntilSlot } from "./format";
 import type { Booking } from "./types";
 
@@ -39,22 +40,61 @@ function toE164(phone: string): string | null {
   return null;
 }
 
-async function sendSms(to: string, body: string): Promise<void> {
+// Where Twilio reports what became of a message. Minutes after it accepts one
+// it posts here with "delivered", or with the carrier's reason for dropping it
+// — the only way the app ever learns that a text didn't arrive.
+function statusCallbackUrl(): string | null {
+  const site = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  return site ? `https://${site}/api/sms/status` : null;
+}
+
+// Every service text goes through here. `log` says what the text was about so
+// that staff can see, on the request or booking itself, whether it arrived:
+// without it a failure is invisible, which is how customers came to be waiting
+// for texts nobody could tell had been dropped.
+async function sendSms(to: string, body: string, log?: { kind: SmsKind; about?: string | null }): Promise<void> {
   if (!smsConfigured()) return;
   const dest = toE164(to);
-  if (!dest) return;
+  if (!dest) {
+    if (log) {
+      await recordSms({ ...log, phone: to, status: "failed", errorText: "Not a phone number we can text." });
+    }
+    return;
+  }
   body = toGsmSafe(body);
+  const form = new URLSearchParams({ To: dest, From: FROM as string, Body: body });
+  const callback = statusCallbackUrl();
+  if (callback) form.set("StatusCallback", callback);
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${SID}/Messages.json`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${Buffer.from(`${SID}:${TOKEN}`).toString("base64")}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ To: dest, From: FROM as string, Body: body }).toString(),
+    body: form.toString(),
   });
+  const text = await res.text().catch(() => "");
   if (!res.ok) {
-    const msg = await res.text().catch(() => "");
-    throw new Error(`Twilio send failed (${res.status}): ${msg.slice(0, 200)}`);
+    let code: number | null = null;
+    try {
+      code = Number((JSON.parse(text) as { code?: number }).code) || null;
+    } catch {
+      code = null;
+    }
+    if (log) {
+      await recordSms({ ...log, phone: to, status: "failed", errorCode: code, errorText: text.slice(0, 200) });
+    }
+    throw new Error(`Twilio send failed (${res.status}): ${text.slice(0, 200)}`);
+  }
+  if (log) {
+    let sid: string | null = null;
+    try {
+      sid = (JSON.parse(text) as { sid?: string }).sid ?? null;
+    } catch {
+      sid = null;
+    }
+    // Queued, not delivered: the callback above decides which it turns out to be.
+    await recordSms({ ...log, phone: to, status: "queued", sid });
   }
 }
 
@@ -120,7 +160,7 @@ export function verifyTwilioSignature(header: string | null, url: string, rawBod
 // text carries the completion link — staff also see the link in the portal in
 // case SMS isn't configured yet.
 export async function notifyRequestDecision(
-  r: { firstName: string; phone: string; roomName: string; date: string; time: string; token: string },
+  r: { id?: string; firstName: string; phone: string; roomName: string; date: string; time: string; token: string },
   accepted: boolean,
   origin: string
 ): Promise<void> {
@@ -137,7 +177,8 @@ export async function notifyRequestDecision(
       r.phone,
       accepted
         ? `Good news ${r.firstName} — we can fit you in for ${r.roomName} at ${formatTime(r.time)}. ${replyBy} Reply N to release it now. Pay when you arrive.`
-        : `Hi ${r.firstName} — sorry, we can't fit ${r.roomName} at ${formatTime(r.time)} today. See other times: ${origin}`
+        : `Hi ${r.firstName} — sorry, we can't fit ${r.roomName} at ${formatTime(r.time)} today. See other times: ${origin}`,
+      { kind: accepted ? "request_accepted" : "request_declined", about: r.id ?? null }
     );
   } catch (err) {
     console.error("request decision SMS failed:", err);
@@ -159,7 +200,8 @@ export async function notifyBookingRescheduled(
       `Booking updated! ${item.roomName} is now ${when}. Ref ${booking.reference}.` +
         // No link for an imported booking: its manage page is closed while its id
         // is derivable (lib/legacy-booking-id.ts).
-        (hasGuessableId(booking) ? "" : ` Details: ${origin}/booking/${booking.id}`)
+        (hasGuessableId(booking) ? "" : ` Details: ${origin}/booking/${booking.id}`),
+      { kind: "booking_rescheduled", about: booking.reference }
     );
   } catch (err) {
     console.error("reschedule SMS failed:", err);
@@ -170,7 +212,8 @@ export async function notifyBookingRescheduled(
     if (staffPhone) {
       await sendSms(
         staffPhone,
-        `Rescheduled ${booking.reference}: ${item.roomName} moved to ${when} — ${booking.customer.firstName} ${booking.customer.lastName}`
+        `Rescheduled ${booking.reference}: ${item.roomName} moved to ${when} — ${booking.customer.firstName} ${booking.customer.lastName}`,
+        { kind: "staff_alert", about: booking.reference }
       );
     }
   } catch (err) {
@@ -185,7 +228,8 @@ export async function notifyBookingCancelled(booking: Booking): Promise<void> {
   try {
     await sendSms(
       booking.customer.phone,
-      `Your ${await getCompanyName()} booking ${booking.reference}${first ? ` (${first.roomName})` : ""} is cancelled. Any refund follows your original payment method.`
+      `Your ${await getCompanyName()} booking ${booking.reference}${first ? ` (${first.roomName})` : ""} is cancelled. Any refund follows your original payment method.`,
+      { kind: "booking_cancelled", about: booking.reference }
     );
   } catch (err) {
     console.error("cancellation SMS failed:", err);
@@ -196,7 +240,8 @@ export async function notifyBookingCancelled(booking: Booking): Promise<void> {
     if (staffPhone) {
       await sendSms(
         staffPhone,
-        `Cancelled ${booking.reference}${first ? `: ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}` : ""} — ${booking.customer.firstName} ${booking.customer.lastName}`
+        `Cancelled ${booking.reference}${first ? `: ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}` : ""} — ${booking.customer.firstName} ${booking.customer.lastName}`,
+        { kind: "staff_alert", about: booking.reference }
       );
     }
   } catch (err) {
@@ -220,7 +265,8 @@ export async function notifyBookingConfirmed(
   try {
     await sendSms(
       booking.customer.phone,
-      `Booking confirmed! ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details, changes or cancellation: ${origin}/booking/${booking.id}`
+      `Booking confirmed! ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}, party of ${first.quantity}${more}. Ref ${booking.reference}. Details, changes or cancellation: ${origin}/booking/${booking.id}`,
+      { kind: "booking_confirmed", about: booking.reference }
     );
   } catch (err) {
     console.error("customer SMS failed:", err);
@@ -232,7 +278,8 @@ export async function notifyBookingConfirmed(
     if (staffPhone) {
       await sendSms(
         staffPhone,
-        `New booking ${booking.reference}: ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}, ${first.quantity} guests${more}`
+        `New booking ${booking.reference}: ${first.roomName} ${formatDateLong(first.date)} ${formatTime(first.time)}, ${first.quantity} guests${more}`,
+        { kind: "staff_alert", about: booking.reference }
       );
     }
   } catch (err) {
@@ -254,7 +301,8 @@ export async function notifyRewardCode(
   try {
     await sendSms(
       booking.customer.phone,
-      `Thanks for booking with ${await getCompanyName()}! Here's ${percentOff}% off your next game: ${code}. Use it on a later session before ${deadline}.`
+      `Thanks for booking with ${await getCompanyName()}! Here's ${percentOff}% off your next game: ${code}. Use it on a later session before ${deadline}.`,
+      { kind: "reward_code", about: booking.reference }
     );
   } catch (err) {
     console.error("reward SMS failed:", err);
@@ -270,6 +318,7 @@ export async function notifyRewardCode(
 // being told, and none of it can be allowed to fail the customer's request.
 export async function notifyNewRequest(
   request: {
+    id?: string;
     roomName: string;
     location: string;
     date: string;
@@ -302,7 +351,9 @@ export async function notifyNewRequest(
     `${formatDateLong(request.date)} at ${formatTime(request.time)}, ${request.quantity} guest` +
     `${request.quantity === 1 ? "" : "s"}. ${origin}/manager/requests`;
 
-  const results = await Promise.allSettled(numbers.map((n) => sendSms(n, body)));
+  const results = await Promise.allSettled(
+    numbers.map((n) => sendSms(n, body, { kind: "staff_alert", about: request.id ?? null }))
+  );
   results.forEach((r, i) => {
     if (r.status === "rejected") console.error(`request alert to ${numbers[i]} failed:`, r.reason);
   });
@@ -325,7 +376,8 @@ export async function notifyPushStopped(
       phone,
       `${company}: staff notifications have stopped on ${which}. Open the staff app and turn them back on under Notifications` +
         (origin ? `: ${origin}/manager/notifications` : ".") +
-        ` If you turned them off on purpose, ignore this.`
+        ` If you turned them off on purpose, ignore this.`,
+      { kind: "staff_notice" }
     );
   } catch (err) {
     console.error("notifications-stopped SMS failed:", err);
@@ -338,6 +390,7 @@ export async function notifyPushStopped(
 // than the standard one when the session is close.
 export async function notifyReplyReminder(
   r: {
+    id?: string;
     firstName: string;
     phone: string;
     roomName: string;
@@ -349,7 +402,8 @@ export async function notifyReplyReminder(
   try {
     await sendSms(
       r.phone,
-      `${r.firstName}, still want ${r.roomName} at ${formatTime(r.time)}? Reply Y to confirm. Without a reply the spot goes back on sale in ${minutesText(minutesLeft)}.`
+      `${r.firstName}, still want ${r.roomName} at ${formatTime(r.time)}? Reply Y to confirm. Without a reply the spot goes back on sale in ${minutesText(minutesLeft)}.`,
+      { kind: "reply_reminder", about: r.id ?? null }
     );
   } catch (err) {
     console.error("reply reminder SMS failed:", err);
@@ -359,7 +413,7 @@ export async function notifyReplyReminder(
 // Their spot went. Says why, and points them at booking again rather than
 // leaving them wondering.
 export async function notifyRequestLapsed(
-  r: { firstName: string; phone: string; roomName: string; time: string },
+  r: { id?: string; firstName: string; phone: string; roomName: string; time: string },
   origin: string
 ): Promise<void> {
   if (!smsConfigured()) return;
@@ -374,7 +428,8 @@ export async function notifyRequestLapsed(
       r.phone,
       `${r.firstName} — we didn't hear back by text, so ${r.roomName} at ${formatTime(r.time)} has gone back on sale. ` +
         (phone ? `Already spoken to us? Call ${phone}. Otherwise book` : `Book`) +
-        ` any time: ${origin}`
+        ` any time: ${origin}`,
+      { kind: "request_lapsed", about: r.id ?? null }
     );
   } catch (err) {
     console.error("lapsed request SMS failed:", err);
@@ -383,14 +438,15 @@ export async function notifyRequestLapsed(
 
 // They said Y. Confirms in the terms that now matter: turn up, pay there.
 export async function notifyRequestConfirmed(
-  r: { firstName: string; phone: string; roomName: string; time: string; quantity: number },
+  r: { id?: string; firstName: string; phone: string; roomName: string; time: string; quantity: number },
   reference: string
 ): Promise<void> {
   if (!smsConfigured()) return;
   try {
     await sendSms(
       r.phone,
-      `You're booked, ${r.firstName}! ${r.roomName} at ${formatTime(r.time)}, party of ${r.quantity}. Ref ${reference}. Payment is due when you arrive — please come 10 minutes early.`
+      `You're booked, ${r.firstName}! ${r.roomName} at ${formatTime(r.time)}, party of ${r.quantity}. Ref ${reference}. Payment is due when you arrive — please come 10 minutes early.`,
+      { kind: "request_confirmed", about: r.id ?? null }
     );
   } catch (err) {
     console.error("confirmation SMS failed:", err);
@@ -399,6 +455,7 @@ export async function notifyRequestConfirmed(
 
 // They said N.
 export async function notifyRequestReleased(r: {
+  id?: string;
   firstName: string;
   phone: string;
   roomName: string;
@@ -408,7 +465,8 @@ export async function notifyRequestReleased(r: {
   try {
     await sendSms(
       r.phone,
-      `No problem ${r.firstName} — ${r.roomName} at ${formatTime(r.time)} has been released. Hope to see you another time!`
+      `No problem ${r.firstName} — ${r.roomName} at ${formatTime(r.time)} has been released. Hope to see you another time!`,
+      { kind: "request_released", about: r.id ?? null }
     );
   } catch (err) {
     console.error("release SMS failed:", err);
