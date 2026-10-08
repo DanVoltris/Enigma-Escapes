@@ -253,7 +253,7 @@ export default function CampaignComposer({
                 <strong>{preview.recipients.toLocaleString()}</strong> people ×{" "}
                 {segments} text{segments === 1 ? "" : "s"} ={" "}
                 <strong>{totalSegments.toLocaleString()}</strong> charged texts · about{" "}
-                <strong>${cost.toFixed(2)}</strong> · roughly {minutes} minute{minutes === 1 ? "" : "s"} to send
+                <strong>US${cost.toFixed(2)}</strong> · roughly {minutes} minute{minutes === 1 ? "" : "s"} to send
                 {preview.optedOut > 0 && ` · ${preview.optedOut} opted out and skipped`}
               </span>
             )}
@@ -266,7 +266,7 @@ export default function CampaignComposer({
           )}
 
           <div className="field" style={{ maxWidth: 260 }}>
-            <label htmlFor="c-rate">Your price per text (cents)</label>
+            <label htmlFor="c-rate">Your price per text (US cents)</label>
             <input
               id="c-rate"
               type="number"
@@ -359,8 +359,9 @@ export default function CampaignComposer({
         <p>
           This texts <strong>{preview?.recipients.toLocaleString()}</strong> people. At {characters} characters each
           is charged as <strong>{segments} text{segments === 1 ? "" : "s"}</strong>, so{" "}
-          <strong>{totalSegments.toLocaleString()}</strong> in all — about <strong>${cost.toFixed(2)}</strong> at{" "}
-          {rateCents}¢ each, over roughly {minutes} minute{minutes === 1 ? "" : "s"}. They read:
+          <strong>{totalSegments.toLocaleString()}</strong> in all — about{" "}
+          <strong>US${cost.toFixed(2)}</strong> at {rateCents}¢ US each, over roughly {minutes} minute
+          {minutes === 1 ? "" : "s"}. They read:
         </p>
         <p className="campaign-preview">{shown}</p>
         <p>You can pause it at any point, but texts already sent can&apos;t be taken back.</p>

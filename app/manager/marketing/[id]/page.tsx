@@ -44,8 +44,8 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
         <p className="card-sub">
           {characters} characters, so each person is charged as {segments} text{segments === 1 ? "" : "s"}.{" "}
           {progress.sent.toLocaleString()} sent × {segments} ={" "}
-          <strong>{charged.toLocaleString()} charged texts</strong>, about <strong>${spent.toFixed(2)}</strong> at{" "}
-          {rateCents}¢ each.
+          <strong>{charged.toLocaleString()} charged texts</strong>, about{" "}
+          <strong>US${spent.toFixed(2)}</strong> at {rateCents}¢ US each.
           {campaign.startedAt && campaign.finishedAt && (
             <>
               {" "}
@@ -59,7 +59,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
           )}
         </p>
         <p className="field-hint">
-          The price per text is yours to set on the Marketing page — Twilio&apos;s own invoice is the last word.
+          Twilio prices and bills in US dollars, so this is US$ — your card is charged the Canadian equivalent on the day. The price per text is yours to set on the Marketing page, and Twilio&apos;s own invoice is the last word.
         </p>
       </div>
 
