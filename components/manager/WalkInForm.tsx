@@ -6,7 +6,7 @@ import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
 import { CORPORATE_LEAD_IN_MINUTES, STAFF_BOOKING_WINDOW_DAYS } from "@/lib/pricing";
-import { minutesOfTime, minutesToTime } from "@/lib/capacity";
+import { minutesOfTime, minutesToTime, STAFF_OVER_LIMIT } from "@/lib/capacity";
 
 // Staff can book walk-ins of any size; the 4-person minimum is customer-only.
 const WALK_IN_MIN = 1;
@@ -20,11 +20,17 @@ type Exp = {
   location: string;
   priceCents: number;
   capacity: number;
+  // The published limit — what the website would allow. Older payloads don't
+  // carry it, so capacity stands in.
+  maxParty?: number;
   times: string[];
   // Published times that can't take a booking right now, with why — "booked",
   // "blocked off" — so the picker can say so instead of the save failing.
   unavailable?: Record<string, string>;
 };
+
+// What the room is sold for, which is what the desk is being allowed to exceed.
+const publishedMax = (exp: { maxParty?: number; capacity: number }): number => exp.maxParty ?? exp.capacity;
 
 // The first start time on the day that a booking could actually go into. What
 // a fresh row and a room switch default to: defaulting to times[0] put the
@@ -392,7 +398,10 @@ export default function WalkInForm({
       if (x.timeCustom && !/^([01]\d|2[0-3]):[0-5]\d$/.test(x.time)) {
         return setError(`Give ${exp.name}'s start time as HH:MM on a 24-hour clock, e.g. 18:30.`);
       }
-      if (x.quantity > exp.capacity) return setError(`Capacity for ${exp.name} is ${exp.capacity}.`);
+      const ceiling = publishedMax(exp) + STAFF_OVER_LIMIT;
+      if (x.quantity > ceiling) {
+        return setError(`${exp.name} holds ${publishedMax(exp)}; ${ceiling} is as far over as the desk can go.`);
+      }
     }
     // The same room twice at the same time is one slot sold twice, and the
     // server sees two separate items rather than a clash — so it's caught here.
@@ -631,13 +640,22 @@ export default function WalkInForm({
                   <span className="value">{x.quantity}</span>
                   <button
                     type="button"
-                    onClick={() => update(x.key, { quantity: Math.min(exp?.capacity ?? x.quantity, x.quantity + 1) })}
-                    disabled={!!exp && x.quantity >= exp.capacity}
+                    onClick={() =>
+                      update(x.key, {
+                        quantity: Math.min(exp ? publishedMax(exp) + STAFF_OVER_LIMIT : x.quantity, x.quantity + 1),
+                      })
+                    }
+                    disabled={!!exp && x.quantity >= publishedMax(exp) + STAFF_OVER_LIMIT}
                     aria-label={`More guests in room ${i + 1}`}
                   >
                     +
                   </button>
                 </div>
+                {!!exp && x.quantity > publishedMax(exp) && (
+                  <p className="field-hint field-warn">
+                    Over {exp.name}&apos;s limit of {publishedMax(exp)} — the website wouldn&apos;t sell this.
+                  </p>
+                )}
                 {chargedFor(x.quantity) > x.quantity && (
                   <p className="field-hint">Charged for {chargedFor(x.quantity)} — the smallest party we bill.</p>
                 )}

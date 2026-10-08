@@ -302,7 +302,10 @@ export async function changePartySize(
   if (!exp) return { error: "That experience no longer exists." };
 
   const min = minPerBooking(exp, booking.source);
-  const max = maxPerBooking(exp);
+  // Always the staff ceiling: this only runs behind the portal's
+  // bookings.modify permission, whoever originally made the booking. The
+  // customer's own self-service link cannot reach it.
+  const max = maxPerBooking(exp, true);
   if (!Number.isInteger(quantity) || quantity < min || quantity > max) {
     return { error: `Guests must be a whole number between ${min} and ${max}.` };
   }
@@ -310,7 +313,7 @@ export async function changePartySize(
 
   // Only the extra seats need to fit: the ones they already hold are theirs.
   const takenElsewhere = (await bookedCount(exp.id, item.date, item.time)) - item.quantity;
-  const room = remainingSpots(exp, Math.max(0, takenElsewhere));
+  const room = remainingSpots(exp, Math.max(0, takenElsewhere), true);
   if (quantity > room) {
     return {
       error: exp.isPrivate

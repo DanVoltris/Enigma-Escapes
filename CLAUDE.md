@@ -155,6 +155,11 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   nothing); with Stripe live it goes back automatically, otherwise the amount is
   recorded as owed. Moving can also switch experience, and carries the original
   price across rather than silently re-quoting.
+- Room limits are the website's, not the desk's: staff may book or resize a party up to
+  `STAFF_OVER_LIMIT` (4) over a room's published maximum (`lib/capacity.ts`), after a
+  confirmation that names the limit. Eleven in a room sold for ten is a squeeze, not a mistake,
+  and the alternative was editing the room's capacity and remembering to put it back. The public
+  site is unchanged, so nothing a customer can reach oversells a room. `npm run test:capacity`.
 - Booking requests: sessions starting within 4 hours (`REQUEST_WINDOW_MINUTES`, lib/format.ts)
   aren't self-serve — the site collects a request (name + phone, no payment) into
   `booking_requests`; managers accept/decline on `/manager/requests` (accept texts a completion

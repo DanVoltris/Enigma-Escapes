@@ -204,7 +204,10 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
         }
       }
       const minParty = minPerBooking(exp, source);
-      const maxParty = maxPerBooking(exp);
+      // The desk may squeeze a few over what the room is sold for; the website
+      // may not (lib/capacity.ts).
+      const byStaff = source === "in_person";
+      const maxParty = maxPerBooking(exp, byStaff);
       const quantity = rawItem.quantity;
       if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < minParty || quantity > maxParty) {
         return err(`${exp.name}: guests must be between ${minParty} and ${maxParty}.`);
@@ -241,7 +244,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
         );
       }
       const booked = await bookedCountsForDate(date);
-      const remaining = remainingSpots(exp, booked.get(`${exp.id}|${time}`) ?? 0);
+      const remaining = remainingSpots(exp, booked.get(`${exp.id}|${time}`) ?? 0, byStaff);
       if (remaining < quantity) {
         return err(
           exp.isPrivate
