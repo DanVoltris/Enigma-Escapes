@@ -62,6 +62,29 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
           The price per text is yours to set on the Marketing page — Twilio&apos;s own invoice is the last word.
         </p>
       </div>
+
+      <div className="mgr-card">
+        <h2>What it cost you in customers</h2>
+        <p className="card-sub">
+          {progress.unsubscribed === 0 ? (
+            <>
+              <strong>Nobody</strong> has replied STOP to this one. Anyone who texts STOP after getting it is
+              counted here.
+            </>
+          ) : (
+            <>
+              <strong>{progress.unsubscribed.toLocaleString()}</strong> replied STOP after getting this message
+              {progress.sent > 0 && <> — {((progress.unsubscribed / progress.sent) * 100).toFixed(1)}% of the
+              {" "}
+              {progress.sent.toLocaleString()} it reached</>}. They get no further marketing texts from us.
+            </>
+          )}
+        </p>
+        <p className="field-hint">
+          A number that has replied STOP can&apos;t be reached by any text from this number — booking
+          confirmations included — so those customers have to be phoned.
+        </p>
+      </div>
     </>
   );
 }

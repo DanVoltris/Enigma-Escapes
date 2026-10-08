@@ -14,44 +14,11 @@
 // in SEED below so the checks can put both businesses' data in it.
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { PGlite } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { signTenantToken } from "../lib/tenant-token.ts";
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const read = (p) => readFileSync(join(ROOT, p), "utf8");
-
-// ------------------------------------------------------------ the database
-async function buildDatabase() {
-  const db = new PGlite({ extensions: { pgcrypto } });
-  // Supabase's roles and the default grants it gives them on public.
-  await db.exec(`
-    create role anon nologin; create role authenticated nologin;
-    create role service_role nologin bypassrls; create role authenticator noinherit login;
-    grant usage on schema public to anon, authenticated, service_role;
-    alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-    alter default privileges in schema public grant all on functions to anon, authenticated, service_role;`);
-  await db.exec(read("scripts/schema.sql"));
-  // A business's details exist before 0001 names its tenant from them.
-  await db.exec(`insert into settings (key, value) values ('business_details', '{"companyName":"Business A"}')`);
-  const files = readdirSync(join(ROOT, "migrations")).filter((f) => /^\d{4}_[a-z0-9-]+\.sql$/.test(f)).sort();
-  for (const f of files) {
-    const version = f.slice(0, 4);
-    const sql = read(`migrations/${f}`).trim().replace(/;?$/, ";") +
-      `\ninsert into schema_migrations (version, name, checksum) values ('${version}', '${f}', 'test');`;
-    await db.exec("set role service_role");
-    try {
-      await db.query("select public._migrate_exec($1)", [sql]);
-    } finally {
-      await db.exec("reset role");
-    }
-  }
-  return db;
-}
+// The database itself is built by the shared harness, which also serves the
+// campaign-unsubscribe checks.
+import { asTenant, buildDatabase, claimsFor, read } from "./pg-harness.mjs";
 
 const tenantTables = async (db) =>
   (await db.query(`
@@ -119,20 +86,6 @@ async function seedTwoBusinesses(db) {
   await db.exec("alter table bookings enable trigger booking_email_stats_trg");
   return { A, B };
 }
-
-// Runs `fn` as the app will: role tenant_app, business named in the verified
-// token's claims. Everything is rolled back afterwards unless `keep` is set.
-async function asTenant(db, claims, fn, { keep = false, role = "tenant_app" } = {}) {
-  let result;
-  await db.transaction(async (tx) => {
-    await tx.exec(`set local role ${role}`);
-    if (claims !== undefined) await tx.query("select set_config('request.jwt.claims', $1, true)", [claims]);
-    result = await fn(tx);
-    if (!keep) await tx.rollback();
-  }).catch((e) => { if (!/rollback/i.test(String(e?.message))) throw e; });
-  return result;
-}
-const claimsFor = (tenant) => JSON.stringify({ role: "tenant_app", tenant_id: tenant });
 
 // ------------------------------------------------------------------ checks
 describe("tenant isolation", () => {
