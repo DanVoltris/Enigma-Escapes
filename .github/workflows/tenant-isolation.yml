@@ -24,3 +24,5 @@ jobs:
       - run: npm run test:push
       - run: npm run test:pricing
       - run: npm run test:season
+      - run: npm run test:capacity
+      - run: npm run test:voucher

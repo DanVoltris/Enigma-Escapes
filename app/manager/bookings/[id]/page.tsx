@@ -10,6 +10,7 @@ import NoShowToggle from "@/components/manager/NoShowToggle";
 import { getBooking, getBookingsByIds, listPromos } from "@/lib/db";
 import { getRewardCode, rewardForBooking } from "@/lib/reward-codes";
 import { listExperiences } from "@/lib/experiences";
+import { maxPerBooking } from "@/lib/capacity";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import { lineCents, outstandingCents, refundGoingBackCents } from "@/lib/pricing";
 import { emailConfigured } from "@/lib/email";
@@ -229,6 +230,13 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                   date: i.date,
                   time: i.time,
                   quantity: i.quantity,
+                  // What the room is sold for, so the panel can say when staff
+                  // go over it. A room since deleted leaves what's booked as
+                  // the limit, which refuses nothing that is already there.
+                  maxGuests: (() => {
+                    const exp = experiences.find((e) => e.id === i.roomId);
+                    return exp ? maxPerBooking(exp) : i.quantity;
+                  })(),
                   // What to offer back if only this room is cancelled: its share
                   // of the booking's total, tax and any discount included, and
                   // never more than was actually paid. The server caps it again.

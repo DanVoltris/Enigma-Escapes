@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { allowedLocations, apiGuard, hasPermission } from "@/lib/auth";
 import { blockedKeysForDate } from "@/lib/blocks";
-import { minutesToTime, overlappedBy, remainingSpots } from "@/lib/capacity";
+import { maxPerBooking, minutesToTime, overlappedBy, remainingSpots } from "@/lib/capacity";
 import { bookedCountsForDate, busySessionsForDate } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { isValidISODate } from "@/lib/format";
@@ -61,6 +61,9 @@ export async function GET(req: NextRequest) {
     name: exp.name,
     location: exp.location,
     capacity: exp.capacity,
+    // What the room is sold for. The desk may go a little over it; the form
+    // says so rather than silently allowing it.
+    maxParty: maxPerBooking(exp),
     times: startTimesFor(exp, date, hoursMap.get(exp.location) ?? null).map((time) => {
       const key = `${exp.id}|${time}`;
       const taken = Math.max(0, (booked.get(key) ?? 0) - (ownSeats.get(key) ?? 0));

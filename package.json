@@ -11,7 +11,9 @@
     "test:isolation": "node --test tests/tenant-token.test.mjs tests/tenant-isolation.test.mjs",
     "test:push": "node --test tests/push-events.test.mjs",
     "test:pricing": "node --test tests/pricing.test.mjs",
-    "test:season": "node --test tests/season.test.mjs"
+    "test:season": "node --test tests/season.test.mjs",
+    "test:capacity": "node --import ./tests/resolve-ts.mjs --test tests/capacity.test.mjs",
+    "test:voucher": "node --import ./tests/resolve-ts.mjs --test tests/voucher-minimum.test.mjs"
   },
   "dependencies": {
     "next": "^16.2.10",

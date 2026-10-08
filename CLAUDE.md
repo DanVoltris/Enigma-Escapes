@@ -80,8 +80,14 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   exists. A business-wide virtual-game meeting link (integrations `zoomUrl`) shows on
   confirmations when enabled.
 - Gift vouchers are two things in two places. **Gift vouchers** (`/manager/vouchers`,
-  `voucher_products`) is the catalogue — what customers can buy, with a switch per
-  product to take it on and off sale, and per-product sales figures. **Promo codes**
+  `voucher_products`) is the catalogue, with a switch per product and per-product sales
+  figures. The public shop no longer offers those amounts: customers type what the voucher
+  is worth. The smallest is the price of one game including tax, rounded DOWN to a round
+  five dollars (`lib/voucher-minimum.ts` — $30.01 at Enigma and $33.89 at Time Zone both
+  give $30), the largest is $1,000, and the box says when an amount is less than the
+  smallest booking the venue takes. Both ends are re-checked in `/api/vouchers/purchase`.
+  Switching **every** amount off still closes the online shop, which is the only thing the
+  catalogue now decides for customers. `npm run test:voucher`. **Promo codes**
   (`/manager/promos`) holds every code in circulation: percentage promos in
   `promo_codes`, plus every issued balance in `gift_vouchers` — bought by a customer
   (`kind: purchased`) or handed out by staff (`kind: comp`). The public shop at
@@ -155,6 +161,11 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   nothing); with Stripe live it goes back automatically, otherwise the amount is
   recorded as owed. Moving can also switch experience, and carries the original
   price across rather than silently re-quoting.
+- Room limits are the website's, not the desk's: staff may book or resize a party up to
+  `STAFF_OVER_LIMIT` (4) over a room's published maximum (`lib/capacity.ts`), after a
+  confirmation that names the limit. Eleven in a room sold for ten is a squeeze, not a mistake,
+  and the alternative was editing the room's capacity and remembering to put it back. The public
+  site is unchanged, so nothing a customer can reach oversells a room. `npm run test:capacity`.
 - Booking requests: sessions starting within 4 hours (`REQUEST_WINDOW_MINUTES`, lib/format.ts)
   aren't self-serve — the site collects a request (name + phone, no payment) into
   `booking_requests`; managers accept/decline on `/manager/requests` (accept texts a completion

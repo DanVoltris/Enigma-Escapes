@@ -18,6 +18,9 @@ export type Session = {
   date: string;
   time: string;
   quantity: number;
+  // What the room is sold for. Staff may go a little over it (lib/capacity.ts),
+  // but not without being told.
+  maxGuests: number;
   // What this room came to as part of the booking, tax included: the refund
   // offered when only this session is cancelled.
   shareCents: number;
@@ -59,6 +62,8 @@ export default function BookingActions({
   const [sRefund, setSRefund] = useState<"share" | "partial" | "none">("share");
   const [sPartial, setSPartial] = useState("0.00");
   const [confirmingSession, setConfirmingSession] = useState(false);
+  // Going over the room's published limit is allowed, but never by accident.
+  const [confirmingParty, setConfirmingParty] = useState(false);
 
   // Party size
   const [guests, setGuests] = useState(String(current.quantity));
@@ -225,6 +230,7 @@ export default function BookingActions({
   }, [panel, roomId, date, bookingId]);
 
   async function changeParty() {
+    setConfirmingParty(false);
     setBusy(true);
     setError(null);
     setDone(null);
@@ -254,6 +260,8 @@ export default function BookingActions({
       setBusy(false);
     }
   }
+
+  const overLimit = Number(guests) > current.maxGuests;
 
   return (
     <div className="mgr-card">
@@ -343,6 +351,11 @@ export default function BookingActions({
               onChange={(e) => setGuests(e.target.value)}
             />
           </div>
+          {overLimit && (
+            <p className="field-hint field-warn">
+              Over {current.roomName}&apos;s limit of {current.maxGuests} — the website wouldn&apos;t sell this.
+            </p>
+          )}
           <p className="card-sub">
             The total is re-figured at the price this booking was sold at, keeping any discount. What they have
             already paid stays put — the balance moves.
@@ -351,7 +364,7 @@ export default function BookingActions({
             <button
               type="button"
               className="btn"
-              onClick={changeParty}
+              onClick={() => (overLimit ? setConfirmingParty(true) : changeParty())}
               disabled={busy || !guests.trim() || Number(guests) === current.quantity}
             >
               {busy ? "Saving…" : "Save guest count"}
@@ -581,6 +594,21 @@ export default function BookingActions({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmingParty}
+        title="More guests than the room is sold for?"
+        confirmLabel={`Yes, book ${guests}`}
+        busy={busy}
+        onConfirm={changeParty}
+        onCancel={() => !busy && setConfirmingParty(false)}
+      >
+        <p>
+          <strong>{current.roomName}</strong> is set to hold {current.maxGuests}, and the website won&apos;t sell
+          more. You&apos;re putting <strong>{guests}</strong> in it.
+        </p>
+        <p style={{ marginTop: 10 }}>Fine if they fit — the booking and the price both go to {guests}.</p>
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={confirmingSession}

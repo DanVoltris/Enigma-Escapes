@@ -2,14 +2,31 @@ import { formatTime } from "./format";
 import type { BookingSource, Experience } from "./types";
 
 // Spots left in a slot, honoring private experiences (one booking per slot).
-export function remainingSpots(exp: Experience, takenGuests: number): number {
-  if (exp.isPrivate) return takenGuests > 0 ? 0 : exp.capacity;
-  return Math.max(0, exp.capacity - takenGuests);
+//
+// byStaff raises the room's own capacity by the staff allowance; it does not
+// hand staff a slot someone else holds. A private room already taken stays at
+// nought however it is asked, because the seats are not the point — the room is.
+export function remainingSpots(exp: Experience, takenGuests: number, byStaff = false): number {
+  const capacity = exp.capacity + (byStaff ? STAFF_OVER_LIMIT : 0);
+  if (exp.isPrivate) return takenGuests > 0 ? 0 : capacity;
+  return Math.max(0, capacity - takenGuests);
 }
 
+// How far over a room's published limit staff may go. Rooms hold more than
+// they are sold for — eleven in a room listed for ten is a squeeze, not a
+// mistake — and the alternative was editing the room's capacity to take one
+// booking and remembering to put it back. Kept small so a typed "110" is still
+// refused.
+export const STAFF_OVER_LIMIT = 4;
+
 // Largest party a single booking may have (never above capacity).
-export function maxPerBooking(exp: Experience): number {
-  return Math.min(exp.maxParty, exp.capacity);
+//
+// byStaff is the desk: a walk-in, or a change made from the portal on a
+// booking that is already there. The website always gets the published limit,
+// so nothing a customer can reach oversells a room.
+export function maxPerBooking(exp: Experience, byStaff = false): number {
+  const published = Math.min(exp.maxParty, exp.capacity);
+  return byStaff ? published + STAFF_OVER_LIMIT : published;
 }
 
 // Smallest party a booking may have. Staff walk-ins can book any size.

@@ -34,6 +34,7 @@ const PK: Record<string, string> = {
   staff_accounts: "id", // portal logins
   staff_sessions: "token_hash", // active staff sessions (revocable)
   gift_vouchers: "code", // prepaid dollar balances
+  voucher_products: "id", // the catalogue; with none active the online shop is shut
   reward_codes: "code", // 20%-off codes texted after a booking
   staff_members: "id", // the people who run the games (not logins)
   staff_shifts: "id", // check in / check out records

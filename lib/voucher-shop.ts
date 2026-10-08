@@ -3,6 +3,15 @@
 // voucher, and it must never trust an amount that came from the browser.
 import { randomInt } from "crypto";
 import { rest, restError } from "./supabase";
+import { listExperiences } from "./experiences";
+import { activeTaxPercent } from "./taxes";
+import { getPricingMode } from "./pricing-settings";
+import {
+  onePersonCents,
+  voucherMinimumCents,
+  VOUCHER_FLOOR_CENTS,
+  VOUCHER_MAX_CENTS,
+} from "./voucher-minimum";
 
 // Unambiguous alphabet: no O/0, I/1, S/5 — these get read aloud over the phone
 // and copied off printed cards.
@@ -161,4 +170,50 @@ export async function createPurchasedVoucher(input: PurchaseInput): Promise<stri
   });
   if (!res.ok) throw await restError(res, "Creating that gift voucher");
   return code;
+}
+
+// ---------- what the shop may sell ----------
+
+// The venue's own numbers behind the amount box: the cheapest room decides
+// what one game costs, and the minimum charge decides what the smallest
+// booking actually comes to. Read in one place so the page and the purchase
+// route can never disagree about what is allowed.
+export async function voucherAmountRules(): Promise<{
+  minCents: number;
+  maxCents: number;
+  onePersonCents: number;
+  smallestBookingCents: number;
+  minChargedGuests: number;
+}> {
+  const [experiences, taxPercent, mode] = await Promise.all([
+    listExperiences({ activeOnly: true }),
+    activeTaxPercent(),
+    getPricingMode(),
+  ]);
+  // The cheapest room sets it: a minimum above what some rooms cost would
+  // refuse a voucher that covers a game.
+  const perHead = experiences.reduce(
+    (low, e) => (low === null || e.priceCents < low ? e.priceCents : low),
+    null as number | null
+  );
+  // No rooms yet (a venue mid-setup): fall back to the floor rather than
+  // dividing by nothing and offering a $0 voucher.
+  if (perHead === null) {
+    return {
+      minCents: VOUCHER_FLOOR_CENTS,
+      maxCents: VOUCHER_MAX_CENTS,
+      onePersonCents: 0,
+      smallestBookingCents: 0,
+      minChargedGuests: mode.minChargedGuests,
+    };
+  }
+  const one = onePersonCents(perHead, taxPercent, mode.taxInclusive);
+  const guests = Math.max(1, mode.minChargedGuests);
+  return {
+    minCents: voucherMinimumCents(one),
+    maxCents: VOUCHER_MAX_CENTS,
+    onePersonCents: one,
+    smallestBookingCents: one * guests,
+    minChargedGuests: guests,
+  };
 }
