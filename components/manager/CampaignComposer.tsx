@@ -17,9 +17,9 @@ type Preview = {
   characters: number;
 };
 
-// Roughly what Twilio charges per text segment in Canada. Only ever shown as
-// "about", because the real figure depends on the account's rate.
-const CENTS_PER_SEGMENT = 1.1;
+// A text is 160 characters. Past that every person is charged for two, which
+// is how a Halloween message of 211 characters cost twice what was expected.
+const ONE_TEXT = 160;
 
 export default function CampaignComposer({
   company,
@@ -27,12 +27,16 @@ export default function CampaignComposer({
   areaCodes,
   myPhone,
   smsReady,
+  rateCents: initialRate,
+  textsPerMinute,
 }: {
   company: string;
   locations: string[];
   areaCodes: { code: string; people: number }[];
   myPhone: string | null;
   smsReady: boolean;
+  rateCents: number; // this venue's Twilio price per segment
+  textsPerMinute: number; // measured, not assumed
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -47,6 +51,8 @@ export default function CampaignComposer({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [rate, setRate] = useState(String(initialRate));
+  const [savingRate, setSavingRate] = useState(false);
 
   const filters: CampaignFilters = { months, includeSubscribers, areaCodes: pickedAreas, locations: pickedLocations };
   const shown = campaignText(company, body || "Your message goes here.");
@@ -77,8 +83,11 @@ export default function CampaignComposer({
   const toggle = (list: string[], value: string, set: (v: string[]) => void) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
-  const cost = preview ? (preview.recipients * segments * CENTS_PER_SEGMENT) / 100 : 0;
-  const minutes = preview ? Math.ceil(preview.recipients / 60) : 0;
+  const rateCents = Number(rate) > 0 ? Number(rate) : initialRate;
+  const totalSegments = preview ? preview.recipients * segments : 0;
+  const cost = (totalSegments * rateCents) / 100;
+  const minutes = preview ? Math.ceil(preview.recipients / textsPerMinute) : 0;
+  const overOneText = characters > ONE_TEXT;
 
   return (
     <>
@@ -125,9 +134,16 @@ export default function CampaignComposer({
               }}
             />
             <p className="field-hint">
-              {characters} characters · {segments} segment{segments === 1 ? "" : "s"} each
+              {characters} of {ONE_TEXT} characters · charged as {segments} text{segments === 1 ? "" : "s"} per person
               {unicode && " · uses characters that cost more per text"}
             </p>
+            {overOneText && (
+              <p className="card-sub warn" style={{ marginTop: 6 }}>
+                Over {ONE_TEXT} characters, so every person is charged for {segments} texts — {characters - ONE_TEXT}{" "}
+                character{characters - ONE_TEXT === 1 ? "" : "s"} too many. Shortening it below {ONE_TEXT} would{" "}
+                {segments === 2 ? "halve" : "cut"} the bill.
+              </p>
+            )}
           </div>
 
           <div className="campaign-preview">
@@ -234,8 +250,10 @@ export default function CampaignComposer({
             </button>
             {preview && (
               <span className="card-sub" style={{ margin: 0 }}>
-                <strong>{preview.recipients.toLocaleString()}</strong> people · about ${cost.toFixed(2)} · roughly{" "}
-                {minutes} minute{minutes === 1 ? "" : "s"} to send
+                <strong>{preview.recipients.toLocaleString()}</strong> people ×{" "}
+                {segments} text{segments === 1 ? "" : "s"} ={" "}
+                <strong>{totalSegments.toLocaleString()}</strong> charged texts · about{" "}
+                <strong>${cost.toFixed(2)}</strong> · roughly {minutes} minute{minutes === 1 ? "" : "s"} to send
                 {preview.optedOut > 0 && ` · ${preview.optedOut} opted out and skipped`}
               </span>
             )}
@@ -246,6 +264,35 @@ export default function CampaignComposer({
               For example: {preview.sample.map((s) => `${s.name ?? "—"} ${s.phone}`).join(", ")}
             </p>
           )}
+
+          <div className="field" style={{ maxWidth: 260 }}>
+            <label htmlFor="c-rate">Your price per text (cents)</label>
+            <input
+              id="c-rate"
+              type="number"
+              min="0.1"
+              max="50"
+              step="0.1"
+              value={rate}
+              onChange={(e) => setRate(e.target.value)}
+              onBlur={async () => {
+                const cents = Number(rate);
+                if (!Number.isFinite(cents) || cents <= 0 || cents === initialRate) return;
+                setSavingRate(true);
+                await fetch("/api/manager/campaigns/rate", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ centsPerSegment: cents }),
+                }).catch(() => null);
+                setSavingRate(false);
+                router.refresh();
+              }}
+            />
+            <p className="field-hint">
+              What Twilio charges you for one text, carrier fees included — check a recent invoice. Only used for
+              the estimate above. {savingRate && "Saving…"}
+            </p>
+          </div>
 
           <h3 className="intg-subhead">Try it on your own phone first</h3>
           <div className="push-actions">
@@ -310,8 +357,10 @@ export default function CampaignComposer({
         onCancel={() => busy === null && setConfirming(false)}
       >
         <p>
-          This sends <strong>{preview?.recipients.toLocaleString()}</strong> texts at about{" "}
-          <strong>${cost.toFixed(2)}</strong>, over roughly {minutes} minute{minutes === 1 ? "" : "s"}. They read:
+          This texts <strong>{preview?.recipients.toLocaleString()}</strong> people. At {characters} characters each
+          is charged as <strong>{segments} text{segments === 1 ? "" : "s"}</strong>, so{" "}
+          <strong>{totalSegments.toLocaleString()}</strong> in all — about <strong>${cost.toFixed(2)}</strong> at{" "}
+          {rateCents}¢ each, over roughly {minutes} minute{minutes === 1 ? "" : "s"}. They read:
         </p>
         <p className="campaign-preview">{shown}</p>
         <p>You can pause it at any point, but texts already sent can&apos;t be taken back.</p>

@@ -27,18 +27,34 @@ function countdown(date: string, time: string): { label: string; urgent: boolean
   return { label: `starts in ${h > 0 ? `${h}h ` : ""}${m}m`, urgent: mins <= 45 };
 }
 
+// A number that replied STOP is unreachable by text from our number — Twilio
+// refuses the send, so the booking confirmation never arrives either. Staff who
+// see this must ring the customer instead.
+function OptedOutWarning() {
+  return (
+    <span className="req-stopped">
+      replied STOP — our texts can&apos;t reach them, phone them
+    </span>
+  );
+}
+
 export default function RequestsBoard({
   initialRequests,
   remaining,
+  optedOut,
 }: {
   initialRequests: BookingRequest[];
   remaining: Record<string, number | null>;
+  optedOut: Record<string, boolean>;
 }) {
   const router = useRouter();
   const [requests, setRequests] = useState(initialRequests);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [declining, setDeclining] = useState<BookingRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Which row has its contact details showing. One at a time: the point is to
+  // find one person's number, not to read the list out.
+  const [openId, setOpenId] = useState<string | null>(null);
 
   async function decide(r: BookingRequest, action: "accept" | "decline" | "confirm") {
     setBusyId(r.id);
@@ -60,6 +76,59 @@ export default function RequestsBoard({
       setBusyId(null);
       setDeclining(null);
     }
+  }
+
+  // The row that opens to show how to reach this person. Everything staff need
+  // to pick up the phone or the booking: number, email, when they asked, when
+  // it was decided, and the booking it became.
+  function Contact({ r }: { r: BookingRequest }) {
+    return (
+      <dl className="req-contact">
+        <dt>Name</dt>
+        <dd>
+          {r.firstName} {r.lastName}
+        </dd>
+        <dt>Phone</dt>
+        <dd>
+          <a href={`tel:${r.phone}`}>{r.phone}</a>
+          {optedOut[r.id] && (
+            <>
+              {" "}
+              · <OptedOutWarning />
+            </>
+          )}
+        </dd>
+        {r.email && (
+          <>
+            <dt>Email</dt>
+            <dd>
+              <a href={`mailto:${r.email}`}>{r.email}</a>
+            </dd>
+          </>
+        )}
+        <dt>Asked</dt>
+        <dd suppressHydrationWarning>{formatTimestampTime(r.createdAt)}</dd>
+        {r.decidedAt && (
+          <>
+            <dt>Decided</dt>
+            <dd suppressHydrationWarning>{formatTimestampTime(r.decidedAt)}</dd>
+          </>
+        )}
+        <dt>Session</dt>
+        <dd>
+          {r.location} · {formatDateLong(r.date)} · {formatTime(r.time)} · {r.quantity} guest
+          {r.quantity === 1 ? "" : "s"}
+        </dd>
+        {r.bookingId && (
+          <>
+            <dt>Booking</dt>
+            <dd>
+              <a href={`/manager/bookings/${r.bookingId}`}>Open the booking</a>
+            </dd>
+          </>
+        )}
+      </dl>
+    );
   }
 
   const pending = requests.filter((r) => r.status === "pending");
@@ -107,6 +176,18 @@ export default function RequestsBoard({
                         {r.firstName} {r.lastName}
                       </strong>{" "}
                       · <a href={`tel:${r.phone}`}>{r.phone}</a>
+                      {r.email && (
+                        <>
+                          {" "}
+                          · <a href={`mailto:${r.email}`}>{r.email}</a>
+                        </>
+                      )}
+                      {optedOut[r.id] && (
+                        <>
+                          <br />
+                          <OptedOutWarning />
+                        </>
+                      )}
                     </span>
                   </div>
                   <div className="req-row">
@@ -151,29 +232,45 @@ export default function RequestsBoard({
           <p className="card-sub">
             Each of these is booked and holding its slot, and is released automatically if the customer doesn&apos;t
             reply Y in time. If they confirm another way — they ring, or they&apos;re standing at the desk — confirm it
-            here, or the hold will lapse and cancel the booking.
+            here, or the hold will lapse and cancel the booking. Click a row for their contact details.
           </p>
-          <ul className="mgr-notes">
+          <ul className="mgr-notes" onKeyDown={(e) => e.key === "Escape" && setOpenId(null)}>
             {held.map((r) => (
-              <li key={r.id}>
-                <div>
-                  <div>
-                    <strong>
-                      {r.roomName} — {formatTime(r.time)}
-                    </strong>{" "}
-                    · {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"}
-                  </div>
-                  <div className="sub">{r.phone}</div>
+              <li key={r.id} className="req-expandable">
+                <div className="req-line">
+                  <button
+                    type="button"
+                    className="req-reveal"
+                    aria-expanded={openId === r.id}
+                    onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                  >
+                    <span className="req-reveal-name">
+                      <strong>
+                        {r.roomName} — {formatTime(r.time)}
+                      </strong>{" "}
+                      · {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"}
+                    </span>
+                    <span className="sub">
+                      {r.phone}
+                      {optedOut[r.id] && (
+                        <>
+                          {" "}
+                          · <OptedOutWarning />
+                        </>
+                      )}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => decide(r, "confirm")}
+                    disabled={busyId === r.id}
+                  >
+                    {busyId === r.id ? "Working…" : "They confirmed"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ flexShrink: 0 }}
-                  onClick={() => decide(r, "confirm")}
-                  disabled={busyId === r.id}
-                >
-                  {busyId === r.id ? "Working…" : "They confirmed"}
-                </button>
+                {openId === r.id && <Contact r={r} />}
               </li>
             ))}
           </ul>
@@ -183,20 +280,29 @@ export default function RequestsBoard({
       {decided.length > 0 && (
         <div className="mgr-card">
           <h2>Recent decisions</h2>
-          <ul className="mgr-notes">
+          <p className="card-sub">Click a row to see how to reach that person.</p>
+          <ul className="mgr-notes" onKeyDown={(e) => e.key === "Escape" && setOpenId(null)}>
             {decided.map((r) => (
-              <li key={r.id}>
-                <div>
-                  <div>
-                    <strong>
-                      {r.roomName} — {formatTime(r.time)}
-                    </strong>{" "}
-                    · {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"}
-                  </div>
+              <li key={r.id} className="req-expandable">
+                <div className="req-line">
+                  <button
+                    type="button"
+                    className="req-reveal"
+                    aria-expanded={openId === r.id}
+                    onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                  >
+                    <span className="req-reveal-name">
+                      <strong>
+                        {r.roomName} — {formatTime(r.time)}
+                      </strong>{" "}
+                      · {r.firstName} {r.lastName} · {r.quantity} guest{r.quantity === 1 ? "" : "s"}
+                    </span>
+                  </button>
+                  <span className={`mgr-pill${GOOD_STATUSES.has(r.status) ? " on" : ""}`} style={{ flexShrink: 0 }}>
+                    {STATUS_LABEL[r.status] ?? r.status}
+                  </span>
                 </div>
-                <span className={`mgr-pill${GOOD_STATUSES.has(r.status) ? " on" : ""}`} style={{ flexShrink: 0 }}>
-                  {STATUS_LABEL[r.status] ?? r.status}
-                </span>
+                {openId === r.id && <Contact r={r} />}
               </li>
             ))}
           </ul>
