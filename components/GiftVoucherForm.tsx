@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import SingleSelect from "@/components/SingleSelect";
 import Link from "next/link";
 import { formatMoney } from "@/lib/format";
-import { voucherLabel, type ShopProduct } from "@/lib/voucher-shop-config";
+import { voucherShortfallNote } from "@/lib/voucher-minimum";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MESSAGE_MAX = 200;
@@ -34,14 +33,39 @@ function luhnValid(digits: string): boolean {
 
 type Errors = Partial<Record<"amount" | "buyerName" | "buyerEmail" | "recipientEmail" | "card", string>>;
 
+// What the venue's own prices allow, worked out server-side and re-checked
+// there when the purchase is made.
+export type AmountRules = {
+  minCents: number;
+  maxCents: number;
+  onePersonCents: number;
+  smallestBookingCents: number;
+  minChargedGuests: number;
+};
+
+// "45", "45.50", "$45" → cents. Anything else → null, which is what shows the
+// error rather than quietly buying a voucher for a number nobody typed.
+function parseAmount(raw: string): number | null {
+  const t = raw.trim().replace(/^\$/, "").replace(/,/g, "");
+  if (!/^\d{1,6}(\.\d{1,2})?$/.test(t)) return null;
+  return Math.round(Number(t) * 100);
+}
+
 export default function GiftVoucherForm({
   stripeEnabled,
-  products,
+  rules,
+  shopOpen,
 }: {
   stripeEnabled: boolean;
-  products: ShopProduct[];
+  rules: AmountRules;
+  // Switching every amount off on the Gift vouchers tab still closes the online
+  // shop, as it always did — the amounts no longer decide what a buyer may
+  // choose, but they do decide whether anything is for sale at all.
+  shopOpen: boolean;
 }) {
-  const [amountCents, setAmountCents] = useState<number>(products[0]?.cents ?? 0);
+  // Typed, not picked from a list: any amount at or above the venue's minimum.
+  const [amount, setAmount] = useState("");
+  const amountCents = parseAmount(amount) ?? 0;
   const [message, setMessage] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [buyerName, setBuyerName] = useState("");
@@ -58,13 +82,25 @@ export default function GiftVoucherForm({
   const [issued, setIssued] = useState<{ code: string; amountCents: number } | null>(null);
 
 
+  // Said as they type, not after they pay: a voucher under the price of a game
+  // is still a fine present, but the buyer should know it won't cover one.
+  const shortfall =
+    amountCents >= rules.minCents
+      ? voucherShortfallNote(amountCents, rules.smallestBookingCents, rules.minChargedGuests)
+      : null;
+
   async function buy(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
     const next: Errors = {};
 
-    if (!products.some((p) => p.cents === amountCents)) {
-      next.amount = "Choose one of the listed gift vouchers.";
+    const typed = parseAmount(amount);
+    if (typed === null) {
+      next.amount = "Enter an amount in dollars, e.g. 50 or 45.50.";
+    } else if (typed < rules.minCents) {
+      next.amount = `The smallest gift voucher we sell is ${formatMoney(rules.minCents)}.`;
+    } else if (typed > rules.maxCents) {
+      next.amount = `${formatMoney(rules.maxCents)} is the most we can sell in one voucher — call us for anything larger.`;
     }
     if (!buyerName.trim()) next.buyerName = "Enter your name.";
     if (!EMAIL_RE.test(buyerEmail.trim())) next.buyerEmail = "Enter a valid email address.";
@@ -135,7 +171,7 @@ export default function GiftVoucherForm({
     );
   }
 
-  if (products.length === 0) {
+  if (!shopOpen) {
     return (
       <div className="empty-state">
         <h1 className="page-title">Gift vouchers</h1>
@@ -156,20 +192,34 @@ export default function GiftVoucherForm({
         <form className="form-card" onSubmit={buy} noValidate>
           <h3>Buy a gift voucher</h3>
           <div className={`field ${errors.amount ? "invalid" : ""}`} style={{ maxWidth: 360 }}>
-            <label>
-              Select gift voucher <span className="req">*</span>
+            <label htmlFor="gv-amount">
+              How much is it for? <span className="req">*</span>
             </label>
-            <SingleSelect
-              ariaLabel="Select gift voucher"
-              value={String(amountCents)}
-              onChange={(v) => {
-                setAmountCents(Number(v));
-                setErrors((er) => ({ ...er, amount: undefined }));
-              }}
-              options={products.map((p) => ({ value: String(p.cents), label: voucherLabel(p) }))}
-            />
+            <div className="gv-amount">
+              <span className="gv-amount-sign" aria-hidden="true">
+                $
+              </span>
+              <input
+                id="gv-amount"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="50"
+                value={amount}
+                aria-describedby="gv-amount-hint"
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  setErrors((er) => ({ ...er, amount: undefined }));
+                }}
+              />
+            </div>
+            <p className="field-hint" id="gv-amount-hint">
+              Any amount from {formatMoney(rules.minCents)} to {formatMoney(rules.maxCents)}. Spend it on any
+              experience, at any location, over as many visits as it takes.
+            </p>
+            {shortfall && <p className="field-hint gv-heads-up">{shortfall}</p>}
+            {errors.amount && <p className="field-error">{errors.amount}</p>}
           </div>
-          {errors.amount && <p className="field-error">{errors.amount}</p>}
 
           <h3>Who it&apos;s for</h3>
           <div className={`field ${errors.recipientEmail ? "invalid" : ""}`}>

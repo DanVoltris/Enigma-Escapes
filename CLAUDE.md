@@ -80,8 +80,14 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   exists. A business-wide virtual-game meeting link (integrations `zoomUrl`) shows on
   confirmations when enabled.
 - Gift vouchers are two things in two places. **Gift vouchers** (`/manager/vouchers`,
-  `voucher_products`) is the catalogue — what customers can buy, with a switch per
-  product to take it on and off sale, and per-product sales figures. **Promo codes**
+  `voucher_products`) is the catalogue, with a switch per product and per-product sales
+  figures. The public shop no longer offers those amounts: customers type what the voucher
+  is worth. The smallest is the price of one game including tax, rounded DOWN to a round
+  five dollars (`lib/voucher-minimum.ts` — $30.01 at Enigma and $33.89 at Time Zone both
+  give $30), the largest is $1,000, and the box says when an amount is less than the
+  smallest booking the venue takes. Both ends are re-checked in `/api/vouchers/purchase`.
+  Switching **every** amount off still closes the online shop, which is the only thing the
+  catalogue now decides for customers. `npm run test:voucher`. **Promo codes**
   (`/manager/promos`) holds every code in circulation: percentage promos in
   `promo_codes`, plus every issued balance in `gift_vouchers` — bought by a customer
   (`kind: purchased`) or handed out by staff (`kind: comp`). The public shop at

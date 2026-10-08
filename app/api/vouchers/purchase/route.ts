@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { createVoucherCheckoutSession, stripeConfigured } from "@/lib/stripe";
-import { createPurchasedVoucher } from "@/lib/voucher-shop";
-import { getProductByAmount, isOnSale } from "@/lib/voucher-products";
+import { createPurchasedVoucher, voucherAmountRules } from "@/lib/voucher-shop";
+import { getProductByAmount, listVoucherProducts } from "@/lib/voucher-products";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +15,9 @@ function str(v: unknown, max: number): string | null {
   return t.length === 0 || t.length > max ? null : t;
 }
 
-// Public: buy a gift voucher. The amount is re-checked against the sellable
-// list here — a browser can ask for any number, and this is the only place a
-// voucher gets minted.
+// Public: buy a gift voucher for whatever the buyer types. The amount is
+// re-checked against the venue's own minimum here — a browser can ask for any
+// number, and this is the only place a voucher gets minted.
 //
 // With Stripe configured this returns a hosted-checkout URL and issues
 // nothing; the voucher is minted only once Stripe confirms payment. Without
@@ -31,10 +31,25 @@ export async function POST(req: NextRequest) {
   }
   const o = (body ?? {}) as Record<string, unknown>;
 
-  const amountCents = typeof o.amountCents === "number" ? Math.round(o.amountCents) : NaN;
-  if (!Number.isInteger(amountCents) || !(await isOnSale(amountCents))) {
+  // Switching every amount off on the Gift vouchers tab closes the online shop,
+  // which the page honours — and so must this, or the closed shop would still
+  // sell to anyone who posted here directly.
+  if ((await listVoucherProducts({ activeOnly: true })).length === 0) {
     return NextResponse.json(
-      { error: "That voucher amount isn't available. Pick one of the listed amounts." },
+      { error: "Gift vouchers aren't on sale online just now — please give us a call." },
+      { status: 400 }
+    );
+  }
+
+  const rules = await voucherAmountRules();
+  const amountCents = typeof o.amountCents === "number" ? Math.round(o.amountCents) : NaN;
+  if (!Number.isInteger(amountCents) || amountCents < rules.minCents || amountCents > rules.maxCents) {
+    return NextResponse.json(
+      {
+        error: `A gift voucher has to be between $${(rules.minCents / 100).toFixed(2)} and $${(
+          rules.maxCents / 100
+        ).toFixed(2)}.`,
+      },
       { status: 400 }
     );
   }
