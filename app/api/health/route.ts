@@ -35,7 +35,8 @@ export async function GET() {
       );
     }
     const rows = (await res.json()) as unknown[];
-    const ok = mode === "tenant" ? rows.length === 1 : rows.length >= 1;
+    // Exactly one: the policy on tenants shows a business only its own row.
+    const ok = rows.length === 1;
     return NextResponse.json({ ok, database: mode, ...(ok ? {} : { rows: rows.length }) }, { status: ok ? 200 : 503, headers: noStore });
   } catch {
     return NextResponse.json({ ok: false, database: mode, status: "unreachable" }, { status: 503, headers: noStore });

@@ -1,17 +1,26 @@
 import { tenantAuthFromEnv, tenantToken, type TenantAuth } from "./tenant-token";
 
-// Server-only Supabase access via the PostgREST API, in one of two modes:
+// Server-only Supabase access via the PostgREST API.
 //
-// - Tenant: when the venue's tenant settings are present (lib/tenant-token.ts),
-//   every request carries a signed token naming the business, runs as the
-//   tenant_app role, and row level security keeps it to that business's rows
-//   (migrations/0004). A query that forgets to filter by business gets nothing.
-// - Service: otherwise, the service_role key, which bypasses row level security.
-//   How every venue ran before tenant mode, and still the fallback until each
-//   venue is switched.
+// Every request carries a short-lived token naming the business
+// (lib/tenant-token.ts), runs as the tenant_app role, and row level security
+// keeps it to that business's rows (migrations/0004): a query that forgets to
+// filter by business gets nothing back instead of everything.
 //
-// Either way the keys and secret must never reach the browser: they are only
-// ever read here, inside server code, from environment variables.
+// There is no longer a fallback to the service_role key, which skips every
+// policy. A venue missing its tenant settings fails here, loudly, rather than
+// quietly running unprotected — the whole point of the policies is that no
+// request from the app can be outside them. Staging, Time Zone and Enigma were
+// switched over on 2026-09-14/15.
+//
+// Still on the service_role key, each for its own reason: lib/storage.ts (photo
+// uploads go to Supabase Storage, which has its own rules, not these policies)
+// and the scripts in scripts/ (the migration runner has to change the schema;
+// the importers and seed-venue are run by hand against one venue's env file and
+// rely on the database filling in the business for new rows).
+//
+// The key and secret must never reach the browser: they are only ever read
+// here, inside server code, from environment variables.
 // Supabase's API-keys page shows example URLs that already carry /rest/v1, so
 // that is what gets pasted into the variable about half the time. Appending our
 // own then asks for /rest/v1/rest/v1/… and PostgREST answers 404 PGRST125,
@@ -22,7 +31,6 @@ export function normalizeUrl(raw: string | undefined): string | undefined {
 }
 
 const SUPABASE_URL = normalizeUrl(process.env.SUPABASE_URL);
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 // Read once. Throws at the first database call if the venue is half configured —
 // loud on purpose, rather than silently using the key that skips every policy.
 let tenantAuth: TenantAuth | null | undefined;
@@ -32,9 +40,10 @@ function currentTenantAuth(): TenantAuth | null {
 }
 
 /** Which way this deployment reaches its database. */
-export function databaseMode(): "local" | "tenant" | "service" {
+export function databaseMode(): "local" | "tenant" {
   if (useLocalData()) return "local";
-  return currentTenantAuth() ? "tenant" : "service";
+  currentTenantAuth(); // throws if half configured
+  return "tenant";
 }
 
 // When true, all data access is served by a local file-backed store instead of
@@ -50,15 +59,14 @@ export async function rest(path: string, init?: RequestInit): Promise<Response> 
     return localRest(path, init);
   }
   const tenant = currentTenantAuth();
-  if (!SUPABASE_URL || (!tenant && !SERVICE_KEY)) {
+  if (!SUPABASE_URL || !tenant) {
     throw new Error(
-      "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local (see CLAUDE.md), " +
+      "This venue's database access is not configured. Set SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, " +
+        "SUPABASE_JWT_SECRET and VENUE_TENANT_ID (see CLAUDE.md, \"Isolation between businesses\"), " +
         "or set USE_LOCAL_DATA=true to run on local mock data."
     );
   }
-  const auth = tenant
-    ? { apikey: tenant.apikey, Authorization: `Bearer ${tenantToken(tenant)}` }
-    : { apikey: SERVICE_KEY!, Authorization: `Bearer ${SERVICE_KEY}` };
+  const auth = { apikey: tenant.apikey, Authorization: `Bearer ${tenantToken(tenant)}` };
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
     headers: {
