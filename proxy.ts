@@ -89,8 +89,9 @@ async function resolveBusiness(request: NextRequest): Promise<string | null | "p
   if (!auth || !url) return "pass"; // unconfigured: the app says so itself, loudly
   const resolver = tenantResolver(url, auth);
 
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  const byHost = await resolver.forHost(host);
+  // The Host header only. x-forwarded-host can be set by a client, and a
+  // header a client controls must never choose a business.
+  const byHost = await resolver.forHost(request.headers.get("host"));
   if (byHost) return byHost;
 
   const bySession = await resolver.forSession(request.cookies.get("vb_staff")?.value);
@@ -123,7 +124,7 @@ export async function proxy(request: NextRequest) {
   requestHeaders.delete("x-tenant-id");
   const business = await resolveBusiness(request);
   if (business === null && !WITHOUT_BUSINESS.has(request.nextUrl.pathname)) {
-    return noVenue(request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "");
+    return noVenue(request.headers.get("host") ?? "");
   }
   if (business && business !== "pass") requestHeaders.set("x-tenant-id", business);
 

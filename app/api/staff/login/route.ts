@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logActivity } from "@/lib/db";
 import { claimLoginAttempt, clearLoginFailures } from "@/lib/login-throttle";
+import { requestTenantId } from "@/lib/request-tenant";
 import { SESSION_COOKIE, signIn } from "@/lib/staff";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,13 @@ export async function POST(req: NextRequest) {
   const password = typeof o.password === "string" ? o.password : "";
   if (!email || !password) {
     return NextResponse.json({ error: "Enter your login and password." }, { status: 400 });
+  }
+  // On an address that is no venue's, proxy.ts finds the business from the
+  // email being signed in with. When that found nothing there is no business
+  // to check against — answer exactly as a wrong password does, so the reply
+  // never says whether the email exists anywhere.
+  if (!process.env.VENUE_TENANT_ID?.trim() && !(await requestTenantId())) {
+    return NextResponse.json({ error: "That login and password don't match an active account." }, { status: 401 });
   }
 
   try {
