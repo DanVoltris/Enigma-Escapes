@@ -8,8 +8,11 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+// fileURLToPath, not .pathname: a project checked out under a directory with a
+// space in its name arrives as %20 and every read here fails.
+const root = fileURLToPath(new URL("..", import.meta.url));
 const read = (f) => readFileSync(join(root, f), "utf8");
 const walk = (dir) => readdirSync(dir).flatMap((e) => {
   const p = join(dir, e);
