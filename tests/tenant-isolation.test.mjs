@@ -42,6 +42,7 @@ const SEED = {
   taxes: (k) => [`insert into taxes (id, name, percent, tenant_id) values ($1, 'GST', 5, $2)`, [`tax-${k}`]],
   location_hours: (k) => [`insert into location_hours (location, hours, tenant_id) values ($1, '{}', $2)`, [`Site ${k}`]],
   settings: (k) => [`insert into settings (key, value, tenant_id) values ($1, '{}', $2)`, [`setting_${k}`]],
+  tenant_hosts: (k) => [`insert into tenant_hosts (host, tenant_id) values ($1, $2)`, [`${k}.voltrisbooking.com`]],
   staff_accounts: (k) => [`insert into staff_accounts (email, name, password_hash, tenant_id) values ($1, 'Staff', 'x', $2)`, [`staff-${k}@example.invalid`]],
   staff_sessions: (k) => [`insert into staff_sessions (token_hash, staff_id, expires_at, tenant_id) values ($1, (select id from staff_accounts where tenant_id = $2 limit 1), now() + interval '1 day', $2)`, [`hash-${k}`]],
   staff_members: (k) => [`insert into staff_members (id, name, tenant_id) values ($1, 'Member', $2)`, [`member-${k}`]],
@@ -234,7 +235,7 @@ describe("tenant isolation", () => {
   test("the token lib/tenant-token.ts signs is read by the policies as intended", async () => {
     // The Data API verifies the signature and hands Postgres the payload as
     // request.jwt.claims; this is that payload, straight from the app's signer.
-    const payload = Buffer.from(signTenantToken({ apikey: "k", secret: "s".repeat(40), tenantId: B }).split(".")[1], "base64url").toString();
+    const payload = Buffer.from(signTenantToken({ apikey: "k", secret: "s".repeat(40) }, B).split(".")[1], "base64url").toString();
     const counts = await asTenant(db, payload, async (tx) => ({
       bookings: (await tx.query("select count(*)::int n from bookings")).rows[0].n,
       foreign: (await tx.query("select count(*)::int n from bookings where tenant_id = $1", [A])).rows[0].n,

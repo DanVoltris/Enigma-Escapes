@@ -61,12 +61,19 @@ export async function rest(path: string, init?: RequestInit): Promise<Response> 
   const tenant = currentTenantAuth();
   if (!SUPABASE_URL || !tenant) {
     throw new Error(
-      "This venue's database access is not configured. Set SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, " +
-        "SUPABASE_JWT_SECRET and VENUE_TENANT_ID (see CLAUDE.md, \"Isolation between businesses\"), " +
+      "This venue's database access is not configured. Set SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and " +
+        "SUPABASE_JWT_SECRET (see CLAUDE.md, \"Isolation between businesses\"), " +
         "or set USE_LOCAL_DATA=true to run on local mock data."
     );
   }
-  const auth = { apikey: tenant.apikey, Authorization: `Bearer ${tenantToken(tenant)}` };
+  // Pinned deployments serve one business; otherwise proxy.ts resolved the
+  // request's business from its web address or staff session and stamped it
+  // on the request. A request that named no business reads nothing.
+  const tenantId = tenant.pinnedTenantId ?? (await (await import("./request-tenant")).requestTenantId());
+  if (!tenantId) {
+    throw new Error("No business for this request: the address is not a venue's, and nobody is signed in.");
+  }
+  const auth = { apikey: tenant.apikey, Authorization: `Bearer ${tenantToken(tenant, tenantId)}` };
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
     headers: {

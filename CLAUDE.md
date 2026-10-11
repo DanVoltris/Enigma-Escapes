@@ -306,6 +306,17 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   4. `/api/health` must say `{"ok":true,"database":"tenant"}`. Undo: delete those variables and redeploy.
   `lib/storage.ts` (photo uploads) still uses the service_role key. Supabase deletes legacy `anon`/`service_role`
   keys by the end of 2026, so every venue has to move to the new API keys regardless.
+- Which business a request is for (migration 0014, `lib/tenant-resolve.ts`, `proxy.ts`). A deployment with
+  `VENUE_TENANT_ID` is pinned to one business and never looks anything up — Enigma and Time Zone today. Without
+  it, `proxy.ts` resolves each request: by web address (`tenant_hosts`, e.g. `enigmaescapes.voltrisbooking.com`),
+  else by the staff session cookie, else — for the sign-in request only — by the email being signed in with (if
+  exactly one active account has it). The answer is stamped on the request as `x-tenant-id` (anything a client sent
+  under that name is discarded first) and `lib/supabase.ts` signs that request's token with it. An address that
+  names no business gets a plain 404 "No venue at this address"; only `/login`, `/api/staff/login`, `/api/health`
+  and the manifest get through without one, which is how a future app (no web address) signs in. The three
+  lookups are security-definer functions callable with a token that names no business; they return a tenant id and
+  nothing else. Each business's `slug` is its subdomain label; `tenant_hosts` holds every address it answers at.
+  `npm run test:isolation` covers all of it on real Postgres.
 - `VENUE_TIMEZONE` (e.g. `America/Toronto`) must be set on every venue's Vercel project
   outside Winnipeg. API routes never see the locale the root layout primes, so without it they
   tell the time in Winnipeg (the default) and sell sessions after they've started. When set,

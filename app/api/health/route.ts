@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requestTenantId } from "@/lib/request-tenant";
 import { databaseMode, rest } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,13 @@ export async function GET() {
     );
   }
   if (mode === "local") return NextResponse.json({ ok: true, database: "local" }, { headers: noStore });
+
+  // An unpinned deployment on an address that names no business: the app is
+  // configured and reachable, there is just no venue here. Not an error — this
+  // is what a platform address answers.
+  if (!process.env.VENUE_TENANT_ID?.trim() && !(await requestTenantId())) {
+    return NextResponse.json({ ok: true, database: mode, business: null }, { headers: noStore });
+  }
 
   try {
     const res = await rest("tenants?select=id&limit=2");
