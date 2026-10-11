@@ -190,7 +190,9 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   attributed to nothing — that person left earlier. `npm run test:unsubscribes` builds a real
   Postgres at 0011, gives it a venue's history and then applies 0012, which is the only honest
   way to check a backfill (shared harness: `tests/pg-harness.mjs`).
-- The site header carries the cart, Gift vouchers, and Parties when the venue has written one.
+- The site header carries the cart, Gift vouchers, and the group-bookings link when the venue has
+  written that page (its wording is `partiesLinkLabel`, default "Group bookings" — "Christmas
+  parties" in season).
   "Back to home" is gone (the logo already goes home) and the portal link moved to the footer as
   "Staff" — customers outnumber staff on that page by thousands to one. `/parties` is a page the
   venue writes itself in Settings → Appearance & basket (`partiesHeading` / `partiesText`, blank

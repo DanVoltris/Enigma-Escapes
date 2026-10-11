@@ -93,13 +93,17 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             {site.supportText && <p className="site-support">{site.supportText}</p>}
           </main>
           <footer className="site-footer">
-            <Link href="/privacy" className="site-footer-link">
-              Privacy policy
-            </Link>
-            <Link href="/manager" className="site-footer-link">
-              Staff
-            </Link>
-            {consent.required && <ConsentLink />}
+            {/* The venue's own links first, on their own line; whose software it
+                is runs underneath, where it belongs. */}
+            <div className="site-footer-links">
+              <Link href="/privacy" className="site-footer-link">
+                Privacy policy
+              </Link>
+              <Link href="/manager" className="site-footer-link">
+                Staff
+              </Link>
+              {consent.required && <ConsentLink />}
+            </div>
             <a href="https://voltrisbooking.com" target="_blank" rel="noreferrer" className="powered-by">
               Powered by{" "}
               <span className="vb-mark">

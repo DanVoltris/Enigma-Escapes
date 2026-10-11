@@ -524,8 +524,22 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                   placeholder="e.g. Need a hand? Call us on 204-219-0014."
                 />
               </div>
+              <div className="field" style={{ maxWidth: 320 }}>
+                <label htmlFor="bs-partieslabel">Group bookings — header link</label>
+                <input
+                  id="bs-partieslabel"
+                  type="text"
+                  value={s.partiesLinkLabel}
+                  onChange={(e) => patch({ partiesLinkLabel: e.target.value })}
+                  placeholder="Group bookings"
+                />
+                <p className="field-hint">
+                  What the link says in the site header — &ldquo;Christmas parties&rdquo; in season,
+                  &ldquo;Group bookings&rdquo; the rest of the year.
+                </p>
+              </div>
               <div className="field" style={{ maxWidth: 520 }}>
-                <label htmlFor="bs-parties">Parties page heading</label>
+                <label htmlFor="bs-parties">Group bookings page heading</label>
                 <input
                   id="bs-parties"
                   type="text"
@@ -535,7 +549,7 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                 />
               </div>
               <div className="field" style={{ maxWidth: 640 }}>
-                <label htmlFor="bs-partiestext">Parties page text</label>
+                <label htmlFor="bs-partiestext">Group bookings page text</label>
                 <textarea
                   id="bs-partiestext"
                   rows={6}
@@ -544,8 +558,8 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                   placeholder={"How a group books a party — who to call, what you can do for them.\n\nLeave a blank line between paragraphs."}
                 />
                 <p className="field-hint">
-                  Fill either of these in and a <strong>Parties</strong> link appears in the site header, pointing at
-                  a page of its own. Leave both empty and there is no page and no link.
+                  Fill either of these in and the link above appears in the site header, pointing at a page of its
+                  own. Leave both empty and there is no page and no link.
                 </p>
               </div>
               <div className="field">

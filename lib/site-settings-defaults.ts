@@ -46,6 +46,10 @@ export type SiteSettings = {
   // means the venue isn't offering it, and neither the page nor the link exist.
   partiesHeading: string;
   partiesText: string;
+  // What the header link says. Changes with the season — "Christmas parties"
+  // in November, "Group bookings" the rest of the year — so it is a setting
+  // rather than a word in the code.
+  partiesLinkLabel: string;
   // header links — per venue, so one can drop a link the other keeps
   showGiftVouchers: boolean; // the gift voucher shop
 };
@@ -69,6 +73,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   supportText: "",
   partiesHeading: "",
   partiesText: "",
+  partiesLinkLabel: "Group bookings",
   showGiftVouchers: true,
 };
 
@@ -133,6 +138,11 @@ export function normalizeSiteSettings(input: unknown): SiteSettings {
       typeof o.partiesHeading === "string" ? o.partiesHeading.trim().slice(0, 120) : d.partiesHeading,
     // Longer than the others: this is a page, not a line.
     partiesText: typeof o.partiesText === "string" ? o.partiesText.trim().slice(0, 3000) : d.partiesText,
+    // An empty label would leave an invisible link, so it falls back.
+    partiesLinkLabel:
+      typeof o.partiesLinkLabel === "string" && o.partiesLinkLabel.trim()
+        ? o.partiesLinkLabel.trim().slice(0, 30)
+        : d.partiesLinkLabel,
     // Shown unless explicitly switched off, so a venue that has never saved
     // this keeps the link.
     showGiftVouchers: o.showGiftVouchers !== false,
