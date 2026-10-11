@@ -287,7 +287,10 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
 - Isolation between businesses (migration 0004, `lib/tenant-token.ts`, `/api/health`). Every table with a
   `tenant_id` has a row level security policy for the `tenant_app` role. A venue in **tenant mode** signs each
   request with a one-minute HS256 JWT `{ role: "tenant_app", tenant_id }`, so a query that forgets to filter by
-  business gets nothing. A venue in **service mode** uses the service_role key as before. `npm run test:isolation`
+  business gets nothing. There is no other mode: a venue without those settings refuses its database calls rather than falling back to the
+  service_role key, which only `lib/storage.ts` and the scripts still use. Since migration 0013 the old whole-table
+  unique rules are gone too, so two businesses in one database can each have a `WELCOME10` or a `blackbeards-brig`
+  (`npm run test:isolation` proves it on real Postgres). `npm run test:isolation`
   (also on every push, `.github/workflows/tenant-isolation.yml`) puts two businesses in every table and fails on
   any leak, or on a table added without `tenant_id`. Switching a venue to tenant mode, as done on staging
   2026-09-14:
