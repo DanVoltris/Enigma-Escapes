@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 export default async function Page({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const { date: asked } = await searchParams;
   const today = todayISO();
-  const { windowDays } = await getSiteSettings();
+  const site = await getSiteSettings();
+  const { windowDays } = site;
   const date =
     asked && isValidISODate(asked) && asked >= today && asked <= addDaysISO(today, windowDays) ? asked : today;
 
@@ -41,5 +42,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
       .catch((): ExperienceSummary[] | null => null),
   ]);
 
-  return <BrowsePage initialDate={date} initialSlots={slots} initialExperiences={experiences} />;
+  return (
+    <>
+      {/* The venue's welcome, shown here rather than in the layout: above the
+          checkout and the parties page it was repetition, not a welcome. */}
+      {(site.introHeading || site.introText) && (
+        <div className="site-intro">
+          {site.introHeading && <h2>{site.introHeading}</h2>}
+          {site.introText && <p>{site.introText}</p>}
+        </div>
+      )}
+      <BrowsePage initialDate={date} initialSlots={slots} initialExperiences={experiences} />
+    </>
+  );
 }

@@ -524,16 +524,32 @@ export default function BookingSiteForm({ initial }: { initial: SiteSettings }) 
                   placeholder="e.g. Need a hand? Call us on 204-219-0014."
                 />
               </div>
+              <div className="field" style={{ maxWidth: 520 }}>
+                <label htmlFor="bs-parties">Parties page heading</label>
+                <input
+                  id="bs-parties"
+                  type="text"
+                  value={s.partiesHeading}
+                  onChange={(e) => patch({ partiesHeading: e.target.value })}
+                  placeholder="e.g. Christmas parties and group bookings"
+                />
+              </div>
+              <div className="field" style={{ maxWidth: 640 }}>
+                <label htmlFor="bs-partiestext">Parties page text</label>
+                <textarea
+                  id="bs-partiestext"
+                  rows={6}
+                  value={s.partiesText}
+                  onChange={(e) => patch({ partiesText: e.target.value })}
+                  placeholder={"How a group books a party — who to call, what you can do for them.\n\nLeave a blank line between paragraphs."}
+                />
+                <p className="field-hint">
+                  Fill either of these in and a <strong>Parties</strong> link appears in the site header, pointing at
+                  a page of its own. Leave both empty and there is no page and no link.
+                </p>
+              </div>
               <div className="field">
                 <label>Header links</label>
-                <label className="intg-toggle">
-                  <input
-                    type="checkbox"
-                    checked={s.showHomeLink}
-                    onChange={(e) => patch({ showHomeLink: e.target.checked })}
-                  />
-                  Show &ldquo;Back to home&rdquo;
-                </label>
                 <label className="intg-toggle">
                   <input
                     type="checkbox"

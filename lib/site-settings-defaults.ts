@@ -41,8 +41,12 @@ export type SiteSettings = {
   introHeading: string;
   introText: string;
   supportText: string;
+  // The parties page (/parties): how a group books something the booking flow
+  // doesn't sell — a Christmas party, a corporate night. Empty heading AND text
+  // means the venue isn't offering it, and neither the page nor the link exist.
+  partiesHeading: string;
+  partiesText: string;
   // header links — per venue, so one can drop a link the other keeps
-  showHomeLink: boolean; // "Back to home" (points at this booking page)
   showGiftVouchers: boolean; // the gift voucher shop
 };
 
@@ -63,7 +67,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   introHeading: "",
   introText: "",
   supportText: "",
-  showHomeLink: true,
+  partiesHeading: "",
+  partiesText: "",
   showGiftVouchers: true,
 };
 
@@ -124,9 +129,12 @@ export function normalizeSiteSettings(input: unknown): SiteSettings {
     introHeading: typeof o.introHeading === "string" ? o.introHeading.trim().slice(0, 120) : d.introHeading,
     introText: typeof o.introText === "string" ? o.introText.trim().slice(0, 600) : d.introText,
     supportText: typeof o.supportText === "string" ? o.supportText.trim().slice(0, 300) : d.supportText,
+    partiesHeading:
+      typeof o.partiesHeading === "string" ? o.partiesHeading.trim().slice(0, 120) : d.partiesHeading,
+    // Longer than the others: this is a page, not a line.
+    partiesText: typeof o.partiesText === "string" ? o.partiesText.trim().slice(0, 3000) : d.partiesText,
     // Shown unless explicitly switched off, so a venue that has never saved
-    // these keeps both links.
-    showHomeLink: o.showHomeLink !== false,
+    // this keeps the link.
     showGiftVouchers: o.showGiftVouchers !== false,
   };
 }

@@ -6,7 +6,9 @@ import { useSiteConfig } from "@/lib/site-config";
 
 export default function Header({ company }: { company: string }) {
   const { items } = useCart();
-  const { logoUrl, showHomeLink, showGiftVouchers } = useSiteConfig();
+  const { logoUrl, showGiftVouchers, partiesHeading, partiesText } = useSiteConfig();
+  // The parties page exists only when the venue has written one.
+  const parties = Boolean(partiesHeading || partiesText);
   const count = items.length;
 
   return (
@@ -22,9 +24,9 @@ export default function Header({ company }: { company: string }) {
           )}
         </Link>
         <div className="header-right">
-          {showHomeLink && (
-            <Link href="/" className="header-home-link">
-              Back to home
+          {parties && (
+            <Link href="/parties" className="header-home-link">
+              Parties
             </Link>
           )}
           {showGiftVouchers && (
@@ -32,9 +34,6 @@ export default function Header({ company }: { company: string }) {
               Gift vouchers
             </Link>
           )}
-          <Link href="/manager" className="header-home-link">
-            Manager
-          </Link>
           <Link href="/checkout" className="cart-button" aria-label={`Cart, ${count} booking(s)`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M3 6h2l2.4 12h9.2L19 9H6" />
