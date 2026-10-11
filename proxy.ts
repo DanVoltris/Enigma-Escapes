@@ -64,7 +64,11 @@ function buildCsp(nonce: string): string {
 // With no business and nothing signed in, only the sign-in screen and its API,
 // the health check and the app manifest get through — the pieces that must
 // work before a business is known. Everything else is "no venue here".
-const WITHOUT_BUSINESS = new Set(["/login", "/api/staff/login", "/api/health", "/staff.webmanifest"]);
+// Sign-up is here too: a business creating itself has no address yet.
+const WITHOUT_BUSINESS = new Set([
+  "/login", "/api/staff/login", "/api/health", "/staff.webmanifest",
+  "/signup", "/api/signup", "/api/signup/slug",
+]);
 
 function noVenue(host: string): NextResponse {
   return new NextResponse(

@@ -5416,3 +5416,35 @@ textarea:focus {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ---------- sign-up ---------- */
+/* The address field shows the fixed domain beside what is typed, so what the
+   owner is choosing is unmistakable. Sharp corners, like everything here. */
+.signup-slug {
+  display: flex;
+  align-items: stretch;
+}
+.signup-slug input {
+  flex: 1;
+  min-width: 0;
+}
+.signup-domain {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-left: none;
+  background: var(--muted-bg);
+  color: var(--text-secondary);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.field-hint-bad {
+  color: var(--danger);
+}
+.signup-done h2 {
+  margin: 0 0 10px;
+}
+.signup-done .btn {
+  margin-top: 18px;
+}
