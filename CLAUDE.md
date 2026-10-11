@@ -317,6 +317,15 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   lookups are security-definer functions callable with a token that names no business; they return a tenant id and
   nothing else. Each business's `slug` is its subdomain label; `tenant_hosts` holds every address it answers at.
   `npm run test:isolation` covers all of it on real Postgres.
+- Sign-up (migration 0015, `lib/signup.ts`, `/signup`). On the platform's own address a business creates itself:
+  name, web address (`<slug>.voltrisbooking.com`, suggested from the name and checked live via
+  `/api/signup/slug`), timezone, and the owner's name, email and password. `create_tenant` does it in one
+  transaction — business, address in `tenant_hosts`, owner as admin, the settings the portal expects, one example
+  room switched OFF — and refuses a taken address with nothing half-created. It runs before the business exists, so
+  it goes straight to the database with a no-business token, never through `rest()`; the password is hashed in the
+  app. Five sign-ups per connection per hour (per server instance). The owner then signs in at the new address.
+  `PLATFORM_DOMAIN` (default `voltrisbooking.com`) is where new businesses live. Nothing yet deletes a business;
+  on staging `remove-business.mjs` in the scratch folder did it for rehearsals (rows first, then the tenant).
 - `VENUE_TIMEZONE` (e.g. `America/Toronto`) must be set on every venue's Vercel project
   outside Winnipeg. API routes never see the locale the root layout primes, so without it they
   tell the time in Winnipeg (the default) and sell sessions after they've started. When set,
