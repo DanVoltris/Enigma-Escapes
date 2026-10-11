@@ -51,7 +51,68 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
-export function proxy(request: NextRequest) {
+// Which business a request is for (lib/tenant-resolve.ts).
+//
+// A deployment pinned with VENUE_TENANT_ID serves one business and never looks
+// anything up — Enigma and Time Zone today. Otherwise the request's web address
+// names the business, or failing that the staff session (an app has no web
+// address), or for the sign-in request itself the email being signed in with.
+// The answer is stamped on the request as a header that lib/supabase.ts reads;
+// whatever a client sent under that name is thrown away first, so nobody can
+// name a business from outside.
+//
+// With no business and nothing signed in, only the sign-in screen and its API,
+// the health check and the app manifest get through — the pieces that must
+// work before a business is known. Everything else is "no venue here".
+// Sign-up is here too: a business creating itself has no address yet.
+const WITHOUT_BUSINESS = new Set([
+  "/login", "/api/staff/login", "/api/health", "/staff.webmanifest",
+  "/signup", "/api/signup", "/api/signup/slug",
+]);
+
+function noVenue(host: string): NextResponse {
+  return new NextResponse(
+    `<!doctype html><title>No venue at this address</title>` +
+      `<body style="font-family:system-ui;margin:3rem;max-width:40rem"><h1>No venue at this address</h1>` +
+      `<p>There's no booking site at <strong>${host.replace(/[<>&"]/g, "")}</strong>. ` +
+      `Check the address you were given.</p></body>`,
+    { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
+  );
+}
+
+async function resolveBusiness(request: NextRequest): Promise<string | null | "pass"> {
+  if (process.env.USE_LOCAL_DATA === "true" || process.env.USE_LOCAL_DATA === "1") return "pass";
+  const pinned = process.env.VENUE_TENANT_ID?.trim();
+  if (pinned) return pinned;
+
+  const { tenantAuthFromEnv } = await import("./lib/tenant-token");
+  const { tenantResolver } = await import("./lib/tenant-resolve");
+  const { normalizeUrl } = await import("./lib/supabase");
+  const auth = tenantAuthFromEnv();
+  const url = normalizeUrl(process.env.SUPABASE_URL);
+  if (!auth || !url) return "pass"; // unconfigured: the app says so itself, loudly
+  const resolver = tenantResolver(url, auth);
+
+  // The Host header only. x-forwarded-host can be set by a client, and a
+  // header a client controls must never choose a business.
+  const byHost = await resolver.forHost(request.headers.get("host"));
+  if (byHost) return byHost;
+
+  const bySession = await resolver.forSession(request.cookies.get("vb_staff")?.value);
+  if (bySession) return bySession;
+
+  if (request.method === "POST" && request.nextUrl.pathname === "/api/staff/login") {
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => ({}))) as { email?: unknown };
+    const byEmail = await resolver.forStaffEmail(typeof body.email === "string" ? body.email : "");
+    if (byEmail) return byEmail;
+  }
+  return null;
+}
+
+export async function proxy(request: NextRequest) {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   const nonce = btoa(String.fromCharCode(...bytes));
@@ -63,6 +124,18 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
+
+  requestHeaders.delete("x-tenant-id");
+  // A pinned deployment is one venue's own site. Sign-up there would create a
+  // second business inside that venue's database, so it does not exist there.
+  if (process.env.VENUE_TENANT_ID?.trim() && /^\/(signup|api\/signup)(\/|$)/.test(request.nextUrl.pathname)) {
+    return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+  const business = await resolveBusiness(request);
+  if (business === null && !WITHOUT_BUSINESS.has(request.nextUrl.pathname)) {
+    return noVenue(request.headers.get("host") ?? "");
+  }
+  if (business && business !== "pass") requestHeaders.set("x-tenant-id", business);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);

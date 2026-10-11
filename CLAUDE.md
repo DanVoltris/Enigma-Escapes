@@ -294,7 +294,10 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
 - Isolation between businesses (migration 0004, `lib/tenant-token.ts`, `/api/health`). Every table with a
   `tenant_id` has a row level security policy for the `tenant_app` role. A venue in **tenant mode** signs each
   request with a one-minute HS256 JWT `{ role: "tenant_app", tenant_id }`, so a query that forgets to filter by
-  business gets nothing. A venue in **service mode** uses the service_role key as before. `npm run test:isolation`
+  business gets nothing. There is no other mode: a venue without those settings refuses its database calls rather than falling back to the
+  service_role key, which only `lib/storage.ts` and the scripts still use. Since migration 0013 the old whole-table
+  unique rules are gone too, so two businesses in one database can each have a `WELCOME10` or a `blackbeards-brig`
+  (`npm run test:isolation` proves it on real Postgres). `npm run test:isolation`
   (also on every push, `.github/workflows/tenant-isolation.yml`) puts two businesses in every table and fails on
   any leak, or on a table added without `tenant_id`. Switching a venue to tenant mode, as done on staging
   2026-09-14:
@@ -310,6 +313,26 @@ venue's database — rooms, prices, taxes, hours, copy, deposit and the corporat
   4. `/api/health` must say `{"ok":true,"database":"tenant"}`. Undo: delete those variables and redeploy.
   `lib/storage.ts` (photo uploads) still uses the service_role key. Supabase deletes legacy `anon`/`service_role`
   keys by the end of 2026, so every venue has to move to the new API keys regardless.
+- Which business a request is for (migration 0014, `lib/tenant-resolve.ts`, `proxy.ts`). A deployment with
+  `VENUE_TENANT_ID` is pinned to one business and never looks anything up — Enigma and Time Zone today. Without
+  it, `proxy.ts` resolves each request: by web address (`tenant_hosts`, e.g. `enigmaescapes.voltrisbooking.com`),
+  else by the staff session cookie, else — for the sign-in request only — by the email being signed in with (if
+  exactly one active account has it). The answer is stamped on the request as `x-tenant-id` (anything a client sent
+  under that name is discarded first) and `lib/supabase.ts` signs that request's token with it. An address that
+  names no business gets a plain 404 "No venue at this address"; only `/login`, `/api/staff/login`, `/api/health`
+  and the manifest get through without one, which is how a future app (no web address) signs in. The three
+  lookups are security-definer functions callable with a token that names no business; they return a tenant id and
+  nothing else. Each business's `slug` is its subdomain label; `tenant_hosts` holds every address it answers at.
+  `npm run test:isolation` covers all of it on real Postgres.
+- Sign-up (migration 0015, `lib/signup.ts`, `/signup`). On the platform's own address a business creates itself:
+  name, web address (`<slug>.voltrisbooking.com`, suggested from the name and checked live via
+  `/api/signup/slug`), timezone, and the owner's name, email and password. `create_tenant` does it in one
+  transaction — business, address in `tenant_hosts`, owner as admin, the settings the portal expects, one example
+  room switched OFF — and refuses a taken address with nothing half-created. It runs before the business exists, so
+  it goes straight to the database with a no-business token, never through `rest()`; the password is hashed in the
+  app. Five sign-ups per connection per hour (per server instance). The owner then signs in at the new address.
+  `PLATFORM_DOMAIN` (default `voltrisbooking.com`) is where new businesses live. Nothing yet deletes a business;
+  on staging `remove-business.mjs` in the scratch folder did it for rehearsals (rows first, then the tenant).
 - `VENUE_TIMEZONE` (e.g. `America/Toronto`) must be set on every venue's Vercel project
   outside Winnipeg. API routes never see the locale the root layout primes, so without it they
   tell the time in Winnipeg (the default) and sell sessions after they've started. When set,
