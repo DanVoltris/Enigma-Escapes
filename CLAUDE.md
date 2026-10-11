@@ -190,6 +190,13 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   attributed to nothing — that person left earlier. `npm run test:unsubscribes` builds a real
   Postgres at 0011, gives it a venue's history and then applies 0012, which is the only honest
   way to check a backfill (shared harness: `tests/pg-harness.mjs`).
+- The site header carries the cart, Gift vouchers, and Parties when the venue has written one.
+  "Back to home" is gone (the logo already goes home) and the portal link moved to the footer as
+  "Staff" — customers outnumber staff on that page by thousands to one. `/parties` is a page the
+  venue writes itself in Settings → Appearance & basket (`partiesHeading` / `partiesText`, blank
+  lines between paragraphs): what the booking flow can't sell — a Christmas party, a corporate
+  night — and who to ring about it. Both empty means no page and no link, which is how a venue
+  opts out. The welcome block (`introHeading` / `introText`) shows on the front page only.
 - Checklists: daily staff task lists at `/manager/checklists` (definitions + today's ticks in
   settings keys `checklists` / `checklist_state`; ticks reset at date rollover).
 - Surveys: public post-game form at `/feedback` (linked with the reference from every

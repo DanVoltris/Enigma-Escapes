@@ -89,18 +89,15 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <div className="site-theme">
           <Header company={company} />
           <main className="container">
-            {(site.introHeading || site.introText) && (
-              <div className="site-intro">
-                {site.introHeading && <h2>{site.introHeading}</h2>}
-                {site.introText && <p>{site.introText}</p>}
-              </div>
-            )}
             {children}
             {site.supportText && <p className="site-support">{site.supportText}</p>}
           </main>
           <footer className="site-footer">
             <Link href="/privacy" className="site-footer-link">
               Privacy policy
+            </Link>
+            <Link href="/manager" className="site-footer-link">
+              Staff
             </Link>
             {consent.required && <ConsentLink />}
             <a href="https://voltrisbooking.com" target="_blank" rel="noreferrer" className="powered-by">

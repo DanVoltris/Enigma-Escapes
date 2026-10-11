@@ -2071,7 +2071,9 @@ a:hover {
   opacity: 0.45;
 }
 .site-intro {
-  margin: 24px 0 8px;
+  /* Room to breathe under the header: this is the first thing on the page and
+     it was sitting on the rule above it. */
+  margin: 44px 0 16px;
 }
 .site-intro h2 {
   font-size: 22px;
@@ -2081,6 +2083,19 @@ a:hover {
 .site-intro p {
   color: var(--text-secondary);
   max-width: 70ch;
+}
+
+/* The parties page: one column of plain reading, nothing to fill in. */
+.parties-page {
+  max-width: 70ch;
+  margin: 44px 0 40px;
+}
+.parties-page p {
+  margin-bottom: 14px;
+  color: var(--text);
+}
+.parties-page .btn {
+  margin-top: 12px;
 }
 .site-support {
   margin: 28px 0 8px;
