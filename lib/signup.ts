@@ -75,11 +75,19 @@ export function signupAllowed(ip: string, now = Date.now()): boolean {
   return true;
 }
 
+/** Sign-up exists only on the platform deployment, never on a venue's own site. */
+export function signupOffered(env: Record<string, string | undefined> = process.env): boolean {
+  return !env.VENUE_TENANT_ID?.trim() && Boolean(env.SUPABASE_PUBLISHABLE_KEY?.trim() && env.SUPABASE_JWT_SECRET?.trim());
+}
+
 type Platform = { url: string; auth: TenantAuth };
 function platform(): Platform {
   const url = normalizeUrl(process.env.SUPABASE_URL);
   const auth = tenantAuthFromEnv();
   if (!url || !auth) throw new Error("Sign-up is not configured on this deployment.");
+  // A pinned deployment is one venue's site: creating a business there would
+  // put it inside that venue's database.
+  if (auth.pinnedTenantId) throw new Error("Sign-up is not available on a venue's own site.");
   return { url, auth };
 }
 

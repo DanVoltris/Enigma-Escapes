@@ -4,7 +4,7 @@ import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { asTenant, buildDatabase, claimsFor, read } from "./pg-harness.mjs";
 import { slugFromName, slugProblem } from "../lib/signup-rules.ts";
-import { signupAllowed, signupProblem } from "../lib/signup.ts";
+import { signupAllowed, signupOffered, signupProblem } from "../lib/signup.ts";
 
 const NOBODY = JSON.stringify({ role: "tenant_app" });
 const PERMS = JSON.stringify(["calendar", "settings", "staff"]);
@@ -37,6 +37,12 @@ describe("the form", () => {
     assert.match(signupProblem({ ...good, password: "abc" }), /5 characters/);
     assert.match(signupProblem({ ...good, timezone: "Mars/Olympus" }), /timezone/);
     assert.match(signupProblem({ ...good, timezone: "" }), /timezone/);
+  });
+  test("sign-up exists on the platform deployment only, never on a venue's own site", () => {
+    const platform = { SUPABASE_PUBLISHABLE_KEY: "k", SUPABASE_JWT_SECRET: "s".repeat(40) };
+    assert.equal(signupOffered(platform), true);
+    assert.equal(signupOffered({ ...platform, VENUE_TENANT_ID: "3b8a1f6e-2c4d-4e9a-9f10-7d2c5b8e1a44" }), false, "pinned = a venue's site");
+    assert.equal(signupOffered({}), false, "unconfigured");
   });
   test("a connection gets a handful of sign-ups an hour, then has to wait", () => {
     let t = 0;

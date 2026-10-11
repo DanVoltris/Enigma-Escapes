@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SignupForm from "@/components/SignupForm";
-import { PLATFORM_DOMAIN } from "@/lib/signup";
+import { notFound } from "next/navigation";
+import { PLATFORM_DOMAIN, signupOffered } from "@/lib/signup";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
 // venue's, so proxy.ts lets it through with no business; the owner then signs
 // in at the address they chose.
 export default function SignupPage() {
+  if (!signupOffered()) notFound();
   return (
     <div className="login-wrap">
       <div className="login-card">

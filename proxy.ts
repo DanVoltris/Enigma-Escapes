@@ -126,6 +126,11 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", csp);
 
   requestHeaders.delete("x-tenant-id");
+  // A pinned deployment is one venue's own site. Sign-up there would create a
+  // second business inside that venue's database, so it does not exist there.
+  if (process.env.VENUE_TENANT_ID?.trim() && /^\/(signup|api\/signup)(\/|$)/.test(request.nextUrl.pathname)) {
+    return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
   const business = await resolveBusiness(request);
   if (business === null && !WITHOUT_BUSINESS.has(request.nextUrl.pathname)) {
     return noVenue(request.headers.get("host") ?? "");

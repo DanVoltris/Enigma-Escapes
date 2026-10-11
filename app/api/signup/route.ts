@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createBusiness, signupAllowed, signupProblem, type SignupInput } from "@/lib/signup";
+import { createBusiness, signupAllowed, signupOffered, signupProblem, type SignupInput } from "@/lib/signup";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 // address. Nothing is signed in here: the owner signs in at their own address,
 // where the session belongs.
 export async function POST(req: NextRequest) {
+  if (!signupOffered()) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip")?.trim() || "";
   if (!signupAllowed(ip)) {
     return NextResponse.json({ error: "Too many sign-ups from this connection. Try again in an hour." }, { status: 429 });
