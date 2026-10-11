@@ -6,7 +6,7 @@ import { useSiteConfig } from "@/lib/site-config";
 
 export default function Header({ company }: { company: string }) {
   const { items } = useCart();
-  const { logoUrl, showGiftVouchers, partiesHeading, partiesText } = useSiteConfig();
+  const { logoUrl, showGiftVouchers, partiesHeading, partiesText, partiesLinkLabel } = useSiteConfig();
   // The parties page exists only when the venue has written one.
   const parties = Boolean(partiesHeading || partiesText);
   const count = items.length;
@@ -26,7 +26,7 @@ export default function Header({ company }: { company: string }) {
         <div className="header-right">
           {parties && (
             <Link href="/parties" className="header-home-link">
-              Parties
+              {partiesLinkLabel}
             </Link>
           )}
           {showGiftVouchers && (
