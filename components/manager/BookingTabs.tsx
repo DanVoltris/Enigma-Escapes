@@ -97,6 +97,10 @@ export default function BookingTabs(props: Props) {
             promoCode={props.promoCode}
             discountCents={props.discountCents}
             activePromos={props.activePromos}
+            voucherCode={props.voucherCode}
+            voucherPaidCents={props.voucherPaidCents}
+            balanceCents={props.balanceCents}
+            cancelled={props.cancelled}
           />
         )}
         {tab === "customers" && (
@@ -182,16 +186,65 @@ function PromosTab({
   promoCode,
   discountCents,
   activePromos,
+  voucherCode,
+  voucherPaidCents,
+  balanceCents,
+  cancelled,
 }: {
   bookingId: string;
   promoCode: string | null;
   discountCents: number;
   activePromos: { code: string; percentOff: number }[];
+  voucherCode: string | null;
+  voucherPaidCents: number;
+  balanceCents: number;
+  cancelled: boolean;
 }) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [giftCode, setGiftCode] = useState("");
+  const [giftAmount, setGiftAmount] = useState((balanceCents / 100).toFixed(2));
+  const [giftError, setGiftError] = useState<string | null>(null);
+  // Applying a promo refreshes the page with a new balance; keep the voucher
+  // amount box in step with it (same trick as the Payments tab).
+  const [filledFor, setFilledFor] = useState(balanceCents);
+  if (filledFor !== balanceCents) {
+    setFilledFor(balanceCents);
+    setGiftAmount((balanceCents / 100).toFixed(2));
+  }
+
+  async function applyVoucher() {
+    const trimmed = giftCode.trim();
+    if (!trimmed) return setGiftError("Enter the gift voucher code.");
+    const amountCents = Math.round(Number(giftAmount) * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      return setGiftError("Enter an amount greater than zero.");
+    }
+    setBusy(true);
+    setGiftError(null);
+    const err = await call(`/api/manager/bookings/${bookingId}/voucher`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: trimmed, amountCents }),
+    });
+    setBusy(false);
+    if (err) setGiftError(err);
+    else {
+      setGiftCode("");
+      router.refresh();
+    }
+  }
+
+  async function removeVoucher() {
+    setBusy(true);
+    setGiftError(null);
+    const err = await call(`/api/manager/bookings/${bookingId}/voucher`, { method: "DELETE" });
+    setBusy(false);
+    if (err) setGiftError(err);
+    else router.refresh();
+  }
 
   async function apply() {
     if (!code) return setError("Choose a promo code to apply.");
@@ -261,9 +314,66 @@ function PromosTab({
         </div>
       )}
       {error && <p className="field-error" style={{ marginTop: 10 }}>{error}</p>}
-      <p className="cust-empty" style={{ marginTop: 14 }}>
-        Gift vouchers aren&apos;t set up yet — promo codes only for now.
-      </p>
+
+      {voucherCode ? (
+        <div className="bk-row" style={{ marginTop: 14 }}>
+          <div className="bk-row-main">
+            <span className="mgr-pill on">{voucherCode}</span>
+            <span style={{ marginLeft: 10 }}>
+              {voucherPaidCents > 0
+                ? `gift voucher — ${formatMoney(voucherPaidCents)} paid towards this booking`
+                : "gift voucher — taken once the booking is paid"}
+            </span>
+          </div>
+          {!cancelled && (
+            <button type="button" className="mgr-linklike danger" onClick={removeVoucher} disabled={busy}>
+              {busy ? "Removing…" : "Remove"}
+            </button>
+          )}
+        </div>
+      ) : cancelled ? null : balanceCents <= 0 ? (
+        <p className="cust-empty" style={{ marginTop: 14 }}>
+          Nothing is owed on this booking, so there&apos;s nothing for a gift voucher to pay.
+        </p>
+      ) : (
+        <div className="bk-add" style={{ marginTop: 14 }}>
+          <h3>Apply a gift voucher</h3>
+          <p className="card-sub">
+            The amount comes off the voucher&apos;s balance now and counts as paid. It goes back on the voucher if
+            the booking is cancelled.
+          </p>
+          <div className="mgr-inline-form">
+            <div className="field" style={{ minWidth: 200 }}>
+              <label htmlFor="bk-gift-code">Voucher code</label>
+              <input
+                id="bk-gift-code"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={giftCode}
+                onChange={(e) => setGiftCode(e.target.value.toUpperCase())}
+                placeholder="e.g. GV-ABCD-1234"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="bk-gift-amount">Amount ($)</label>
+              <input
+                id="bk-gift-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={giftAmount}
+                onChange={(e) => setGiftAmount(e.target.value)}
+                style={{ width: 110 }}
+              />
+            </div>
+            <button type="button" className="btn" onClick={applyVoucher} disabled={busy}>
+              {busy ? "Applying…" : "Apply voucher"}
+            </button>
+          </div>
+        </div>
+      )}
+      {giftError && <p className="field-error" style={{ marginTop: 10 }}>{giftError}</p>}
     </>
   );
 }
