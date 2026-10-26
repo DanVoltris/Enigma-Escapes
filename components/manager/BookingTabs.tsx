@@ -472,6 +472,17 @@ function PromosTab({
                 {picked.purchaser ? ` · ${picked.purchaser}` : ""}
               </p>
               <VoucherMeter v={picked} />
+              {(() => {
+                const usingCents = Math.round(Number(giftAmount) * 100);
+                if (!Number.isFinite(usingCents) || usingCents <= 0) return null;
+                const leftCents = Math.max(0, picked.remainingCents - Math.min(usingCents, giftMaxCents));
+                return (
+                  <p style={{ margin: "8px 0 0" }}>
+                    Using {formatMoney(Math.min(usingCents, giftMaxCents))} leaves{" "}
+                    <strong>{formatMoney(leftCents)}</strong> on the voucher.
+                  </p>
+                );
+              })()}
             </div>
           )}
         </div>
