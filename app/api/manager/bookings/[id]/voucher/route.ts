@@ -2,9 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getBooking, logActivity, takeVoucherFor, updateBookingFields } from "@/lib/db";
 import { formatMoney, todayISO } from "@/lib/format";
-import { getVoucher, refundToVoucher, voucherProblem } from "@/lib/vouchers";
+import { getVoucher, refundToVoucher, searchSpendableVouchers, voucherProblem } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
+
+// Type-ahead for the voucher code box: ?q=WB lists spendable codes containing
+// "WB", with what's left on each. Same permission as applying one, so the desk
+// doesn't need Promo codes access just to look a card up.
+export async function GET(req: NextRequest) {
+  const guard = await apiGuard("bookings.modify");
+  if (guard.response) return guard.response;
+  const q = req.nextUrl.searchParams.get("q") ?? "";
+  if (q.trim().length < 2) return NextResponse.json({ vouchers: [] });
+  try {
+    const found = await searchSpendableVouchers(q);
+    return NextResponse.json({
+      vouchers: found.map((v) => ({
+        code: v.code,
+        faceCents: v.faceCents,
+        remainingCents: v.remainingCents,
+        purchaser: v.purchaser,
+      })),
+    });
+  } catch (err) {
+    console.error("voucher search failed:", err);
+    return NextResponse.json({ error: "Could not search vouchers right now." }, { status: 500 });
+  }
+}
 
 // Put a customer's gift voucher towards an existing booking, at the desk. A
 // voucher is money, not a discount: the balance comes off the voucher first

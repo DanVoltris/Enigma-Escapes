@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SendReceipt from "./SendReceipt";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -181,6 +181,18 @@ async function call(url: string, init: RequestInit): Promise<string | null> {
   }
 }
 
+type VoucherHit = { code: string; faceCents: number; remainingCents: number; purchaser: string | null };
+
+// What's left on a voucher, as a share of what it was worth.
+function VoucherMeter({ v }: { v: VoucherHit }) {
+  const pct = v.faceCents > 0 ? Math.min(100, Math.round((v.remainingCents / v.faceCents) * 100)) : 0;
+  return (
+    <div className="mgr-meter" title={`${pct}% left`} style={{ marginTop: 6 }}>
+      <div className="fill" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 function PromosTab({
   bookingId,
   promoCode,
@@ -207,6 +219,52 @@ function PromosTab({
   const [giftCode, setGiftCode] = useState("");
   const [giftAmount, setGiftAmount] = useState((balanceCents / 100).toFixed(2));
   const [giftError, setGiftError] = useState<string | null>(null);
+  // Type-ahead: two or more characters list the spendable codes containing
+  // them. Picking one (or typing a code out in full) shows its balance and
+  // fills the amount with as much of it as the booking can take.
+  const [giftHits, setGiftHits] = useState<VoucherHit[]>([]);
+  const [giftListOpen, setGiftListOpen] = useState(false);
+  const [picked, setPicked] = useState<VoucherHit | null>(null);
+  const giftQuery = giftCode.trim();
+
+  useEffect(() => {
+    if (giftQuery.length < 2 || picked?.code === giftQuery) {
+      setGiftHits([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`/api/manager/bookings/${bookingId}/voucher?q=${encodeURIComponent(giftQuery)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const hits = (d.vouchers ?? []) as VoucherHit[];
+          setGiftHits(hits);
+          const exact = hits.find((h) => h.code === giftQuery);
+          if (exact) pickVoucher(exact);
+        })
+        .catch(() => setGiftHits([]));
+    }, 200);
+    return () => clearTimeout(t);
+    // pickVoucher only reads balanceCents, which a refresh would also re-run this for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [giftQuery, bookingId, picked?.code]);
+
+  // The most the voucher can put towards this booking: what's owed, or what's
+  // left on the card if that's less. A $100 card on a $90 booking stops at $90.
+  const giftMaxCents = Math.min(balanceCents, picked?.remainingCents ?? balanceCents);
+
+  function changeGiftAmount(value: string) {
+    const cents = Math.round(Number(value) * 100);
+    setGiftAmount(Number.isFinite(cents) && cents > giftMaxCents ? (giftMaxCents / 100).toFixed(2) : value);
+  }
+
+  function pickVoucher(v: VoucherHit) {
+    setPicked(v);
+    setGiftCode(v.code);
+    setGiftHits([]);
+    setGiftListOpen(false);
+    setGiftAmount((Math.min(v.remainingCents, balanceCents) / 100).toFixed(2));
+    setGiftError(null);
+  }
   // Applying a promo refreshes the page with a new balance; keep the voucher
   // amount box in step with it (same trick as the Payments tab).
   const [filledFor, setFilledFor] = useState(balanceCents);
@@ -222,6 +280,9 @@ function PromosTab({
     if (!Number.isFinite(amountCents) || amountCents <= 0) {
       return setGiftError("Enter an amount greater than zero.");
     }
+    if (amountCents > giftMaxCents) {
+      return setGiftError(`The most this voucher can pay here is ${formatMoney(giftMaxCents)}.`);
+    }
     setBusy(true);
     setGiftError(null);
     const err = await call(`/api/manager/bookings/${bookingId}/voucher`, {
@@ -233,6 +294,7 @@ function PromosTab({
     if (err) setGiftError(err);
     else {
       setGiftCode("");
+      setPicked(null);
       router.refresh();
     }
   }
@@ -343,17 +405,47 @@ function PromosTab({
             the booking is cancelled.
           </p>
           <div className="mgr-inline-form">
-            <div className="field" style={{ minWidth: 200 }}>
+            <div className="field cust-lookup" style={{ minWidth: 260 }}>
               <label htmlFor="bk-gift-code">Voucher code</label>
               <input
                 id="bk-gift-code"
                 type="text"
                 autoComplete="off"
+                aria-autocomplete="list"
                 spellCheck={false}
                 value={giftCode}
-                onChange={(e) => setGiftCode(e.target.value.toUpperCase())}
-                placeholder="e.g. GV-ABCD-1234"
+                onChange={(e) => {
+                  setGiftCode(e.target.value.toUpperCase());
+                  setPicked(null);
+                  setGiftListOpen(true);
+                }}
+                onFocus={() => setGiftListOpen(true)}
+                onBlur={() => setTimeout(() => setGiftListOpen(false), 150)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setGiftListOpen(false);
+                  if (e.key === "Enter" && giftHits.length > 0) {
+                    e.preventDefault();
+                    pickVoucher(giftHits[0]);
+                  }
+                }}
+                placeholder="Start typing a code…"
               />
+              {giftListOpen && giftHits.length > 0 && (
+                <ul className="cust-lookup-list" role="listbox" aria-label="Gift vouchers">
+                  {giftHits.map((v) => (
+                    <li key={v.code}>
+                      <button type="button" role="option" aria-selected="false" onMouseDown={() => pickVoucher(v)}>
+                        <strong>{v.code}</strong>
+                        <span className="sub">
+                          {formatMoney(v.remainingCents)} left of {formatMoney(v.faceCents)}
+                          {v.purchaser ? ` · ${v.purchaser}` : ""}
+                        </span>
+                        <VoucherMeter v={v} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="field">
               <label htmlFor="bk-gift-amount">Amount ($)</label>
@@ -361,9 +453,10 @@ function PromosTab({
                 id="bk-gift-amount"
                 type="number"
                 min="0.01"
+                max={(giftMaxCents / 100).toFixed(2)}
                 step="0.01"
                 value={giftAmount}
-                onChange={(e) => setGiftAmount(e.target.value)}
+                onChange={(e) => changeGiftAmount(e.target.value)}
                 style={{ width: 110 }}
               />
             </div>
@@ -371,6 +464,16 @@ function PromosTab({
               {busy ? "Applying…" : "Apply voucher"}
             </button>
           </div>
+          {picked && (
+            <div style={{ marginTop: 12, maxWidth: 420 }}>
+              <p style={{ margin: "0 0 6px" }}>
+                <strong>{formatMoney(picked.remainingCents)}</strong> left on {picked.code}, of{" "}
+                {formatMoney(picked.faceCents)} originally
+                {picked.purchaser ? ` · ${picked.purchaser}` : ""}
+              </p>
+              <VoucherMeter v={picked} />
+            </div>
+          )}
         </div>
       )}
       {giftError && <p className="field-error" style={{ marginTop: 10 }}>{giftError}</p>}

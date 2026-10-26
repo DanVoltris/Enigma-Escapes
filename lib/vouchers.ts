@@ -134,6 +134,30 @@ export async function listVoucherPage(query: VoucherQuery = {}): Promise<Voucher
   return { rows, total };
 }
 
+// Codes the desk could put on a booking right now, for the type-ahead on a
+// booking's Promos tab: live, dollar-balance vouchers with money left whose
+// code contains what's been typed. Codes that START with it come first — that's
+// what someone reading a code off a card is usually after.
+export async function searchSpendableVouchers(q: string, limit = 8): Promise<Voucher[]> {
+  const safe = q.trim().replace(/[(),*]/g, "").slice(0, 40);
+  if (!safe) return [];
+  const parts = [
+    `select=${LIST_COLS}`,
+    `code=ilike.*${encodeURIComponent(safe)}*`,
+    "active=is.true",
+    "remaining_cents=gt.0",
+    "redemption_type=eq.value",
+    "order=created_at.desc",
+    "limit=50",
+  ];
+  const res = await rest(`gift_vouchers?${parts.join("&")}`);
+  if (!res.ok) throw await restError(res, "Searching gift vouchers");
+  const rows = ((await res.json()) as VoucherRow[]).map(toVoucher);
+  const upper = safe.toUpperCase();
+  const starts = (v: Voucher) => (v.code.toUpperCase().startsWith(upper) ? 0 : 1);
+  return rows.sort((a, b) => starts(a) - starts(b)).slice(0, limit);
+}
+
 // Totals across every voucher, summed in the database rather than by pulling
 // the table into memory.
 export async function voucherTotalsFromDb(): Promise<{
