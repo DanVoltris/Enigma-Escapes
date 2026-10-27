@@ -39,10 +39,10 @@ function buildCsp(nonce: string): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self'", // next/font self-hosts Source Sans 3 at build time
     "connect-src 'self' https:", // own APIs, plus analytics beacons when enabled
-    // Only GTM's no-script fallback frame. Note for later: adopting Stripe
-    // Elements (rather than the current redirect to hosted Checkout, which is a
-    // top-level navigation and needs nothing here) would need js.stripe.com.
-    "frame-src 'self' https://www.googletagmanager.com",
+    // GTM's no-script fallback frame, and Stripe's card box on a booking's
+    // Payments tab (lib/card-entry.ts) — the card number is typed into Stripe's
+    // own iframe; hooks.stripe.com is where a card's bank checks would open.
+    "frame-src 'self' https://www.googletagmanager.com https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com",
     "frame-ancestors 'self'",
     "form-action 'self'",
     "base-uri 'self'",

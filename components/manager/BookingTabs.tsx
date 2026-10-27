@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
 import SingleSelect from "@/components/SingleSelect";
 import RefundPanel from "@/components/manager/RefundPanel";
+import CardCharge from "@/components/manager/CardCharge";
 import { formatMoney, formatTimestamp } from "@/lib/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS } from "@/lib/payment-methods";
 import type { BookingPayment, Participant } from "@/lib/types";
@@ -43,6 +44,7 @@ type Props = {
   voucherCode: string | null;
   voucherPaidCents: number;
   cancelled: boolean;
+  cardKey: string | null; // Stripe publishable key when card entry is set up
 };
 
 type TabKey = "purchases" | "promos" | "customers" | "taxes" | "payments" | "questions";
@@ -121,6 +123,7 @@ export default function BookingTabs(props: Props) {
             voucherCode={props.voucherCode}
             voucherPaidCents={props.voucherPaidCents}
             cancelled={props.cancelled}
+            cardKey={props.cardKey}
           />
         )}
         {tab === "questions" && (
@@ -656,6 +659,7 @@ function PaymentsTab({
   voucherCode,
   voucherPaidCents,
   cancelled,
+  cardKey,
 }: {
   bookingId: string;
   payments: BookingPayment[];
@@ -664,6 +668,7 @@ function PaymentsTab({
   voucherCode: string | null;
   voucherPaidCents: number;
   cancelled: boolean;
+  cardKey: string | null;
 }) {
   const router = useRouter();
   const [method, setMethod] = useState<BookingPayment["method"]>("cash");
@@ -743,17 +748,24 @@ function PaymentsTab({
             </div>
           </div>
           <strong>{formatMoney(p.amountCents)}</strong>
-          <button type="button" className="mgr-linklike danger" onClick={() => remove(p.id)} disabled={busy}>
-            Remove
-          </button>
+          {/* A card Stripe charged goes back through Refund, not by deleting the record. */}
+          {!p.intentId && (
+            <button type="button" className="mgr-linklike danger" onClick={() => remove(p.id)} disabled={busy}>
+              Remove
+            </button>
+          )}
         </div>
       ))}
       {onlinePaidCents <= 0 && voucherPaidCents <= 0 && payments.length === 0 && (
         <p className="cust-empty">No payments recorded yet.</p>
       )}
 
+      {balanceCents > 0 && cardKey && (
+        <CardCharge bookingId={bookingId} balanceCents={balanceCents} publishableKey={cardKey} />
+      )}
+
       {balanceCents > 0 ? (
-        <div className="bk-add">
+        <div className="bk-add" style={cardKey ? { marginTop: 16 } : undefined}>
           <h3>Record a payment</h3>
           <p className="card-sub">
             Bookkeeping only — log money already taken in cash or on your card terminal. No card is charged here.

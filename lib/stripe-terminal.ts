@@ -94,11 +94,15 @@ export async function getIntentState(paymentIntentId: string): Promise<IntentSta
 // poll and its Cancel button: a tap that lands as staff cancel, or after the
 // poll has stopped, is still money taken, and leaving it off the booking showed
 // the balance as due and invited a second charge.
+//
+// A card typed in at the desk (lib/card-entry.ts) is recorded the same way —
+// same idempotency, same refund path — with `via` saying which it was.
 export async function recordReaderPayment(
   bookingId: string,
   paymentIntentId: string,
   amountCents: number,
-  payer: string
+  payer: string,
+  via: { note: string; how: string } = { note: "Card reader", how: "reader" }
 ): Promise<{ booking: Booking; pricing: Booking["pricing"] | null } | undefined> {
   const booking = await getBooking(bookingId);
   if (!booking) return undefined;
@@ -110,7 +114,7 @@ export async function recordReaderPayment(
     method: "card",
     amountCents,
     payer: payer.trim().slice(0, 60) || null,
-    note: "Card reader",
+    note: via.note,
     at: new Date().toISOString(),
     intentId: paymentIntentId,
   };
@@ -121,7 +125,7 @@ export async function recordReaderPayment(
     payments: [...(booking.pricing.payments ?? []), payment],
   };
   await updateBookingFields(bookingId, { pricing });
-  await logActivity("Card payment taken", `${formatMoney(payment.amountCents)} on ${booking.reference} (reader)`);
+  await logActivity("Card payment taken", `${formatMoney(payment.amountCents)} on ${booking.reference} (${via.how})`);
   return { booking, pricing };
 }
 
