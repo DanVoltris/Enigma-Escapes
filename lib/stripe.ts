@@ -24,6 +24,16 @@ export function stripeMode(): "test" | "live" | null {
   return KEY.includes("_live_") ? "live" : "test";
 }
 
+// The publishable key the card box on a booking's Payments tab needs, or null
+// when card entry isn't set up. A pk_test key against an sk_live one (or the
+// reverse) would build a card the server can't charge, so a mismatch counts as
+// not set up rather than a confusing failure at the moment of charging.
+export function cardEntryKey(): string | null {
+  const pk = process.env.STRIPE_PUBLISHABLE_KEY;
+  if (!KEY || !pk || !pk.startsWith("pk_")) return null;
+  return pk.includes("_live_") === KEY.includes("_live_") ? pk : null;
+}
+
 export function webhookConfigured(): boolean {
   return typeof WEBHOOK_SECRET === "string" && WEBHOOK_SECRET.length > 0;
 }

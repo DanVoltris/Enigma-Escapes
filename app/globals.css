@@ -917,6 +917,18 @@ a:hover {
   -webkit-appearance: none;
   margin: 0;
 }
+/* Stripe's card box (CardCharge) — an iframe inside, styled to sit like an input. */
+.card-entry-box {
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+  min-height: 46px;
+}
+.card-entry-box.StripeElement--focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
 .field input:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;

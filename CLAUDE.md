@@ -228,7 +228,10 @@ code already branches on whether the keys are present.
 2. `STRIPE_WEBHOOK_SECRET` — Developers → Webhooks → Add endpoint:
    URL `https://<your-domain>/api/stripe/webhook`, event
    `checkout.session.completed`. Copy the signing secret (`whsec_…`).
-3. Redeploy (Vercel → Deployments → Redeploy). Env vars are read at boot.
+3. `STRIPE_PUBLISHABLE_KEY` — Developers → API keys → Publishable key
+   (`pk_test_…` / `pk_live_…`, matching the secret key's mode). Only needed for
+   **Charge a card** on a booking's Payments tab; without it that box is hidden.
+4. Redeploy (Vercel → Deployments → Redeploy). Env vars are read at boot.
 
 What flips on automatically:
 
@@ -242,6 +245,17 @@ What flips on automatically:
   recorded as "refund owed".
 - **Terminal** (card reader) charging from the Today screen — see
   Settings → Payments to assign a reader per location.
+- **Charge a card** on a booking's Payments tab (with the publishable key): a
+  card read out over the phone is typed into Stripe's own card box (Stripe.js
+  iframe, `components/manager/CardCharge.tsx`), so the number never reaches our
+  server — only a PaymentMethod id does. `POST /api/manager/bookings/[id]/card`
+  re-checks the balance and charges it (`lib/card-entry.ts`), flagged MOTO so
+  banks don't demand a 3-D Secure approval nobody is there to give. Stripe must
+  enable MOTO on the account (ask support); until then the charge retries
+  without the flag and cards whose bank insists on approval are declined with
+  that reason. Recorded like a reader payment (`intentId`), so it refunds to the
+  card; Stripe-charged payments can't be "removed", only refunded. The page's
+  CSP allows `js.stripe.com` / `hooks.stripe.com` frames for it (`proxy.ts`).
 
 Verify with Stripe test cards: `4242 4242 4242 4242`, any future expiry, any
 CVC. Check Stripe Dashboard → Payments, and the Webhooks page for delivery

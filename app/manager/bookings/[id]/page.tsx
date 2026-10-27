@@ -14,7 +14,7 @@ import { maxPerBooking } from "@/lib/capacity";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import { lineCents, outstandingCents, refundGoingBackCents } from "@/lib/pricing";
 import { emailConfigured } from "@/lib/email";
-import { stripeConfigured } from "@/lib/stripe";
+import { cardEntryKey, stripeConfigured } from "@/lib/stripe";
 import { listTaxes } from "@/lib/taxes";
 import { formatDateLong, formatMoney, formatTime, formatTimestamp } from "@/lib/format";
 
@@ -277,6 +277,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               voucherPaidCents={voucherPaidCents}
               balanceCents={pricing.balanceCents}
               cancelled={booking.status === "cancelled"}
+              cardKey={cardEntryKey()}
             />
 
             <div className="cust-totals">
