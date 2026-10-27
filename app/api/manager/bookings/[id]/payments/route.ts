@@ -112,6 +112,14 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     const payments = booking.pricing.payments ?? [];
     const payment = payments.find((p) => p.id === pid);
     if (!payment) return NextResponse.json({ error: "That payment record no longer exists." }, { status: 404 });
+    // Stripe really took this money. Deleting the record would leave it taken
+    // and show it as owed again — it goes back through Refund instead.
+    if (payment.intentId) {
+      return NextResponse.json(
+        { error: "That card was charged through Stripe — use Refund to give the money back." },
+        { status: 400 }
+      );
+    }
 
     const pricing = {
       ...booking.pricing,
