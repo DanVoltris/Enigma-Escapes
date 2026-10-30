@@ -19,9 +19,9 @@ function iso(year: number, month: number, day: number): string {
 }
 
 type Props = {
-  value: string; // YYYY-MM-DD
-  min: string; // YYYY-MM-DD (inclusive)
-  max: string; // YYYY-MM-DD (inclusive)
+  value: string; // YYYY-MM-DD, or "" for nothing picked yet
+  min: string; // YYYY-MM-DD (inclusive), or "" for no limit
+  max: string; // YYYY-MM-DD (inclusive), or "" for no limit
   onChange: (date: string) => void;
 };
 
@@ -47,16 +47,19 @@ export default function DatePicker({ value, min, max, onChange }: Props) {
     if (box.left < pad) setShift((s) => s + (pad - box.left));
     else if (box.right > width - pad) setShift((s) => s - (box.right - (width - pad)));
   }, [open]);
-  const selected = parseISODate(value);
+  // A blank value opens on the earliest allowed month, or this one — parsing ""
+  // gave "Invalid Date" and a calendar titled NaN.
+  const todayISOStr = new Intl.DateTimeFormat("en-CA").format(new Date());
+  const selected = parseISODate(value || (min > todayISOStr ? min : todayISOStr));
   const [viewYear, setViewYear] = useState(selected.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected.getMonth()); // 0-indexed
 
-  const todayISOStr = new Intl.DateTimeFormat("en-CA").format(new Date());
   const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const viewKey = `${viewYear}-${pad(viewMonth + 1)}`;
-  const canPrev = viewKey > min.slice(0, 7);
-  const canNext = viewKey < max.slice(0, 7);
+  // A blank limit is no limit. Compared as strings, "" made max shut every day.
+  const canPrev = !min || viewKey > min.slice(0, 7);
+  const canNext = !max || viewKey < max.slice(0, 7);
 
   function openCalendar() {
     // Jump the view to the currently selected month each time it opens.
@@ -102,7 +105,7 @@ export default function DatePicker({ value, min, max, onChange }: Props) {
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="16" y1="2" x2="16" y2="6" />
         </svg>
-        <span>{formatDateLong(value)}</span>
+        <span>{value ? formatDateLong(value) : "Pick a date"}</span>
       </button>
 
       {open && (
@@ -149,7 +152,7 @@ export default function DatePicker({ value, min, max, onChange }: Props) {
             {cells.map((day, i) => {
               if (day === null) return <span key={`b${i}`} className="calendar-cell empty" />;
               const dayISO = iso(viewYear, viewMonth, day);
-              const disabled = dayISO < min || dayISO > max;
+              const disabled = (!!min && dayISO < min) || (!!max && dayISO > max);
               const isSelected = dayISO === value;
               const isToday = dayISO === todayISOStr;
               return (

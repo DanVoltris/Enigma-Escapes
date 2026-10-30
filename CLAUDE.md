@@ -48,7 +48,10 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 ## How it works
 
 - Experiences (rooms, prices, daily times, colors) live in the `experiences` table, managed
-  from `/manager/experiences`. Promo codes live in `promo_codes`, managed from
+  from `/manager/experiences`. A room's usual times are permanent; **temporary times** (`time_periods`,
+  migration 0017) replace them across a date range — holiday hours, a summer timetable — and lapse
+  by themselves. A single date's own list (`date_times`) still beats them; out of season beats
+  both (`startTimesFor`, `npm run test:schedule`). Promo codes live in `promo_codes`, managed from
   `/manager/promos`. Both editable without deploys. A promo code can be marked
   **staff only** (`staff_only` column): it then works on walk-ins taken at the desk
   and is invisible to the website. Supabase needs: `alter table promo_codes add

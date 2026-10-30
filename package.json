@@ -14,6 +14,7 @@
     "test:season": "node --test tests/season.test.mjs",
     "test:capacity": "node --import ./tests/resolve-ts.mjs --test tests/capacity.test.mjs",
     "test:blocks": "node --import ./tests/resolve-ts.mjs --test tests/block-rules.test.mjs",
+    "test:schedule": "node --import ./tests/resolve-ts.mjs --test tests/temporary-times.test.mjs",
     "test:voucher": "node --import ./tests/resolve-ts.mjs --test tests/voucher-minimum.test.mjs",
     "test:unsubscribes": "node --test tests/campaign-optouts.test.mjs"
   },
