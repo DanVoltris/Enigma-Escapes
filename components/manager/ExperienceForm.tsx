@@ -385,8 +385,6 @@ export default function ExperienceForm({
         {scheduleKind === "times" && <TimesEditor value={times} onChange={setTimes} />}
       </div>
 
-      <DatedTimes value={periods} onChange={setPeriods} />
-
       <div className="field">
         <label>Runs between these dates</label>
         <div className="field-row" style={{ maxWidth: 460 }}>
@@ -412,6 +410,8 @@ export default function ExperienceForm({
           )}
         </p>
       </div>
+
+      <DatedTimes value={periods} onChange={setPeriods} />
 
       <h3>Poster</h3>
       <p style={{ color: "var(--text-secondary)", marginBottom: 14, marginTop: -8 }}>
