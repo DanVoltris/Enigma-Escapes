@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { logActivity } from "@/lib/db";
 import { saveVoucherSettings, setVoucherActive, type VoucherSettings } from "@/lib/vouchers";
-import { ALL_DAYS } from "@/lib/voucher-types";
 
 export const dynamic = "force-dynamic";
 
@@ -58,12 +57,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ code
   const timeOption = o.timeOption === "range" ? "range" : "any";
   const itemsScope = o.itemsScope === "selected" ? "selected" : "all";
 
-  const days = Array.isArray(o.daysOfWeek)
-    ? [...new Set(o.daysOfWeek.filter((d): d is number => typeof d === "number" && ALL_DAYS.includes(d)))].sort()
-    : ALL_DAYS;
-  if (days.length === 0) {
-    return NextResponse.json({ error: "Pick at least one day of the week." }, { status: 400 });
-  }
   const itemIds = Array.isArray(o.itemIds) ? o.itemIds.filter((i): i is string => typeof i === "string") : [];
   if (itemsScope === "selected" && itemIds.length === 0) {
     return NextResponse.json({ error: "Choose at least one experience, or apply to all items." }, { status: 400 });
@@ -93,7 +86,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ code
     timeOption,
     timeFrom,
     timeTo,
-    daysOfWeek: days,
     exclusionDates: Array.isArray(o.exclusionDates)
       ? [...new Set(o.exclusionDates.map(date).filter((d): d is string => d !== null))].sort()
       : [],
