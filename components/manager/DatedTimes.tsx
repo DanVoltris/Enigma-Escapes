@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import DatePicker from "@/components/DatePicker";
 import TimesEditor from "@/components/manager/TimesEditor";
 import { formatDateLong, formatTime, todayISO } from "@/lib/format";
+import { periodsProblem } from "@/lib/time-periods";
 import type { TimePeriod } from "@/lib/types";
 
-// The room's usual times are permanent; these are for a stretch of dates —
-// holiday hours, a summer timetable — and end by themselves. Saved with the
-// rest of the room.
-export default function TemporaryTimes({
+// The room's usual times are permanent; these are for some dates — one day or a
+// stretch, holiday hours, a group wanting a different hour — and end by
+// themselves. One day inside a longer stretch wins there. Saved with the rest of
+// the room; the Calendar's "Times for one day" writes to the same list.
+export default function DatedTimes({
   value,
   onChange,
 }: {
@@ -36,11 +39,12 @@ export default function TemporaryTimes({
     if (to < from) return setError("The last day is before the first.");
     if (times.length === 0) return setError("Add at least one start time.");
     const others = value.filter((_, i) => i !== editing);
-    const clash = others.find((p) => from <= p.to && to >= p.from);
-    if (clash) {
-      return setError(`That overlaps ${formatDateLong(clash.from)} – ${formatDateLong(clash.to)}.`);
-    }
-    onChange([...others, { from, to, times: [...times].sort() }].sort((a, b) => (a.from < b.from ? -1 : 1)));
+    const next = [...others, { from, to, times: [...times].sort() }].sort((a, b) =>
+      a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? 1 : -1
+    );
+    const problem = periodsProblem(next);
+    if (problem) return setError(problem);
+    onChange(next);
     setEditing(null);
   }
 
@@ -48,10 +52,12 @@ export default function TemporaryTimes({
 
   return (
     <div className="field">
-      <label>Temporary times</label>
+      <label>Different times for some dates</label>
       <p className="field-hint" style={{ marginTop: 0 }}>
-        Between two dates, run these times every day instead of the usual ones — holiday hours, a summer timetable.
-        Afterwards the room goes back to its usual times by itself.
+        For one day or a stretch of dates, run these times instead of the usual ones — a group wanting a different
+        hour, holiday hours. Afterwards the room goes back to its usual times by itself. A single day inside a longer
+        stretch wins on that day. To close sessions for a while instead, use{" "}
+        <Link href="/manager/blocks">Blocked hours</Link>.
       </p>
 
       {value.length > 0 && (
@@ -61,7 +67,7 @@ export default function TemporaryTimes({
               <div>
                 <div>
                   <strong>
-                    {formatDateLong(p.from)} – {formatDateLong(p.to)}
+                    {p.from === p.to ? formatDateLong(p.from) : `${formatDateLong(p.from)} – ${formatDateLong(p.to)}`}
                   </strong>
                   {p.to < today && <span className="sub"> · ended</span>}
                 </div>
@@ -86,17 +92,18 @@ export default function TemporaryTimes({
 
       {editing === null ? (
         <button type="button" className="btn btn-outline" onClick={() => open("new")}>
-          + Add temporary times
+          + Add different times
         </button>
       ) : (
         <div style={{ border: "1px solid var(--border)", padding: 16 }}>
           <div className="field-row" style={{ maxWidth: 460 }}>
             <div className="field">
               <span className="field-hint">First day</span>
-              <DatePicker value={from} min="" max={to} onChange={setFrom} />
+              {/* Last day follows the first until it's set: one day is the common case. */}
+              <DatePicker value={from} min="" max="" onChange={(d) => { setFrom(d); if (!to || to < d) setTo(d); }} />
             </div>
             <div className="field">
-              <span className="field-hint">Last day</span>
+              <span className="field-hint">Last day (same day for just one)</span>
               <DatePicker value={to} min={from} max="" onChange={setTo} />
             </div>
           </div>

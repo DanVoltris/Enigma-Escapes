@@ -48,10 +48,13 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 ## How it works
 
 - Experiences (rooms, prices, daily times, colors) live in the `experiences` table, managed
-  from `/manager/experiences`. A room's usual times are permanent; **temporary times** (`time_periods`,
-  migration 0017) replace them across a date range — holiday hours, a summer timetable — and lapse
-  by themselves. A single date's own list (`date_times`) still beats them; out of season beats
-  both (`startTimesFor`, `npm run test:schedule`). Promo codes live in `promo_codes`, managed from
+  from `/manager/experiences`. A room's usual times are permanent; **different times for some
+  dates** (`time_periods`, migrations 0017–0018, `lib/time-periods.ts`) replace them for one day
+  or a stretch and lapse by themselves — a day inside a stretch wins there. The room page and the
+  Calendar's "Times for one day" edit the same list (the older `date_times` is still read but no
+  longer written). A change that would drop a booked session is refused
+  (`lib/schedule-guard.ts`). Closing sessions with a reason is Blocked hours' job, not this.
+  Out of season beats all of it (`startTimesFor`, `npm run test:schedule`). Promo codes live in `promo_codes`, managed from
   `/manager/promos`. Both editable without deploys. A promo code can be marked
   **staff only** (`staff_only` column): it then works on walk-ins taken at the desk
   and is invisible to the website. Supabase needs: `alter table promo_codes add

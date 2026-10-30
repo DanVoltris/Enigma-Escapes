@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { deleteExperience, experienceUsage, getExperience, updateExperience } from "@/lib/experiences";
+import { strandedByPeriods, strandedMessage } from "@/lib/schedule-guard";
 import { parseExperienceInput } from "@/lib/experience-validation";
 import { typedNameMatches } from "@/lib/text-match";
 import { logActivity } from "@/lib/db";
@@ -48,6 +49,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     // that isn't.
     if (!canSeeLocation(guard.staff, existing.location) || !canSeeLocation(guard.staff, parsed.location)) {
       return NextResponse.json({ error: "That room is at a location your account doesn't cover." }, { status: 403 });
+    }
+    if (parsed.timePeriods !== undefined) {
+      const stranded = await strandedByPeriods(existing, parsed.timePeriods);
+      if (stranded.length > 0) return NextResponse.json({ error: strandedMessage(stranded) }, { status: 409 });
     }
     await updateExperience(id, parsed);
     await logActivity("Edited experience", `${parsed.name}${parsed.active ? "" : " (hidden)"}`);
