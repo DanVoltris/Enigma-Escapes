@@ -10,7 +10,7 @@ import TimingTab from "@/components/manager/reports/TimingTab";
 import { AreaChart, Donut, type SeriesPoint, type Slice } from "@/components/manager/charts";
 import { attributionBreakdown } from "@/lib/attribution";
 import { channelByWeek, optIn, promoLift, rate } from "@/lib/behaviour";
-import { listBlocks } from "@/lib/blocks";
+import { listBlockRules, listBlocks, ruleKeysForDays } from "@/lib/blocks";
 import { listBookings, listBookingsInWindow } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { locationHoursMap } from "@/lib/hours";
@@ -911,13 +911,17 @@ async function CapacityTab({
   const days = eachDay(from, end);
   if (days.length > 190) return <p className="mgr-empty">Narrow the range to 190 days or fewer to compute this.</p>;
 
-  const [experiences, hoursMap, blocks] = await Promise.all([
+  const [experiences, hoursMap, blocks, rules] = await Promise.all([
     listExperiences({ activeOnly: true }),
     locationHoursMap(),
     listBlocks(from),
+    listBlockRules().catch(() => []),
   ]);
   // A slot taken out of service was never on sale — it shouldn't count against you.
-  const blocked = new Set(blocks.filter((b) => b.date <= end).map((b) => `${b.roomId}|${b.date}|${b.time}`));
+  const blocked = new Set([
+    ...blocks.filter((b) => b.date <= end).map((b) => `${b.roomId}|${b.date}|${b.time}`),
+    ...ruleKeysForDays(rules, days),
+  ]);
 
   // What actually sold, per session.
   type Sold = { guests: number; revenueCents: number };

@@ -31,6 +31,7 @@ const PK: Record<string, string> = {
   customers: "email", // manually added customers; re-adding an email updates it
   booking_requests: "id", // sub-4h booking requests awaiting manager approval
   slot_blocks: "id", // manager-blocked slots (maintenance, private events)
+  slot_block_rules: "id", // repeating blocks — weekdays and times, open-ended or to a date
   staff_accounts: "id", // portal logins
   staff_sessions: "token_hash", // active staff sessions (revocable)
   gift_vouchers: "code", // prepaid dollar balances
