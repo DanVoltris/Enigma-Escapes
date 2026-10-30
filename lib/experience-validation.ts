@@ -1,6 +1,7 @@
 import { MIN_PARTY_SIZE } from "./pricing";
 import { toMinutes, WEEKDAY_NAMES } from "./schedule";
 import { publicImageBase } from "./storage";
+import { periodsProblem } from "./time-periods";
 import type { Experience, ScheduleMode, TimePeriod, Windows } from "./types";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -14,7 +15,8 @@ export type ExperienceInput = Omit<Experience, "id" | "sort" | "dateTimes"> & {
   dateTimes?: Record<string, string[]>;
 };
 
-const MAX_PERIODS = 20;
+// Generous: single days count too, and past ones linger until someone tidies up.
+const MAX_PERIODS = 200;
 
 export function slugify(name: string): string {
   return name
@@ -167,31 +169,27 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     }
   }
 
-  // Temporary times. Absent leaves what's stored alone — the form only sends them
-  // when there are some to save or some to clear.
+  // Different times for some dates. Absent leaves what's stored alone — the
+  // form only sends them when there are some to save or some to clear.
   let timePeriods: TimePeriod[] | undefined;
   if (d.timePeriods !== undefined) {
-    if (!Array.isArray(d.timePeriods)) return { error: "Temporary times must be a list." };
-    if (d.timePeriods.length > MAX_PERIODS) return { error: `At most ${MAX_PERIODS} sets of temporary times.` };
+    if (!Array.isArray(d.timePeriods)) return { error: "Different times must be a list." };
+    if (d.timePeriods.length > MAX_PERIODS) return { error: `At most ${MAX_PERIODS} sets of different times.` };
     timePeriods = [];
     for (const raw of d.timePeriods as unknown[]) {
       const p = (raw ?? {}) as Record<string, unknown>;
       const from = typeof p.from === "string" && DATE_RE.test(p.from) ? p.from : null;
       const to = typeof p.to === "string" && DATE_RE.test(p.to) ? p.to : null;
-      if (!from || !to) return { error: "Temporary times need a first and last date." };
-      if (to < from) return { error: "Temporary times end before they start." };
+      if (!from || !to) return { error: "Different times need a first and last day." };
+      if (to < from) return { error: `Different times from ${from}: the last day is before the first.` };
       const list = Array.isArray(p.times) ? p.times : [];
       const clean = [...new Set(list.filter((t): t is string => typeof t === "string" && TIME_RE.test(t)))].sort();
-      if (clean.length === 0) return { error: `Temporary times from ${from}: add at least one start time.` };
+      if (clean.length === 0) return { error: `Different times from ${from}: add at least one start time.` };
       timePeriods.push({ from, to, times: clean });
     }
-    timePeriods.sort((a, b) => (a.from < b.from ? -1 : 1));
-    // Overlaps would leave a date with two timetables and no way to tell which wins.
-    for (let i = 1; i < timePeriods.length; i++) {
-      if (timePeriods[i].from <= timePeriods[i - 1].to) {
-        return { error: `Temporary times overlap: ${timePeriods[i - 1].from}–${timePeriods[i - 1].to} and ${timePeriods[i].from}–${timePeriods[i].to}.` };
-      }
-    }
+    timePeriods.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? 1 : -1));
+    const problem = periodsProblem(timePeriods);
+    if (problem) return { error: problem };
   }
 
   return {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import ImageUpload from "@/components/manager/ImageUpload";
 import LocationPicker from "@/components/manager/LocationPicker";
-import TemporaryTimes from "@/components/manager/TemporaryTimes";
+import DatedTimes from "@/components/manager/DatedTimes";
 import TimesEditor from "@/components/manager/TimesEditor";
 import WeekEditor, { type WeekValue } from "@/components/manager/WeekEditor";
 import type { DayHours, Experience, ScheduleMode, TimePeriod, Windows } from "@/lib/types";
@@ -161,7 +161,8 @@ export default function ExperienceForm({
         availableFrom: availableFrom || null,
         availableTo: availableTo || null,
         // Only sent when there's something to save or clear, so rooms without
-        // any keep saving on a venue that hasn't had migration 0017.
+        // any keep saving on a venue that hasn't had migration 0017. The server
+        // refuses a change that would drop a booked session.
         ...(periods.length > 0 || (initial?.timePeriods?.length ?? 0) > 0 ? { timePeriods: periods } : {}),
       };
       const res = await fetch(initial ? `/api/manager/experiences/${initial.id}` : "/api/manager/experiences", {
@@ -384,7 +385,7 @@ export default function ExperienceForm({
         {scheduleKind === "times" && <TimesEditor value={times} onChange={setTimes} />}
       </div>
 
-      <TemporaryTimes value={periods} onChange={setPeriods} />
+      <DatedTimes value={periods} onChange={setPeriods} />
 
       <div className="field">
         <label>Runs between these dates</label>

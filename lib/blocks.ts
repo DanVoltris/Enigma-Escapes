@@ -208,16 +208,18 @@ export function ruleKeysForDays(rules: BlockRule[], days: string[]): string[] {
   }));
 }
 
-// The start times a room normally runs on each weekday — what a rule can pick
-// from. Two weeks of its real schedule, with one-off date lists left out (a
-// short-staffed Tuesday isn't what every Tuesday looks like).
+// The start times a room runs on each weekday — what a rule can pick from. Its
+// usual times, plus whatever the next two weeks actually run (a stretch of
+// different times in force now is worth blocking too).
 export function weeklyStartTimes(exp: Experience, hours: LocationHours | null, from: string): Record<number, string[]> {
-  const usual = { ...exp, dateTimes: {} };
+  const usual = { ...exp, dateTimes: {}, timePeriods: [] };
   const week: Record<number, Set<string>> = {};
   for (let i = 0; i < 14; i++) {
     const date = addDaysISO(from, i);
     const dow = weekdayOf(date);
-    for (const t of startTimesFor(usual, date, hours)) (week[dow] ??= new Set()).add(t);
+    for (const t of [...startTimesFor(usual, date, hours), ...startTimesFor(exp, date, hours)]) {
+      (week[dow] ??= new Set()).add(t);
+    }
   }
   return Object.fromEntries(Object.entries(week).map(([d, set]) => [Number(d), [...set].sort()]));
 }

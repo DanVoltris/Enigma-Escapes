@@ -1,5 +1,6 @@
 import { parseISODate } from "./format";
 import { inSeason } from "./season";
+import { periodFor } from "./time-periods";
 export { inSeason };
 import type { DayHours, DayWindow, Experience, LocationHours } from "./types";
 
@@ -44,8 +45,8 @@ export function startTimesFor(exp: Experience, date: string, hours?: LocationHou
   // that day's usual times plus the extra one.
   const forDate = exp.dateTimes?.[date];
   if (forDate && forDate.length > 0) return [...forDate].sort();
-  // Temporary times stand in for the usual schedule across a stretch of dates.
-  const period = exp.timePeriods?.find((p) => date >= p.from && date <= p.to);
+  // Different times for some dates stand in for the usual schedule.
+  const period = periodFor(exp.timePeriods, date);
   if (period && period.times.length > 0) return [...period.times].sort();
 
   if (exp.scheduleMode === "times") {

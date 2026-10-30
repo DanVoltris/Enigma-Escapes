@@ -44,7 +44,9 @@ export default async function BlocksPage() {
       <h1 className="mgr-page-title">Blocked hours</h1>
       <p className="mgr-page-sub">
         Take sessions out of service — maintenance, private events, short staffing. Blocked slots disappear from the
-        booking site and can&apos;t be booked by customers or staff until you unblock them.
+        booking site and can&apos;t be booked by customers or staff until you unblock them. To change what a room
+        normally runs, or run different times on some dates, edit the room in{" "}
+        <Link href="/manager/experiences">Experiences</Link>.
       </p>
       <BlocksManager initialBlocks={scopedBlocks} roomNames={roomNames} />
       <BlockRules rooms={rooms} rules={liveRules} roomNames={roomNames} />
