@@ -391,23 +391,27 @@ export default function ExperienceForm({
           <div className="field">
             <span className="field-hint">First day</span>
             <DatePicker value={availableFrom} min="" max={availableTo} onChange={setAvailableFrom} />
+            {/* Each end undoes on its own: a date picked by mistake was otherwise
+                only removable together with the other one. */}
+            {availableFrom && (
+              <button type="button" className="link-button" style={{ marginTop: 6 }} onClick={() => setAvailableFrom("")}>
+                Clear — no first day
+              </button>
+            )}
           </div>
           <div className="field">
             <span className="field-hint">Last day</span>
             <DatePicker value={availableTo} min={availableFrom} max="" onChange={setAvailableTo} />
+            {availableTo && (
+              <button type="button" className="link-button" style={{ marginTop: 6 }} onClick={() => setAvailableTo("")}>
+                Clear — no end date
+              </button>
+            )}
           </div>
         </div>
         <p className="field-hint">
           For a room that only runs part of the year — the Christmas rooms, say. Outside these dates it isn&apos;t
           shown or bookable, and it takes no space on the calendar. Leave both blank for a room that runs all year.
-          {(availableFrom || availableTo) && (
-            <>
-              {" "}
-              <button type="button" className="link-button" onClick={() => { setAvailableFrom(""); setAvailableTo(""); }}>
-                Clear both
-              </button>
-            </>
-          )}
         </p>
       </div>
 
