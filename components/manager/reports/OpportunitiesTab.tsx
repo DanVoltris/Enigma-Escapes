@@ -1,4 +1,4 @@
-import { listBlocks } from "@/lib/blocks";
+import { listBlockRules, listBlocks, ruleKeysForDays } from "@/lib/blocks";
 import { listBookings, listBookingsInWindow } from "@/lib/db";
 import { listExperiences } from "@/lib/experiences";
 import { addDaysISO, formatMoney } from "@/lib/format";
@@ -27,10 +27,11 @@ export default async function OpportunitiesTab({
   const days: string[] = [];
   for (let d = from; d <= end && days.length < 400; d = addDaysISO(d, 1)) days.push(d);
 
-  const [allExperiences, hoursMap, blocks, loaded] = await Promise.all([
+  const [allExperiences, hoursMap, blocks, rules, loaded] = await Promise.all([
     listExperiences({ activeOnly: true }),
     locationHoursMap(),
     listBlocks(from),
+    listBlockRules().catch(() => []),
     listBookingsInWindow(addDaysISO(from, -1), addDaysISO(end, 1)).then((r) => r ?? listBookings()),
   ]);
   const experiences = scope ? allExperiences.filter((e) => scope.includes(e.location)) : allExperiences;
@@ -44,7 +45,10 @@ export default async function OpportunitiesTab({
     experiences,
     days,
     (exp, date) => startTimesFor(exp, date, hoursMap.get(exp.location) ?? null),
-    new Set(blocks.filter((b) => b.date <= end).map((b) => `${b.roomId}|${b.date}|${b.time}`))
+    new Set([
+      ...blocks.filter((b) => b.date <= end).map((b) => `${b.roomId}|${b.date}|${b.time}`),
+      ...ruleKeysForDays(rules, days),
+    ])
   );
   const o = opportunities(bookings, experiences, published, from, end, today);
   if (o.publishedSlots === 0) return <p className="mgr-empty">No sessions were published in this window.</p>;

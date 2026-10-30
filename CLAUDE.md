@@ -146,6 +146,11 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 - Blocked hours: managers take sessions out of service on `/manager/blocks` (linked from
   Calendar) — per-slot rows in `slot_blocks`. Blocked slots are hidden from availability (site
   + partner feed) and refused by create-booking (walk-ins included) and the requests API.
+  **Repeating blocks** on the same page close chosen rooms' start times on chosen weekdays, from a
+  date until a date or until removed (`slot_block_rules`, migration 0016) — "no Monday mornings
+  until we've hired" without blocking a date at a time. Never expanded into `slot_blocks`:
+  `blockedKeysForDate` reads both, so every booking path, the calendar and the reports see them,
+  and removing a rule reopens every session at once. `npm run test:blocks`.
 - Self-service changes: the confirmation text and page link to `/booking/<id>` (the booking's
   UUID is the secret), where customers reschedule or cancel until
   `SELF_SERVICE_CUTOFF_MINUTES` (24h, lib/manage-booking.ts) before the session — enforced
