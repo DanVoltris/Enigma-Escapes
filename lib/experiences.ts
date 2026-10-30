@@ -3,7 +3,7 @@ import { addDaysISO, todayISO } from "./format";
 import { rest, restError } from "./supabase";
 import type { Experience } from "./types";
 
-import type { ScheduleMode, Windows } from "./types";
+import type { ScheduleMode, TimePeriod, Windows } from "./types";
 
 type ExperienceRow = {
   id: string;
@@ -24,6 +24,7 @@ type ExperienceRow = {
   windows: Windows;
   // Added later, so rows written before the column existed read as undefined.
   date_times?: Record<string, string[]> | null;
+  time_periods?: TimePeriod[] | null; // migrations/0017
   badge_bg: string;
   badge_fg: string;
   image_url: string | null;
@@ -52,6 +53,7 @@ function toExperience(row: ExperienceRow): Experience {
     intervalMinutes: row.interval_minutes ?? 75,
     windows: row.windows ?? {},
     dateTimes: row.date_times ?? {},
+    timePeriods: row.time_periods ?? [],
     badgeBg: row.badge_bg,
     badgeFg: row.badge_fg,
     imageUrl: row.image_url ?? null,
@@ -81,6 +83,9 @@ function toRow(e: Omit<Experience, "id"> & { id?: string }): Omit<ExperienceRow,
     interval_minutes: e.intervalMinutes,
     windows: e.windows,
     date_times: e.dateTimes ?? {},
+    // Only written when there are some, so a venue that hasn't had 0017 yet can
+    // still create rooms.
+    ...(e.timePeriods?.length ? { time_periods: e.timePeriods } : {}),
     badge_bg: e.badgeBg,
     badge_fg: e.badgeFg,
     image_url: e.imageUrl,
@@ -141,6 +146,7 @@ export async function updateExperience(id: string, patch: Partial<Experience>): 
   if (patch.intervalMinutes !== undefined) row.interval_minutes = patch.intervalMinutes;
   if (patch.windows !== undefined) row.windows = patch.windows;
   if (patch.dateTimes !== undefined) row.date_times = patch.dateTimes;
+  if (patch.timePeriods !== undefined) row.time_periods = patch.timePeriods;
   if (patch.badgeBg !== undefined) row.badge_bg = patch.badgeBg;
   if (patch.badgeFg !== undefined) row.badge_fg = patch.badgeFg;
   if (patch.imageUrl !== undefined) row.image_url = patch.imageUrl;

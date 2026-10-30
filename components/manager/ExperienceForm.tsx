@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import ImageUpload from "@/components/manager/ImageUpload";
 import LocationPicker from "@/components/manager/LocationPicker";
+import DatedTimes from "@/components/manager/DatedTimes";
 import TimesEditor from "@/components/manager/TimesEditor";
 import WeekEditor, { type WeekValue } from "@/components/manager/WeekEditor";
-import type { DayHours, Experience, ScheduleMode, Windows } from "@/lib/types";
+import type { DayHours, Experience, ScheduleMode, TimePeriod, Windows } from "@/lib/types";
 
 // Preset badge colour pairs (background / text) so managers pick from swatches
 // that already meet contrast, instead of a free-form OS colour picker.
@@ -98,6 +99,7 @@ export default function ExperienceForm({
   // both ends is every other room: on sale whenever it is switched on.
   const [availableFrom, setAvailableFrom] = useState(initial?.availableFrom ?? "");
   const [availableTo, setAvailableTo] = useState(initial?.availableTo ?? "");
+  const [periods, setPeriods] = useState<TimePeriod[]>(initial?.timePeriods ?? []);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -158,6 +160,10 @@ export default function ExperienceForm({
         active,
         availableFrom: availableFrom || null,
         availableTo: availableTo || null,
+        // Only sent when there's something to save or clear, so rooms without
+        // any keep saving on a venue that hasn't had migration 0017. The server
+        // refuses a change that would drop a booked session.
+        ...(periods.length > 0 || (initial?.timePeriods?.length ?? 0) > 0 ? { timePeriods: periods } : {}),
       };
       const res = await fetch(initial ? `/api/manager/experiences/${initial.id}` : "/api/manager/experiences", {
         method: initial ? "PATCH" : "POST",
@@ -379,6 +385,38 @@ export default function ExperienceForm({
         {scheduleKind === "times" && <TimesEditor value={times} onChange={setTimes} />}
       </div>
 
+      <div className="field">
+        <label>Runs between these dates</label>
+        <div className="field-row" style={{ maxWidth: 460 }}>
+          <div className="field">
+            <span className="field-hint">First day</span>
+            <DatePicker value={availableFrom} min="" max={availableTo} onChange={setAvailableFrom} />
+            {/* Each end undoes on its own: a date picked by mistake was otherwise
+                only removable together with the other one. */}
+            {availableFrom && (
+              <button type="button" className="link-button" style={{ marginTop: 6 }} onClick={() => setAvailableFrom("")}>
+                Clear — no first day
+              </button>
+            )}
+          </div>
+          <div className="field">
+            <span className="field-hint">Last day</span>
+            <DatePicker value={availableTo} min={availableFrom} max="" onChange={setAvailableTo} />
+            {availableTo && (
+              <button type="button" className="link-button" style={{ marginTop: 6 }} onClick={() => setAvailableTo("")}>
+                Clear — no end date
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="field-hint">
+          For a room that only runs part of the year — the Christmas rooms, say. Outside these dates it isn&apos;t
+          shown or bookable, and it takes no space on the calendar. Leave both blank for a room that runs all year.
+        </p>
+      </div>
+
+      <DatedTimes value={periods} onChange={setPeriods} />
+
       <h3>Poster</h3>
       <p style={{ color: "var(--text-secondary)", marginBottom: 14, marginTop: -8 }}>
         Choose how this experience looks on the booking site — a colour block or an uploaded image.
@@ -419,32 +457,6 @@ export default function ExperienceForm({
           <ImageUpload value={imageUrl} onChange={setImageUrl} />
         </div>
       )}
-
-      <div className="field">
-        <label>Runs between these dates</label>
-        <div className="field-row" style={{ maxWidth: 460 }}>
-          <div className="field">
-            <span className="field-hint">First day</span>
-            <DatePicker value={availableFrom} min="" max={availableTo} onChange={setAvailableFrom} />
-          </div>
-          <div className="field">
-            <span className="field-hint">Last day</span>
-            <DatePicker value={availableTo} min={availableFrom} max="" onChange={setAvailableTo} />
-          </div>
-        </div>
-        <p className="field-hint">
-          For a room that only runs part of the year — the Christmas rooms, say. Outside these dates it isn&apos;t
-          shown or bookable, and it takes no space on the calendar. Leave both blank for a room that runs all year.
-          {(availableFrom || availableTo) && (
-            <>
-              {" "}
-              <button type="button" className="link-button" onClick={() => { setAvailableFrom(""); setAvailableTo(""); }}>
-                Clear both
-              </button>
-            </>
-          )}
-        </p>
-      </div>
 
       <label className="checkbox-row">
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />

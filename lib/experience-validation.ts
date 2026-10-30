@@ -1,7 +1,8 @@
 import { MIN_PARTY_SIZE } from "./pricing";
 import { toMinutes, WEEKDAY_NAMES } from "./schedule";
 import { publicImageBase } from "./storage";
-import type { Experience, ScheduleMode, Windows } from "./types";
+import { periodsProblem } from "./time-periods";
+import type { Experience, ScheduleMode, TimePeriod, Windows } from "./types";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
@@ -13,6 +14,9 @@ export type ExperienceInput = Omit<Experience, "id" | "sort" | "dateTimes"> & {
   sort?: number;
   dateTimes?: Record<string, string[]>;
 };
+
+// Generous: single days count too, and past ones linger until someone tidies up.
+const MAX_PERIODS = 200;
 
 export function slugify(name: string): string {
   return name
@@ -165,6 +169,29 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     }
   }
 
+  // Different times for some dates. Absent leaves what's stored alone — the
+  // form only sends them when there are some to save or some to clear.
+  let timePeriods: TimePeriod[] | undefined;
+  if (d.timePeriods !== undefined) {
+    if (!Array.isArray(d.timePeriods)) return { error: "Different times must be a list." };
+    if (d.timePeriods.length > MAX_PERIODS) return { error: `At most ${MAX_PERIODS} sets of different times.` };
+    timePeriods = [];
+    for (const raw of d.timePeriods as unknown[]) {
+      const p = (raw ?? {}) as Record<string, unknown>;
+      const from = typeof p.from === "string" && DATE_RE.test(p.from) ? p.from : null;
+      const to = typeof p.to === "string" && DATE_RE.test(p.to) ? p.to : null;
+      if (!from || !to) return { error: "Different times need a first and last day." };
+      if (to < from) return { error: `Different times from ${from}: the last day is before the first.` };
+      const list = Array.isArray(p.times) ? p.times : [];
+      const clean = [...new Set(list.filter((t): t is string => typeof t === "string" && TIME_RE.test(t)))].sort();
+      if (clean.length === 0) return { error: `Different times from ${from}: add at least one start time.` };
+      timePeriods.push({ from, to, times: clean });
+    }
+    timePeriods.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? 1 : -1));
+    const problem = periodsProblem(timePeriods);
+    if (problem) return { error: problem };
+  }
+
   return {
     name,
     location,
@@ -182,6 +209,7 @@ export function parseExperienceInput(raw: unknown): ExperienceInput | { error: s
     intervalMinutes,
     windows,
     dateTimes,
+    timePeriods,
     availableFrom: availableFrom as string | null,
     availableTo: availableTo as string | null,
     badgeBg,

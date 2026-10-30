@@ -207,7 +207,7 @@ export default function BlocksManager({
                             ? existing
                               ? `Blocked${existing.reason ? ` — ${existing.reason}` : ""}` +
                                 `${existing.blockedBy ? ` (${existing.blockedBy})` : ""}. Click to unblock.`
-                              : "Blocked"
+                              : "Blocked by a repeating block — remove it under Repeating blocks below."
                             : t.booked
                               ? "Has bookings — blocking hides it from new customers"
                               : undefined

@@ -39,6 +39,7 @@ const SEED = {
   reward_codes: (k) => [`insert into reward_codes (code, earned_booking, customer_phone, valid_until, tenant_id) values ($1, gen_random_uuid(), '2045550100', now() + interval '30 days', $2)`, [`RW${k}`]],
   booking_requests: (k) => [`insert into booking_requests (room_id, room_name, location, date, time, quantity, first_name, phone, token, tenant_id) values ('r', 'R', 'L', '2026-10-01', '18:00', 4, $1, '2045550100', $1, $2)`, [`req-${k}`]],
   slot_blocks: (k) => [`insert into slot_blocks (room_id, date, time, tenant_id) values ($1, '2030-01-01', '10:00', $2)`, [`room-${k}`]],
+  slot_block_rules: (k) => [`insert into slot_block_rules (room_id, weekdays, times, date_from, reason, tenant_id) values ($1, '{1}', '{10:00}', '2030-01-01', 'Short-staffed', $2)`, [`room-${k}`]],
   taxes: (k) => [`insert into taxes (id, name, percent, tenant_id) values ($1, 'GST', 5, $2)`, [`tax-${k}`]],
   location_hours: (k) => [`insert into location_hours (location, hours, tenant_id) values ($1, '{}', $2)`, [`Site ${k}`]],
   settings: (k) => [`insert into settings (key, value, tenant_id) values ($1, '{}', $2)`, [`setting_${k}`]],

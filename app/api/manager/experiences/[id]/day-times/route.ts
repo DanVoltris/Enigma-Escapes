@@ -5,6 +5,7 @@ import { getExperience, updateExperience } from "@/lib/experiences";
 import { formatDateLong, formatTime, isValidISODate } from "@/lib/format";
 import { getLocationHours } from "@/lib/hours";
 import { startTimesFor } from "@/lib/schedule";
+import { withDay } from "@/lib/time-periods";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +21,20 @@ async function readDay(id: string, date: string) {
   if (!exp) return null;
   const hours = exp.scheduleMode === "store" ? await getLocationHours(exp.location) : null;
   const times = startTimesFor(exp, date, hours);
-  // The weekday's own answer, with any dated list ignored.
-  const normal = startTimesFor({ ...exp, dateTimes: {} }, date, hours);
+  // What the date runs without its own single-day entry — the usual times, or a
+  // longer stretch of different times it sits inside. (dateTimes is the older
+  // home for a day's list; anything there is moved out when the day is saved.)
+  const otherDates = Object.fromEntries(Object.entries(exp.dateTimes ?? {}).filter(([d]) => d !== date));
+  const normal = startTimesFor({ ...exp, dateTimes: otherDates, timePeriods: withDay(exp.timePeriods, date, null) }, date, hours);
   const bookings = await bookingsForRoomOnDate(id, date);
   const booked = bookings.flatMap((b) =>
     b.items
       .filter((i) => i.roomId === id && i.date === date)
       .map((i) => ({ time: i.time, reference: b.reference, guests: i.quantity, bookingId: b.id }))
   );
-  return { exp, times, normal, booked, custom: Boolean(exp.dateTimes?.[date]?.length) };
+  const custom =
+    Boolean(exp.dateTimes?.[date]?.length) || (exp.timePeriods ?? []).some((p) => p.from === date && p.to === date);
+  return { exp, times, normal, booked, custom };
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -105,12 +111,14 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     );
   }
 
+  // Saved as a one-day entry in the room's "different times for some dates",
+  // so the room page lists it alongside the longer stretches.
   const dateTimes = { ...(day.exp.dateTimes ?? {}) };
-  if (clearing) delete dateTimes[date];
-  else dateTimes[date] = times;
+  delete dateTimes[date];
+  const timePeriods = withDay(day.exp.timePeriods, date, clearing ? null : times);
 
   try {
-    await updateExperience(id, { dateTimes });
+    await updateExperience(id, { dateTimes, timePeriods });
     await logActivity(
       clearing ? "Day's times put back to normal" : "Day's times changed",
       `${day.exp.name} — ${formatDateLong(date)}` +

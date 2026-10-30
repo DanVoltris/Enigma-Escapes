@@ -48,7 +48,13 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 ## How it works
 
 - Experiences (rooms, prices, daily times, colors) live in the `experiences` table, managed
-  from `/manager/experiences`. Promo codes live in `promo_codes`, managed from
+  from `/manager/experiences`. A room's usual times are permanent; **different times for some
+  dates** (`time_periods`, migrations 0017–0018, `lib/time-periods.ts`) replace them for one day
+  or a stretch and lapse by themselves — a day inside a stretch wins there. The room page and the
+  Calendar's "Times for one day" edit the same list (the older `date_times` is still read but no
+  longer written). A change that would drop a booked session is refused
+  (`lib/schedule-guard.ts`). Closing sessions with a reason is Blocked hours' job, not this.
+  Out of season beats all of it (`startTimesFor`, `npm run test:schedule`). Promo codes live in `promo_codes`, managed from
   `/manager/promos`. Both editable without deploys. A promo code can be marked
   **staff only** (`staff_only` column): it then works on walk-ins taken at the desk
   and is invisible to the website. Supabase needs: `alter table promo_codes add
@@ -146,6 +152,11 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
 - Blocked hours: managers take sessions out of service on `/manager/blocks` (linked from
   Calendar) — per-slot rows in `slot_blocks`. Blocked slots are hidden from availability (site
   + partner feed) and refused by create-booking (walk-ins included) and the requests API.
+  **Repeating blocks** on the same page close chosen rooms' start times on chosen weekdays, from a
+  date until a date or until removed (`slot_block_rules`, migration 0016) — "no Monday mornings
+  until we've hired" without blocking a date at a time. Never expanded into `slot_blocks`:
+  `blockedKeysForDate` reads both, so every booking path, the calendar and the reports see them,
+  and removing a rule reopens every session at once. `npm run test:blocks`.
 - Self-service changes: the confirmation text and page link to `/booking/<id>` (the booking's
   UUID is the secret), where customers reschedule or cancel until
   `SELF_SERVICE_CUTOFF_MINUTES` (24h, lib/manage-booking.ts) before the session — enforced

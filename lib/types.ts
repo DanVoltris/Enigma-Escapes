@@ -15,6 +15,8 @@ export type Windows = Record<string, DayWindow>;
 export type DayHours = { open: string; close: string; closed: boolean };
 export type LocationHours = { location: string; hours: Record<string, DayHours> };
 
+export type TimePeriod = { from: string; to: string; times: string[] }; // YYYY-MM-DD, HH:MM
+
 export type Experience = {
   id: string;
   name: string;
@@ -36,6 +38,10 @@ export type Experience = {
   // day's usual schedule — for a day that runs a different timetable (short of
   // staff, a private hire) without touching what the weekday does every week.
   dateTimes: Record<string, string[]>;
+  // Temporary times: between two dates (inclusive) the room runs this list every
+  // day instead of its usual schedule, then goes back by itself — holiday hours,
+  // a summer timetable. A date's own list (dateTimes) still beats it.
+  timePeriods?: TimePeriod[];
   // A room that only runs for part of the year — the Christmas rooms are built
   // in November and taken apart in January. Both ends are inclusive and either
   // may stand alone; null at both means always on sale, which is most rooms.
