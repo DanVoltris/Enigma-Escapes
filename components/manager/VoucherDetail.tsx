@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import SingleSelect from "@/components/SingleSelect";
 import { formatMoney } from "@/lib/format";
 import {
-  ALL_DAYS,
-  DAY_LABELS,
   voucherProblem,
   type DateOption,
   type ItemsScope,
@@ -42,7 +40,6 @@ export default function VoucherDetail({
   const [timeOption, setTimeOption] = useState<TimeOption>(v.timeOption);
   const [timeFrom, setTimeFrom] = useState(v.timeFrom ?? "");
   const [timeTo, setTimeTo] = useState(v.timeTo ?? "");
-  const [days, setDays] = useState<number[]>(v.daysOfWeek);
   const [exclusions, setExclusions] = useState<string[]>(v.exclusionDates);
   const [newExclusion, setNewExclusion] = useState("");
   const [expiryOn, setExpiryOn] = useState(v.expiryDate !== null);
@@ -61,10 +58,6 @@ export default function VoucherDetail({
   const [rMsg, setRMsg] = useState<string | null>(null);
   const [rError, setRError] = useState<string | null>(null);
 
-  function toggleDay(d: number) {
-    setSaved(false);
-    setDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort()));
-  }
   function toggleItem(id: string) {
     setSaved(false);
     setItemIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -91,7 +84,6 @@ export default function VoucherDetail({
           timeOption,
           timeFrom: timeFrom || null,
           timeTo: timeTo || null,
-          daysOfWeek: days,
           exclusionDates: exclusions,
           expiryDate: expiryOn ? expiryDate || null : null,
         }),
@@ -378,18 +370,6 @@ export default function VoucherDetail({
               </div>
             </>
           )}
-        </div>
-
-        <div className="field">
-          <label>Apply days of the week</label>
-          <div className="vch-days">
-            {ALL_DAYS.map((d) => (
-              <label key={d} className="vch-check">
-                <input type="checkbox" checked={days.includes(d)} onChange={() => toggleDay(d)} />
-                {DAY_LABELS[d]}
-              </label>
-            ))}
-          </div>
         </div>
 
         <div className="field">
