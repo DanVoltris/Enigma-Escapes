@@ -35,13 +35,9 @@ export type Voucher = {
   timeOption: TimeOption;
   timeFrom: string | null; // HH:MM
   timeTo: string | null;
-  daysOfWeek: number[]; // 0 = Sunday … 6 = Saturday
   exclusionDates: string[]; // YYYY-MM-DD the voucher can't be used on
   expiryDate: string | null; // null = no expiry
 };
-
-export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-export const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 // What a voucher is being spent on. Times are "HH:MM" 24h, dates YYYY-MM-DD.
 export type RedeemContext = {
@@ -75,9 +71,6 @@ export function voucherProblem(v: Voucher, ctx: RedeemContext = {}): string | nu
       if (v.dateTo && date > v.dateTo) return `Only valid for sessions up to ${v.dateTo}.`;
     }
     if (v.exclusionDates.includes(date)) return `Not valid on ${date}.`;
-    // Parse as UTC so the weekday never shifts with the server's timezone.
-    const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
-    if (!v.daysOfWeek.includes(dow)) return `Not valid on ${DAY_LABELS[dow]}s.`;
   }
 
   const time = ctx.time;

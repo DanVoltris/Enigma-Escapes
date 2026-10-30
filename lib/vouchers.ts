@@ -30,7 +30,6 @@ type VoucherRow = {
   time_option?: string;
   time_from?: string | null;
   time_to?: string | null;
-  days_of_week?: number[];
   exclusion_dates?: string[];
   expiry_date?: string | null;
   kind?: string;
@@ -60,7 +59,6 @@ function toVoucher(r: VoucherRow): Voucher {
     timeOption: r.time_option === "range" ? "range" : "any",
     timeFrom: r.time_from ?? null,
     timeTo: r.time_to ?? null,
-    daysOfWeek: r.days_of_week ?? [0, 1, 2, 3, 4, 5, 6],
     exclusionDates: r.exclusion_dates ?? [],
     expiryDate: r.expiry_date ?? null,
   };
@@ -315,7 +313,6 @@ export type VoucherSettings = Pick<
   | "timeOption"
   | "timeFrom"
   | "timeTo"
-  | "daysOfWeek"
   | "exclusionDates"
   | "expiryDate"
   | "active"
@@ -336,7 +333,6 @@ export async function saveVoucherSettings(code: string, s: VoucherSettings): Pro
     time_option: s.timeOption,
     time_from: s.timeOption === "range" ? s.timeFrom : null,
     time_to: s.timeOption === "range" ? s.timeTo : null,
-    days_of_week: s.daysOfWeek,
     exclusion_dates: s.exclusionDates,
     expiry_date: s.expiryDate,
     // A fully spent voucher can't be reactivated from the settings screen.
