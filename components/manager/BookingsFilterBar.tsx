@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { useRouter, useSearchParams } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import SingleSelect from "@/components/SingleSelect";
@@ -124,7 +124,7 @@ export default function BookingsFilterBar() {
         />
       </div>
       {anyFilter && (
-        <Link prefetch={false} href="/manager/bookings" className="btn btn-outline">
+        <Link href="/manager/bookings" className="btn btn-outline">
           Clear
         </Link>
       )}

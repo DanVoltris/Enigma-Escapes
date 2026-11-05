@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { useRouter } from "next/navigation";
 import { formatDateLong, formatMoney } from "@/lib/format";
 import type { Voucher } from "@/lib/voucher-types";
@@ -201,7 +201,7 @@ export default function VoucherManager({
                 {visible.map((v) => (
                   <tr key={v.code}>
                     <td>
-                      <Link prefetch={false} href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
+                      <Link href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
                         {v.code}
                       </Link>
                     </td>
@@ -243,7 +243,7 @@ export default function VoucherManager({
           <div className="vch-grid">
             {visible.map((v) => (
               <div key={v.code} className={`vch-card${v.active ? "" : " off"}`}>
-                <Link prefetch={false} href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
+                <Link href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
                   {v.code}
                 </Link>
                 <div className="amt">{formatMoney(v.remainingCents)}</div>

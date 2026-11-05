@@ -1,7 +1,7 @@
 import BoardPage from "@/components/manager/BoardPage";
 import BookingsSubnav from "@/components/manager/BookingsSubnav";
 import ClickableRow from "@/components/manager/ClickableRow";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BookingsFilterBar from "@/components/manager/BookingsFilterBar";
 import { bookingsRosterPage, listBookings } from "@/lib/db";
@@ -160,7 +160,7 @@ export default async function ManagerBookings({
           <h1 className="mgr-page-title">Bookings</h1>
           <p style={{ color: "var(--text-secondary)" }}>Every booking, online and in-person. Click one for full details.</p>
         </div>
-        <Link prefetch={false} href="/manager/bookings/new" className="btn">
+        <Link href="/manager/bookings/new" className="btn">
           + Book now
         </Link>
       </div>
@@ -209,7 +209,7 @@ export default async function ManagerBookings({
               {shown.map((b) => (
                 <ClickableRow key={b.id} href={`/manager/bookings/${b.id}`}>
                   <td>
-                    <Link prefetch={false} href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
+                    <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
                     {b.source === "in_person" && (
                       <>
                         <br />
@@ -289,9 +289,9 @@ export default async function ManagerBookings({
             {current.toLocaleString()} of {pageCount.toLocaleString()}
           </span>
           <span>
-            {current > 1 ? <Link prefetch={false} href={pageHref(current - 1)}>← Previous</Link> : <span className="sub">← Previous</span>}
+            {current > 1 ? <Link href={pageHref(current - 1)}>← Previous</Link> : <span className="sub">← Previous</span>}
             {" · "}
-            {current < pageCount ? <Link prefetch={false} href={pageHref(current + 1)}>Next →</Link> : <span className="sub">Next →</span>}
+            {current < pageCount ? <Link href={pageHref(current + 1)}>Next →</Link> : <span className="sub">Next →</span>}
           </span>
         </p>
       )}

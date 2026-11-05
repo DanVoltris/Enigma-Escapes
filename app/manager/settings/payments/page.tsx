@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { requirePermission } from "@/lib/auth";
 import TerminalReaders from "@/components/manager/TerminalReaders";
 import { listAllLocations } from "@/lib/hours";
@@ -39,7 +39,7 @@ export default async function PaymentsSettingsPage() {
           Each experience sets its own deposit percentage; carts blend them by spend. Edit them on the experience
           itself.
         </p>
-        <Link prefetch={false} href="/manager/experiences" className="btn btn-outline">
+        <Link href="/manager/experiences" className="btn btn-outline">
           Open Experiences
         </Link>
       </div>
@@ -51,7 +51,7 @@ export default async function PaymentsSettingsPage() {
           debit, gift cards and cheques — including split across several people. Everything rolls up in Reports →
           Payments.
         </p>
-        <Link prefetch={false} href="/manager/reports?tab=payments" className="btn btn-outline">
+        <Link href="/manager/reports?tab=payments" className="btn btn-outline">
           Open the Payments report
         </Link>
       </div>

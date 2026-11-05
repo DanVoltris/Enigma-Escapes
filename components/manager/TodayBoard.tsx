@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { useRouter } from "next/navigation";
 import DateJump from "@/components/manager/DateJump";
 import RoomBadge from "@/components/RoomBadge";
@@ -81,11 +81,11 @@ export default function TodayBoard({
           {isToday ? "Today" : dateLabel}
         </h1>
         <div className="day-nav spaced">
-          <Link prefetch={false} href={`/manager/today?date=${addDaysISO(date, -1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
+          <Link href={`/manager/today?date=${addDaysISO(date, -1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
             ‹ Day
           </Link>
           <DateJump date={date} basePath="/manager/today" />
-          <Link prefetch={false} href={`/manager/today?date=${addDaysISO(date, 1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
+          <Link href={`/manager/today?date=${addDaysISO(date, 1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
             Day ›
           </Link>
         </div>
@@ -96,7 +96,7 @@ export default function TodayBoard({
       {locations.length > 1 && (
         <div className="mgr-list-tools" style={{ marginBottom: 14 }}>
           <span>
-            <Link prefetch={false}
+            <Link
               href={`/manager/today?date=${date}`}
               className={loc === null ? "mgr-pill on" : "mgr-pill"}
               aria-current={loc === null ? "true" : undefined}
@@ -104,7 +104,7 @@ export default function TodayBoard({
               All locations
             </Link>
             {locations.map((l) => (
-              <Link prefetch={false}
+              <Link
                 key={l}
                 href={`/manager/today?date=${date}&loc=${encodeURIComponent(l)}`}
                 className={loc === l ? "mgr-pill on" : "mgr-pill"}
@@ -219,7 +219,7 @@ export default function TodayBoard({
                         </div>
                       )}
                       <div>
-                        <Link prefetch={false} href={`/manager/bookings/${r.bookingId}`}>Open full booking →</Link>
+                        <Link href={`/manager/bookings/${r.bookingId}`}>Open full booking →</Link>
                       </div>
                     </div>
 
@@ -520,7 +520,7 @@ function TakePayment({
         {!terminalReady && canSetUpTerminal && (
           <span className="sub">
             Card reader not set up —{" "}
-            <Link prefetch={false} href="/manager/settings/payments">pair one in Settings → Payments</Link>
+            <Link href="/manager/settings/payments">pair one in Settings → Payments</Link>
           </span>
         )}
         <span className={remaining === 0 ? "sub" : "field-error"}>

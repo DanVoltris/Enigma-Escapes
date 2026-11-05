@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { currentSubscription, flagOn, pushSupported, reconnect, reportSeen, setFlag, turnOn } from "@/lib/push-client";
 
 // Runs on every portal load. On a phone that has notifications on it keeps
@@ -53,7 +53,7 @@ export default function PushBanner({ publicKey }: { publicKey: string | null }) 
       {problem === "blocked" ? (
         <span>
           Notifications have been blocked on this phone, so you won&apos;t get alerts here.{" "}
-          <Link prefetch={false} href="/manager/notifications">How to turn them back on</Link>
+          <Link href="/manager/notifications">How to turn them back on</Link>
         </span>
       ) : (
         <>

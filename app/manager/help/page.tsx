@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 
 export default function ManagerHelp() {
   return (
@@ -94,7 +94,7 @@ export default function ManagerHelp() {
           developer to add a login before sharing the link.
         </li>
         <li>
-          The customer-facing site is at <Link prefetch={false} href="/">the booking site</Link> — what you see there is
+          The customer-facing site is at <Link href="/">the booking site</Link> — what you see there is
           exactly what customers see.
         </li>
       </ul>

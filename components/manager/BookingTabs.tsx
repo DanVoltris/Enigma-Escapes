@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SendReceipt from "./SendReceipt";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { useRouter } from "next/navigation";
 import RoomBadge from "@/components/RoomBadge";
 import SingleSelect from "@/components/SingleSelect";
@@ -355,7 +355,7 @@ function PromosTab({
           <p className="card-sub">Discount is recalculated on the whole booking; the amount already paid stays put.</p>
           {activePromos.length === 0 ? (
             <p className="cust-empty">
-              No active promo codes. <Link prefetch={false} href="/manager/promos">Create one in Promo codes</Link>.
+              No active promo codes. <Link href="/manager/promos">Create one in Promo codes</Link>.
             </p>
           ) : (
             <div className="mgr-inline-form">
@@ -552,7 +552,7 @@ function CustomersTab({
           {initials(nameParts[0] ?? "", nameParts[1] ?? "")}
         </span>
         <div className="bk-row-main">
-          <Link prefetch={false} href={`/manager/customers/${encodeURIComponent(customerEmail)}`} className="cust-purchase-name">
+          <Link href={`/manager/customers/${encodeURIComponent(customerEmail)}`} className="cust-purchase-name">
             {customerName}
           </Link>
           <div className="cust-purchase-sub">

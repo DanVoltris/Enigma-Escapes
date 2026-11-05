@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { formatMoney } from "@/lib/format";
 import type { RewardCode } from "@/lib/reward-codes";
 import type { Booking } from "@/lib/types";
@@ -80,7 +80,7 @@ export default function RewardCodeList({
                     </td>
                     <td>
                       {from ? (
-                        <Link prefetch={false} href={`/manager/bookings/${from.id}`}>{from.ref}</Link>
+                        <Link href={`/manager/bookings/${from.id}`}>{from.ref}</Link>
                       ) : (
                         <span className="sub">booking removed</span>
                       )}
@@ -88,7 +88,7 @@ export default function RewardCodeList({
                     <td>{from?.name ?? r.customerPhone}</td>
                     <td>
                       {to ? (
-                        <Link prefetch={false} href={`/manager/bookings/${to.id}`}>{to.ref}</Link>
+                        <Link href={`/manager/bookings/${to.id}`}>{to.ref}</Link>
                       ) : (
                         <span className="sub">—</span>
                       )}

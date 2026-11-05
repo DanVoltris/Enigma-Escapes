@@ -235,8 +235,8 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   and cleared by any booking/request/block/room write (`shownSlotsForDate`). Never cache a
   settings key used as a lock or timer. The platform deployment (no pinned venue) caches nothing.
   Icons and the staff manifest send cache headers (`lib/asset-cache.ts`), edge-cached only when
-  pinned. Portal links and rarely-clicked site links use `prefetch={false}` — a prefetch is a
-  full server render. `npm run test:cache`.
+  pinned. Portal links and rarely-clicked site links load their page only when pointed at
+  (`components/IntentLink.tsx`) — a prefetch is a full server render. `npm run test:cache`.
 
 ## Turning on Stripe
 
