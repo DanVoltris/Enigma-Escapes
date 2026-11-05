@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import IntentLink from "@/components/IntentLink";
 import { useCallback, useEffect, useState } from "react";
 import { CONSENT_COOKIE, CONSENT_DAYS, CONSENT_OPEN_EVENT, serializeConsent, type ConsentChoice } from "@/lib/consent";
 
@@ -97,9 +97,9 @@ export default function ConsentBanner({
         <p className="consent-text">
           We&apos;d like to use advertising and analytics cookies to see which promotions bring people here. They
           aren&apos;t needed to book, and we won&apos;t use them unless you say yes.{" "}
-          <Link prefetch={false} href="/privacy" className="consent-link">
+          <IntentLink href="/privacy" className="consent-link">
             What we collect
-          </Link>
+          </IntentLink>
         </p>
         <div className="consent-actions">
           <button type="button" className="btn btn-outline consent-btn" onClick={() => answer("declined")}>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { lineCents } from "@/lib/pricing";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import EditCustomerProfile from "@/components/manager/EditCustomerProfile";
@@ -131,12 +131,12 @@ export default async function ManagerCustomerDetail({
   return (
     <>
       <div className="cust-topbar">
-        <Link prefetch={false} href="/manager/customers">← Back to all customers</Link>
+        <Link href="/manager/customers">← Back to all customers</Link>
         <div className="cust-topbar-actions">
           <a href={`mailto:${customer.email}`} className="btn btn-outline">
             Email
           </a>
-          <Link prefetch={false} href="/manager/bookings/new" className="btn">
+          <Link href="/manager/bookings/new" className="btn">
             + New booking
           </Link>
         </div>
@@ -304,7 +304,7 @@ export default async function ManagerCustomerDetail({
                       <div className="body">
                         <div>
                           {b.source === "in_person" ? "Walk-in booking" : "Online booking"}{" "}
-                          <Link prefetch={false} href={`/manager/bookings/${b.id}`}>{b.reference}</Link> created for {rooms} —{" "}
+                          <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link> created for {rooms} —{" "}
                           {formatMoney(b.pricing.totalCents)}
                           {b.noShow ? " · marked no-show" : ""}
                         </div>

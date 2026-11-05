@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import RoomBadge from "@/components/RoomBadge";
 import { formatDateLong, formatMoney, formatTime } from "@/lib/format";
 
@@ -388,7 +388,7 @@ function SessionPanel({
           ) : (
             bookings.map((b) => (
               <div className="mgr-drawer-card" key={b.bookingId}>
-                <Link prefetch={false} href={`/manager/customers/${encodeURIComponent(b.email)}`} className="mgr-drawer-cust">
+                <Link href={`/manager/customers/${encodeURIComponent(b.email)}`} className="mgr-drawer-cust">
                   <span className="name">{b.name}</span>
                   <span className="email">{b.email}</span>
                 </Link>
@@ -418,7 +418,7 @@ function SessionPanel({
                   </span>
                 </div>
 
-                <Link prefetch={false} href={`/manager/bookings/${b.bookingId}`} className="mgr-drawer-view">
+                <Link href={`/manager/bookings/${b.bookingId}`} className="mgr-drawer-view">
                   View booking {b.reference} →
                 </Link>
               </div>
@@ -426,7 +426,7 @@ function SessionPanel({
           )}
 
           {exp && (
-            <Link prefetch={false}
+            <Link
               href={`/manager/bookings?date=${date}&q=${encodeURIComponent(exp.name)}`}
               className="mgr-drawer-all"
             >

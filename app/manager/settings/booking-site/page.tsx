@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { requirePermission } from "@/lib/auth";
 import BookingSiteForm from "@/components/manager/BookingSiteForm";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -12,7 +12,7 @@ export default async function BookingSitePage() {
     <>
       <p className="mgr-page-sub" style={{ marginBottom: 20 }}>
         Appearance and behaviour of the customer booking site.{" "}
-        <Link prefetch={false} href="/" target="_blank">
+        <Link href="/" target="_blank">
           View booking site →
         </Link>
       </p>

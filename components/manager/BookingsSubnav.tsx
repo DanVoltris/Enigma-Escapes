@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { usePathname } from "next/navigation";
 
 // Bookings and Invoices are the same job seen from two sides — money owed
@@ -18,7 +18,7 @@ export default function BookingsSubnav() {
       {TABS.map((t) => {
         const active = t.href === "/manager/bookings" ? path === t.href : path.startsWith(t.href);
         return (
-          <Link prefetch={false} key={t.href} href={t.href} className={`mgr-subtab${active ? " active" : ""}`}>
+          <Link key={t.href} href={t.href} className={`mgr-subtab${active ? " active" : ""}`}>
             {t.label}
           </Link>
         );

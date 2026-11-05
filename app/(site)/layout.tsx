@@ -1,4 +1,4 @@
-import Link from "next/link";
+import IntentLink from "@/components/IntentLink";
 import { cookies, headers } from "next/headers";
 import { CartProvider } from "@/lib/cart";
 import Header from "@/components/Header";
@@ -96,15 +96,15 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             {/* The venue's own links first, on their own line; whose software it
                 is runs underneath, where it belongs. */}
             <div className="site-footer-links">
-              {/* Not prefetched: every customer page view was fetching the
-                  privacy page and the staff portal in the background, for two
-                  links almost nobody clicks. */}
-              <Link prefetch={false} href="/privacy" className="site-footer-link">
+              {/* Loaded only when someone points at them: prefetched on sight,
+                  every customer page view rendered the privacy page and the
+                  staff portal in the background (components/IntentLink.tsx). */}
+              <IntentLink href="/privacy" className="site-footer-link">
                 Privacy policy
-              </Link>
-              <Link prefetch={false} href="/manager" className="site-footer-link">
+              </IntentLink>
+              <IntentLink href="/manager" className="site-footer-link">
                 Staff
-              </Link>
+              </IntentLink>
               {consent.required && <ConsentLink />}
             </div>
             <a href="https://voltrisbooking.com" target="_blank" rel="noreferrer" className="powered-by">

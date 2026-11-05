@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import DatePicker from "@/components/DatePicker";
 import TimesEditor from "@/components/manager/TimesEditor";
 import { formatDateLong, formatTime, todayISO } from "@/lib/format";
@@ -57,7 +57,7 @@ export default function DatedTimes({
         For one day or a stretch of dates, run these times instead of the usual ones — a group wanting a different
         hour, holiday hours. Afterwards the room goes back to its usual times by itself. A single day inside a longer
         stretch wins on that day. To close sessions for a while instead, use{" "}
-        <Link prefetch={false} href="/manager/blocks">Blocked hours</Link>.
+        <Link href="/manager/blocks">Blocked hours</Link>.
       </p>
 
       {value.length > 0 && (

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import ManagerNav from "@/components/manager/ManagerNav";
 import PushBanner from "@/components/manager/PushBanner";
 import SignOutButton from "@/components/manager/SignOutButton";
@@ -50,10 +50,10 @@ export default async function ManagerLayout({ children }: { children: React.Reac
                 {roleLabel} · {scope}
               </span>
             </span>
-            <Link prefetch={false} href="/manager/notifications" className="mgr-view-site">
+            <Link href="/manager/notifications" className="mgr-view-site">
               Notifications
             </Link>
-            <Link prefetch={false} href="/" className="mgr-view-site">
+            <Link href="/" className="mgr-view-site">
               View booking site →
             </Link>
             <SignOutButton />

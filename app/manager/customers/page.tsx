@@ -1,5 +1,5 @@
 import BoardPage from "@/components/manager/BoardPage";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import CustomerRow from "@/components/manager/CustomerRow";
 import { aggregateCustomers, customerRosterPage, importedHistoryFor, listManualCustomers } from "@/lib/customers";
@@ -104,13 +104,13 @@ export default async function ManagerCustomers({
             Search
           </button>
           {q && (
-            <Link prefetch={false} href="/manager/customers" className="btn btn-outline">
+            <Link href="/manager/customers" className="btn btn-outline">
               Clear
             </Link>
           )}
         </form>
         <div className="mgr-actions-group">
-          <Link prefetch={false} href="/manager/customers/new" className="btn">
+          <Link href="/manager/customers/new" className="btn">
             + Add customer
           </Link>
         </div>
@@ -129,13 +129,13 @@ export default async function ManagerCustomers({
             : ""}
         </span>
         <span>
-          <Link prefetch={false} href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}>
+          <Link href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}>
             {subscribersOnly ? "Show everyone" : "Subscribers only"}
           </Link>
           {" · "}
           <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`}>Download CSV</a>
           {" · "}
-          <Link prefetch={false} href="/manager/customers/merge">Merge duplicates</Link>
+          <Link href="/manager/customers/merge">Merge duplicates</Link>
         </span>
       </div>
 
@@ -180,13 +180,13 @@ export default async function ManagerCustomers({
           </span>
           <span>
             {current > 1 ? (
-              <Link prefetch={false} href={pageHref(current - 1)}>← Previous</Link>
+              <Link href={pageHref(current - 1)}>← Previous</Link>
             ) : (
               <span className="sub">← Previous</span>
             )}
             {" · "}
             {current < pageCount ? (
-              <Link prefetch={false} href={pageHref(current + 1)}>Next →</Link>
+              <Link href={pageHref(current + 1)}>Next →</Link>
             ) : (
               <span className="sub">Next →</span>
             )}

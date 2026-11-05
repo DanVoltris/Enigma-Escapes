@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BarChart from "@/components/manager/BarChart";
 import ReportsFilterBar from "@/components/manager/ReportsFilterBar";
@@ -186,7 +186,7 @@ export default async function ManagerReports({
           {sections.map((s) => (
             <div className="rpt-nav-group" key={s} title={s}>
               {TABS.filter((t) => t.section === s).map((t) => (
-                <Link prefetch={false}
+                <Link
                   key={t.key}
                   href={qs(t.key)}
                   className={t.key === tab ? "active" : undefined}
@@ -370,10 +370,10 @@ function SalesTab({
         <div className="mgr-actions-row" style={{ marginBottom: 8 }}>
           <h2 style={{ marginBottom: 0 }}>Sales over time</h2>
           <div className="mgr-range-tabs">
-            <Link prefetch={false} href={viewQS("chart")} className={`btn btn-outline${view === "chart" ? " active" : ""}`}>
+            <Link href={viewQS("chart")} className={`btn btn-outline${view === "chart" ? " active" : ""}`}>
               Chart
             </Link>
-            <Link prefetch={false} href={viewQS("table")} className={`btn btn-outline${view === "table" ? " active" : ""}`}>
+            <Link href={viewQS("table")} className={`btn btn-outline${view === "table" ? " active" : ""}`}>
               Table
             </Link>
           </div>
@@ -736,7 +736,7 @@ function PaymentsTab({ purchased }: { purchased: Booking[] }) {
                     <tr key={p.id}>
                       <td>{formatTimestamp(p.at)}</td>
                       <td>
-                        <Link prefetch={false} href={`/manager/bookings/${p.bookingId}`}>{p.reference}</Link>
+                        <Link href={`/manager/bookings/${p.bookingId}`}>{p.reference}</Link>
                       </td>
                       <td>{label[p.method] ?? p.method}</td>
                       <td>{p.note ?? ""}</td>
@@ -1256,7 +1256,7 @@ async function VouchersTab({ from, to }: { from: string; to: string }) {
                 {r.biggest.map((v) => (
                   <tr key={v.code}>
                     <td>
-                      <Link prefetch={false} href={`/manager/vouchers/${encodeURIComponent(v.code)}`}>{v.code}</Link>
+                      <Link href={`/manager/vouchers/${encodeURIComponent(v.code)}`}>{v.code}</Link>
                     </td>
                     <td>{v.purchaser ?? "—"}</td>
                     <td>{v.expiryDate ? formatDateLong(v.expiryDate) : "No expiry"}</td>
