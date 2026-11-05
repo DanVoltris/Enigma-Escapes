@@ -4051,12 +4051,20 @@ a.mgr-pill.on:hover {
     gap: 12px;
   }
   /* every data table scrolls sideways instead of squeezing */
-  .mgr-table,
-  .mgr-cal {
+  .mgr-table {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     white-space: nowrap;
+  }
+  /* Not the calendar: its wrapper already scrolls both ways, and making the
+     table a scroller of its own as well left the room names and times pinned
+     to a box that never moved, so on a phone both scrolled away with the grid.
+     The wrapper is sized by the visible screen (dvh), which on a phone leaves
+     out the browser's own bars that 100vh counts. */
+  .mgr-cal-wrap {
+    max-height: calc(100dvh - 160px);
+    -webkit-overflow-scrolling: touch;
   }
   .chk-grid {
     grid-template-columns: 1fr;
