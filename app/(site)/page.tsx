@@ -1,5 +1,5 @@
 import BrowsePage, { type ExperienceSummary } from "@/components/BrowsePage";
-import { slotsForDate } from "@/lib/availability";
+import { shownSlotsForDate } from "@/lib/availability";
 import { listExperiences } from "@/lib/experiences";
 import { addDaysISO, isValidISODate, todayISO } from "@/lib/format";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -21,7 +21,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
 
   // Either lookup failing leaves the browser to fetch it, as it always did.
   const [slots, experiences] = await Promise.all([
-    slotsForDate(date).catch((err): Slot[] | null => {
+    shownSlotsForDate(date).catch((err): Slot[] | null => {
       console.error("server availability lookup failed:", err);
       return null;
     }),

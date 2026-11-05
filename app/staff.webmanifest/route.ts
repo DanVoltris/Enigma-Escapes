@@ -1,5 +1,6 @@
 import { getCompanyName } from "@/lib/settings";
 import { getSiteSettings } from "@/lib/site-settings";
+import { venueAssetCache } from "@/lib/asset-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,9 @@ export async function GET() {
     ],
   };
   return new Response(JSON.stringify(manifest), {
-    headers: { "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" },
+    // The browser still checks every time (a renamed venue shows on the next
+    // install), but on a pinned deployment the edge answers for an hour
+    // instead of running this — it was called ~10k times a month.
+    headers: { "Content-Type": "application/manifest+json", "Cache-Control": venueAssetCache(3600, 0) },
   });
 }

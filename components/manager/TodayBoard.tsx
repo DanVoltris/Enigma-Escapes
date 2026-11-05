@@ -81,11 +81,11 @@ export default function TodayBoard({
           {isToday ? "Today" : dateLabel}
         </h1>
         <div className="day-nav spaced">
-          <Link href={`/manager/today?date=${addDaysISO(date, -1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
+          <Link prefetch={false} href={`/manager/today?date=${addDaysISO(date, -1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
             ‹ Day
           </Link>
           <DateJump date={date} basePath="/manager/today" />
-          <Link href={`/manager/today?date=${addDaysISO(date, 1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
+          <Link prefetch={false} href={`/manager/today?date=${addDaysISO(date, 1)}${loc ? `&loc=${encodeURIComponent(loc)}` : ""}`} className="btn btn-outline">
             Day ›
           </Link>
         </div>
@@ -96,7 +96,7 @@ export default function TodayBoard({
       {locations.length > 1 && (
         <div className="mgr-list-tools" style={{ marginBottom: 14 }}>
           <span>
-            <Link
+            <Link prefetch={false}
               href={`/manager/today?date=${date}`}
               className={loc === null ? "mgr-pill on" : "mgr-pill"}
               aria-current={loc === null ? "true" : undefined}
@@ -104,7 +104,7 @@ export default function TodayBoard({
               All locations
             </Link>
             {locations.map((l) => (
-              <Link
+              <Link prefetch={false}
                 key={l}
                 href={`/manager/today?date=${date}&loc=${encodeURIComponent(l)}`}
                 className={loc === l ? "mgr-pill on" : "mgr-pill"}
@@ -219,7 +219,7 @@ export default function TodayBoard({
                         </div>
                       )}
                       <div>
-                        <Link href={`/manager/bookings/${r.bookingId}`}>Open full booking →</Link>
+                        <Link prefetch={false} href={`/manager/bookings/${r.bookingId}`}>Open full booking →</Link>
                       </div>
                     </div>
 
@@ -520,7 +520,7 @@ function TakePayment({
         {!terminalReady && canSetUpTerminal && (
           <span className="sub">
             Card reader not set up —{" "}
-            <Link href="/manager/settings/payments">pair one in Settings → Payments</Link>
+            <Link prefetch={false} href="/manager/settings/payments">pair one in Settings → Payments</Link>
           </span>
         )}
         <span className={remaining === 0 ? "sub" : "field-error"}>

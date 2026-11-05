@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { slotsForDate } from "@/lib/availability";
+import { shownSlotsForDate } from "@/lib/availability";
 import { recordEvent, VISITOR_COOKIE, type LookRoom } from "@/lib/events";
 import { addDaysISO, isValidISODate, todayISO } from "@/lib/format";
 import { sweepIfDue } from "@/lib/request-flow";
@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
     // Piggy-backs the reminder/release timer on ordinary traffic — see
     // sweepIfDue. Not awaited: availability must not wait on texting.
     void sweepIfDue(req.nextUrl.origin);
-    const slots = await slotsForDate(date);
+    // Cached computation, not a cached response: the sweep above and the
+    // record below must still run on every call, which edge caching would
+    // have silently stopped.
+    const slots = await shownSlotsForDate(date);
     // What was asked for and what was left — the record of demand the venue
     // couldn't serve. Fire-and-forget, like the sweep: the lookup never waits
     // on analytics, and a failed write is logged, not surfaced.

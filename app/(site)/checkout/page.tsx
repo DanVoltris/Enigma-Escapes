@@ -126,7 +126,7 @@ export default function CheckoutDetailsPage() {
                 <span>Subscribe to receive emails from us with the latest promotions and news.</span>
               </label>
               <p className="field-hint">
-                How we handle your details: <Link href="/privacy">privacy policy</Link>.
+                How we handle your details: <Link prefetch={false} href="/privacy">privacy policy</Link>.
               </p>
 
               <h3>Contact information</h3>

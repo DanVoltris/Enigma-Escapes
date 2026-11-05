@@ -41,7 +41,7 @@ export default function WalkInWithShift({
         <h2>On shift now</h2>
         {people.length === 0 ? (
           <p className="mgr-empty">
-            Nobody is checked in. <Link href="/manager/staff">Check in on the Staff tab</Link>.
+            Nobody is checked in. <Link prefetch={false} href="/manager/staff">Check in on the Staff tab</Link>.
           </p>
         ) : (
           <>

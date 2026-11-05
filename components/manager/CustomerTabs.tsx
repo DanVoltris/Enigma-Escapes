@@ -83,7 +83,7 @@ export default function CustomerTabs({ purchases, payments, taxes, promos }: Pro
                   <RoomBadge name={p.roomName} bg={p.badgeBg} fg={p.badgeFg} />
                 )}
                 <div className="cust-purchase-main">
-                  <Link href={`/manager/bookings/${p.bookingId}`} className="cust-purchase-name">
+                  <Link prefetch={false} href={`/manager/bookings/${p.bookingId}`} className="cust-purchase-name">
                     {p.roomName}
                   </Link>
                   <div className="cust-purchase-sub">
@@ -120,7 +120,7 @@ export default function CustomerTabs({ purchases, payments, taxes, promos }: Pro
                         <span className="mgr-pill">{p.code}</span>
                       </td>
                       <td>
-                        <Link href={`/manager/bookings/${p.bookingId}`}>{p.reference}</Link>
+                        <Link prefetch={false} href={`/manager/bookings/${p.bookingId}`}>{p.reference}</Link>
                       </td>
                     </tr>
                   ))}
@@ -146,7 +146,7 @@ export default function CustomerTabs({ purchases, payments, taxes, promos }: Pro
                   {taxes.map((t, i) => (
                     <tr key={i}>
                       <td>
-                        <Link href={`/manager/bookings/${t.bookingId}`}>{t.reference}</Link>
+                        <Link prefetch={false} href={`/manager/bookings/${t.bookingId}`}>{t.reference}</Link>
                       </td>
                       <td className="num">{formatMoney(t.subtotalCents)}</td>
                       <td className="num">{formatMoney(t.gstCents)}</td>
@@ -176,7 +176,7 @@ export default function CustomerTabs({ purchases, payments, taxes, promos }: Pro
                   {payments.map((p, i) => (
                     <tr key={i}>
                       <td>
-                        <Link href={`/manager/bookings/${p.bookingId}`}>{p.reference}</Link>
+                        <Link prefetch={false} href={`/manager/bookings/${p.bookingId}`}>{p.reference}</Link>
                       </td>
                       <td>{p.method}</td>
                       <td className="num">{formatMoney(p.totalCents)}</td>

@@ -104,13 +104,13 @@ export default async function ManagerCustomers({
             Search
           </button>
           {q && (
-            <Link href="/manager/customers" className="btn btn-outline">
+            <Link prefetch={false} href="/manager/customers" className="btn btn-outline">
               Clear
             </Link>
           )}
         </form>
         <div className="mgr-actions-group">
-          <Link href="/manager/customers/new" className="btn">
+          <Link prefetch={false} href="/manager/customers/new" className="btn">
             + Add customer
           </Link>
         </div>
@@ -129,13 +129,13 @@ export default async function ManagerCustomers({
             : ""}
         </span>
         <span>
-          <Link href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}>
+          <Link prefetch={false} href={subscribersOnly ? "/manager/customers" : "/manager/customers?sub=1"}>
             {subscribersOnly ? "Show everyone" : "Subscribers only"}
           </Link>
           {" · "}
           <a href={`/api/manager/customers/export${subscribersOnly ? "?subscribed=1" : ""}`}>Download CSV</a>
           {" · "}
-          <Link href="/manager/customers/merge">Merge duplicates</Link>
+          <Link prefetch={false} href="/manager/customers/merge">Merge duplicates</Link>
         </span>
       </div>
 
@@ -180,13 +180,13 @@ export default async function ManagerCustomers({
           </span>
           <span>
             {current > 1 ? (
-              <Link href={pageHref(current - 1)}>← Previous</Link>
+              <Link prefetch={false} href={pageHref(current - 1)}>← Previous</Link>
             ) : (
               <span className="sub">← Previous</span>
             )}
             {" · "}
             {current < pageCount ? (
-              <Link href={pageHref(current + 1)}>Next →</Link>
+              <Link prefetch={false} href={pageHref(current + 1)}>Next →</Link>
             ) : (
               <span className="sub">Next →</span>
             )}

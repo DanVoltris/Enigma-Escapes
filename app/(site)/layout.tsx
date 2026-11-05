@@ -96,10 +96,13 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             {/* The venue's own links first, on their own line; whose software it
                 is runs underneath, where it belongs. */}
             <div className="site-footer-links">
-              <Link href="/privacy" className="site-footer-link">
+              {/* Not prefetched: every customer page view was fetching the
+                  privacy page and the staff portal in the background, for two
+                  links almost nobody clicks. */}
+              <Link prefetch={false} href="/privacy" className="site-footer-link">
                 Privacy policy
               </Link>
-              <Link href="/manager" className="site-footer-link">
+              <Link prefetch={false} href="/manager" className="site-footer-link">
                 Staff
               </Link>
               {consent.required && <ConsentLink />}

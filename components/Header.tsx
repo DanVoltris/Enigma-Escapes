@@ -25,12 +25,12 @@ export default function Header({ company }: { company: string }) {
         </Link>
         <div className="header-right">
           {parties && (
-            <Link href="/parties" className="header-home-link">
+            <Link prefetch={false} href="/parties" className="header-home-link">
               {partiesLinkLabel}
             </Link>
           )}
           {showGiftVouchers && (
-            <Link href="/gift-vouchers" className="header-home-link">
+            <Link prefetch={false} href="/gift-vouchers" className="header-home-link">
               Gift vouchers
             </Link>
           )}

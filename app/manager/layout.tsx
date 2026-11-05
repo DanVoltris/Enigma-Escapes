@@ -50,10 +50,10 @@ export default async function ManagerLayout({ children }: { children: React.Reac
                 {roleLabel} · {scope}
               </span>
             </span>
-            <Link href="/manager/notifications" className="mgr-view-site">
+            <Link prefetch={false} href="/manager/notifications" className="mgr-view-site">
               Notifications
             </Link>
-            <Link href="/" className="mgr-view-site">
+            <Link prefetch={false} href="/" className="mgr-view-site">
               View booking site →
             </Link>
             <SignOutButton />

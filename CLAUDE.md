@@ -227,6 +227,16 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   (`lib/tracking.ts`). The manager portal is never tracked.
 - Cart state (items, customer info, hold timer) lives in React context persisted to
   localStorage (`lib/cart.tsx`).
+- Function CPU (Vercel bills it): every page renders per request — the CSP nonce in `proxy.ts`
+  requires it, so don't make pages static without replacing that. Instead, on deployments pinned
+  with `VENUE_TENANT_ID`, `rest()` caches reads of rooms, hours, taxes, repeating blocks and an
+  allow-list of display settings (`lib/db-cache.ts`, rules in `lib/db-cache-rules.ts`), and any
+  write through `rest()` clears them at once; availability's computation is cached 30s per date
+  and cleared by any booking/request/block/room write (`shownSlotsForDate`). Never cache a
+  settings key used as a lock or timer. The platform deployment (no pinned venue) caches nothing.
+  Icons and the staff manifest send cache headers (`lib/asset-cache.ts`), edge-cached only when
+  pinned. Portal links and rarely-clicked site links use `prefetch={false}` — a prefetch is a
+  full server render. `npm run test:cache`.
 
 ## Turning on Stripe
 
