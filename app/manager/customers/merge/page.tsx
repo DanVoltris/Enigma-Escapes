@@ -13,7 +13,7 @@ export default async function MergeCustomersPage() {
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link href="/manager/customers">← Back to all customers</Link>
+        <Link prefetch={false} href="/manager/customers">← Back to all customers</Link>
       </p>
       <h1 className="mgr-page-title">Merge customers</h1>
       <p className="mgr-page-sub">

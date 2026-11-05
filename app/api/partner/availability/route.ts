@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPartnerRequest } from "@/lib/api-keys";
-import { slotsForDate } from "@/lib/availability";
+import { shownSlotsForDate } from "@/lib/availability";
 import { addDaysISO, isValidISODate, todayISO } from "@/lib/format";
 import { getLocale } from "@/lib/locale";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [slots, locale] = await Promise.all([slotsForDate(date), getLocale()]);
+    const [slots, locale] = await Promise.all([shownSlotsForDate(date), getLocale()]);
     const origin = req.nextUrl.origin;
 
     // Group flat slots by experience — the shape channels want.

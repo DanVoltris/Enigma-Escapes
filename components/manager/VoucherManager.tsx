@@ -201,7 +201,7 @@ export default function VoucherManager({
                 {visible.map((v) => (
                   <tr key={v.code}>
                     <td>
-                      <Link href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
+                      <Link prefetch={false} href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
                         {v.code}
                       </Link>
                     </td>
@@ -243,7 +243,7 @@ export default function VoucherManager({
           <div className="vch-grid">
             {visible.map((v) => (
               <div key={v.code} className={`vch-card${v.active ? "" : " off"}`}>
-                <Link href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
+                <Link prefetch={false} href={`/manager/vouchers/${encodeURIComponent(v.code)}`} className="vch-code">
                   {v.code}
                 </Link>
                 <div className="amt">{formatMoney(v.remainingCents)}</div>

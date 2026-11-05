@@ -25,7 +25,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link href="/manager/marketing">← Back to marketing</Link>
+        <Link prefetch={false} href="/manager/marketing">← Back to marketing</Link>
       </p>
       <h1 className="mgr-page-title">{campaign.name}</h1>
       <p className="mgr-page-sub">

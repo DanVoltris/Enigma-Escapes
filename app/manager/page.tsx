@@ -110,10 +110,10 @@ export default async function ManagerDashboard({
 
       {canSeePerformance && (
         <nav className="mgr-subtabs" aria-label="Dashboard views">
-          <Link href="/manager" className={`mgr-subtab${view === "operations" ? " active" : ""}`}>
+          <Link prefetch={false} href="/manager" className={`mgr-subtab${view === "operations" ? " active" : ""}`}>
             Operations
           </Link>
-          <Link href="/manager?view=performance" className={`mgr-subtab${view === "performance" ? " active" : ""}`}>
+          <Link prefetch={false} href="/manager?view=performance" className={`mgr-subtab${view === "performance" ? " active" : ""}`}>
             Venue performance
           </Link>
         </nav>
@@ -280,7 +280,7 @@ async function OperationsView({
           <ul className="attn-list">
             {needsAttention.map((b) => (
               <li key={b.id}>
-                <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
+                <Link prefetch={false} href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
                 <span className="who">
                   {b.customer.firstName} {b.customer.lastName} · {b.items[0]?.roomName} {b.items[0]?.date}
                 </span>
@@ -302,7 +302,7 @@ async function OperationsView({
         <p className="card-sub">Sessions that have not started yet, earliest first.</p>
         {upcoming.length === 0 ? (
           <p className="mgr-empty">
-            No more sessions today. <Link href="/manager/calendar">Check the calendar</Link> for the days ahead.
+            No more sessions today. <Link prefetch={false} href="/manager/calendar">Check the calendar</Link> for the days ahead.
           </p>
         ) : (
           <div className="mgr-table-wrap">
@@ -331,7 +331,7 @@ async function OperationsView({
                       {t.booking.customer.firstName} {t.booking.customer.lastName}
                     </td>
                     <td>
-                      <Link href={`/manager/bookings/${t.booking.id}`}>{t.booking.reference}</Link>
+                      <Link prefetch={false} href={`/manager/bookings/${t.booking.id}`}>{t.booking.reference}</Link>
                     </td>
                   </tr>
                 ))}
@@ -387,7 +387,7 @@ async function OperationsView({
                 {recent.map((b) => (
                   <tr key={b.id}>
                     <td>
-                      <Link href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
+                      <Link prefetch={false} href={`/manager/bookings/${b.id}`}>{b.reference}</Link>
                     </td>
                     <td>
                       {b.customer.firstName} {b.customer.lastName}
@@ -612,7 +612,7 @@ function PerformanceView({
                 <span>{cur.inPersonBookings} in-person</span>
               </div>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
-                Record a walk-in from <Link href="/manager/bookings/new">Book now</Link> to grow the
+                Record a walk-in from <Link prefetch={false} href="/manager/bookings/new">Book now</Link> to grow the
                 in-person share.
               </p>
             </>
@@ -631,7 +631,7 @@ function PerformanceView({
           </div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
             Mark a no-show from any booking&apos;s detail page — open one from{" "}
-            <Link href="/manager/bookings">Bookings</Link>.
+            <Link prefetch={false} href="/manager/bookings">Bookings</Link>.
           </p>
         </div>
       </div>

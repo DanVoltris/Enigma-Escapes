@@ -97,7 +97,7 @@ export default function ConsentBanner({
         <p className="consent-text">
           We&apos;d like to use advertising and analytics cookies to see which promotions bring people here. They
           aren&apos;t needed to book, and we won&apos;t use them unless you say yes.{" "}
-          <Link href="/privacy" className="consent-link">
+          <Link prefetch={false} href="/privacy" className="consent-link">
             What we collect
           </Link>
         </p>

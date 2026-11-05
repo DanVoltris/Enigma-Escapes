@@ -114,7 +114,7 @@ export default function DeleteExperience({ id, name }: { id: string; name: strin
                   <li key={`${s.bookingId}-${s.date}-${s.time}`}>
                     <div className="body">
                       <div>
-                        <Link href={`/manager/bookings/${s.bookingId}`}>{s.reference}</Link> — {s.customer}
+                        <Link prefetch={false} href={`/manager/bookings/${s.bookingId}`}>{s.reference}</Link> — {s.customer}
                       </div>
                       <div className="when">
                         {formatDateLong(s.date)}, {formatTime(s.time)} · {s.guests} guest

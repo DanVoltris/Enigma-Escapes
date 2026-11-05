@@ -3,6 +3,7 @@ import { readableOn } from "./color";
 import { getCompanyName } from "./settings";
 import { getSiteSettings } from "./site-settings";
 import { publicImageBase } from "./storage";
+import { venueAssetCache } from "./asset-cache";
 
 // The venue's icon at any size: the iPhone home-screen icon (app/apple-icon.tsx)
 // and the staff app's icons for Android and notifications (app/staff-icon).
@@ -16,7 +17,9 @@ import { publicImageBase } from "./storage";
 //   3. the venue's initial on its brand colour.
 export async function venueIcon(px: number): Promise<ImageResponse> {
   const [company, site] = await Promise.all([getCompanyName(), getSiteSettings()]);
-  const size = { width: px, height: px };
+  // `size` doubles as the response options, so every branch below carries
+  // the cache headers.
+  const size = { width: px, height: px, headers: { "Cache-Control": venueAssetCache(86400) } };
 
   const appIcon = site.appIconUrl ? await loadImage(site.appIconUrl) : null;
   if (appIcon) {
@@ -95,3 +98,4 @@ async function loadImage(url: string): Promise<string | null> {
     return null;
   }
 }
+

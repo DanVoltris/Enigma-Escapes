@@ -80,7 +80,7 @@ export default function RewardCodeList({
                     </td>
                     <td>
                       {from ? (
-                        <Link href={`/manager/bookings/${from.id}`}>{from.ref}</Link>
+                        <Link prefetch={false} href={`/manager/bookings/${from.id}`}>{from.ref}</Link>
                       ) : (
                         <span className="sub">booking removed</span>
                       )}
@@ -88,7 +88,7 @@ export default function RewardCodeList({
                     <td>{from?.name ?? r.customerPhone}</td>
                     <td>
                       {to ? (
-                        <Link href={`/manager/bookings/${to.id}`}>{to.ref}</Link>
+                        <Link prefetch={false} href={`/manager/bookings/${to.id}`}>{to.ref}</Link>
                       ) : (
                         <span className="sub">—</span>
                       )}

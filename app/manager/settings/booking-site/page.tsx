@@ -12,7 +12,7 @@ export default async function BookingSitePage() {
     <>
       <p className="mgr-page-sub" style={{ marginBottom: 20 }}>
         Appearance and behaviour of the customer booking site.{" "}
-        <Link href="/" target="_blank">
+        <Link prefetch={false} href="/" target="_blank">
           View booking site →
         </Link>
       </p>

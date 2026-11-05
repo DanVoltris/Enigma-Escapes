@@ -73,16 +73,39 @@ export async function rest(path: string, init?: RequestInit): Promise<Response> 
   if (!tenantId) {
     throw new Error("No business for this request: the address is not a venue's, and nobody is signed in.");
   }
-  const auth = { apikey: tenant.apikey, Authorization: `Bearer ${tenantToken(tenant, tenantId)}` };
-  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: {
-      ...auth,
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-    cache: "no-store",
-  });
+  const load = () =>
+    fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      ...init,
+      headers: {
+        // Signed per call, not once: a cached read may run long after this
+        // request, and the token only lives a minute.
+        apikey: tenant.apikey,
+        Authorization: `Bearer ${tenantToken(tenant, tenantId)}`,
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+      cache: "no-store",
+    });
+
+  // Rarely-changing reads are remembered per business, and writes clear them
+  // (lib/db-cache.ts). Pinned deployments only — see there for why.
+  const pinned = tenant.pinnedTenantId;
+  if (!pinned) return load();
+  const method = (init?.method ?? "GET").toUpperCase();
+  const { cachedRead, invalidate, readTags, writeTags } = await import("./db-cache");
+  if (method === "GET") {
+    const tags = readTags(path);
+    return tags ? cachedRead(pinned, path, tags, load) : load();
+  }
+  const res = await load();
+  if (res.ok) invalidate(pinned, writeTags(path, init?.body));
+  return res;
+}
+
+/** The business this deployment is pinned to, if it is pinned to one. */
+export function pinnedTenantId(): string | undefined {
+  if (useLocalData()) return undefined;
+  return currentTenantAuth()?.pinnedTenantId;
 }
 
 export async function restError(res: Response, doing: string): Promise<Error> {

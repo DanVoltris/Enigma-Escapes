@@ -124,7 +124,7 @@ export default function BookingsFilterBar() {
         />
       </div>
       {anyFilter && (
-        <Link href="/manager/bookings" className="btn btn-outline">
+        <Link prefetch={false} href="/manager/bookings" className="btn btn-outline">
           Clear
         </Link>
       )}
