@@ -18,7 +18,7 @@ export default function BookingsSubnav() {
       {TABS.map((t) => {
         const active = t.href === "/manager/bookings" ? path === t.href : path.startsWith(t.href);
         return (
-          <Link key={t.href} href={t.href} className={`mgr-subtab${active ? " active" : ""}`}>
+          <Link prefetch={false} key={t.href} href={t.href} className={`mgr-subtab${active ? " active" : ""}`}>
             {t.label}
           </Link>
         );

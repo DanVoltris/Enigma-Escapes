@@ -53,7 +53,7 @@ export default function PushBanner({ publicKey }: { publicKey: string | null }) 
       {problem === "blocked" ? (
         <span>
           Notifications have been blocked on this phone, so you won&apos;t get alerts here.{" "}
-          <Link href="/manager/notifications">How to turn them back on</Link>
+          <Link prefetch={false} href="/manager/notifications">How to turn them back on</Link>
         </span>
       ) : (
         <>

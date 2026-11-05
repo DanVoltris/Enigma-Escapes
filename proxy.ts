@@ -146,9 +146,14 @@ export const config = {
   matcher: [
     // Everything except build output and static files: those are fixed assets
     // with no inline anything, and running this on each would add a per-asset
-    // cost for no protection.
+    // cost for no protection. Files by extension too (images, fonts, text) —
+    // anything dropped into public/ later is skipped without a matcher edit.
+    // The staff icons and manifest are NOT skipped, though they look static:
+    // they're drawn per venue, and on the platform deployment only this tells
+    // them which venue.
     {
-      source: "/((?!_next/static|_next/image|favicon.ico|sw.js).*)",
+      source:
+        "/((?!_next/static|_next/image|favicon.ico|sw.js|.*\\.(?:png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|txt|xml|map)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

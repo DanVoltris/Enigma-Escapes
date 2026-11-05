@@ -122,17 +122,17 @@ export default async function ManagerCalendar({
           Calendar
         </h1>
         {hasPermission(staff, "blocks") && (
-          <Link href="/manager/blocks" className="btn btn-outline">
+          <Link prefetch={false} href="/manager/blocks" className="btn btn-outline">
             Block off hours
           </Link>
         )}
       </div>
 
       <nav className="mgr-subtabs" aria-label="Calendar views">
-        <Link href={href({ view: "calendar" })} className={`mgr-subtab${view === "calendar" ? " active" : ""}`}>
+        <Link prefetch={false} href={href({ view: "calendar" })} className={`mgr-subtab${view === "calendar" ? " active" : ""}`}>
           Calendar grid
         </Link>
-        <Link href={href({ view: "list" })} className={`mgr-subtab${view === "list" ? " active" : ""}`}>
+        <Link prefetch={false} href={href({ view: "list" })} className={`mgr-subtab${view === "list" ? " active" : ""}`}>
           List
         </Link>
       </nav>
@@ -145,11 +145,11 @@ export default async function ManagerCalendar({
           <CalendarFilterBar experiences={allExperiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))} />
         </div>
         <div className="cal-daynav">
-          <Link href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline" title="Previous day">
+          <Link prefetch={false} href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline" title="Previous day">
             ‹ Day
           </Link>
           <DateJump date={date} basePath="/manager/calendar" />
-          <Link href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline" title="Next day">
+          <Link prefetch={false} href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline" title="Next day">
             Day ›
           </Link>
         </div>

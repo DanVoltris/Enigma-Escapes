@@ -165,7 +165,7 @@ export default function CustomerQuickView({
           <a href={`mailto:${customer.email}`} className="btn btn-outline">
             Email
           </a>
-          <Link href={`/manager/customers/${encodeURIComponent(customer.email)}`} className="btn">
+          <Link prefetch={false} href={`/manager/customers/${encodeURIComponent(customer.email)}`} className="btn">
             View full profile
           </Link>
         </div>

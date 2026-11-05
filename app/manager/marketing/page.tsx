@@ -85,7 +85,7 @@ export default async function MarketingPage() {
                         )}
                       </td>
                       <td>
-                        <Link href={`/manager/marketing/${c.id}`}>Open</Link>
+                        <Link prefetch={false} href={`/manager/marketing/${c.id}`}>Open</Link>
                       </td>
                     </tr>
                   );

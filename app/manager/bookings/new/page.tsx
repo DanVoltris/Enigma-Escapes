@@ -37,7 +37,7 @@ export default async function NewWalkInPage() {
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link href="/manager/bookings">← Back to all bookings</Link>
+        <Link prefetch={false} href="/manager/bookings">← Back to all bookings</Link>
       </p>
       <h1 className="mgr-page-title">Book now</h1>
       <p className="mgr-page-sub">

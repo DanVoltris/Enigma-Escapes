@@ -29,7 +29,7 @@ export default async function ManagerInvoices() {
             approved. An invoice holds no session; the booking is made once they pay.
           </p>
         </div>
-        <Link href="/manager/invoices/new" className="btn">
+        <Link prefetch={false} href="/manager/invoices/new" className="btn">
           + New invoice
         </Link>
       </div>
@@ -49,7 +49,7 @@ export default async function ManagerInvoices() {
         </h2>
         {quotes.length === 0 ? (
           <p className="mgr-empty">
-            No invoices yet. <Link href="/manager/invoices/new">Raise the first one</Link>.
+            No invoices yet. <Link prefetch={false} href="/manager/invoices/new">Raise the first one</Link>.
           </p>
         ) : (
           <div className="mgr-table-wrap">

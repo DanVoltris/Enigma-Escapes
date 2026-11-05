@@ -1,4 +1,6 @@
 import { blockedKeysForDate, isBlocked } from "./blocks";
+import { AVAILABILITY_TAG, cachedForVenue } from "./db-cache";
+import { pinnedTenantId } from "./supabase";
 import { overlappedBy, remainingSpots } from "./capacity";
 import { bookedCount, bookedCountsForDate, busySessionsForDate } from "./db";
 import { getExperience, listExperiences } from "./experiences";
@@ -9,6 +11,15 @@ import { requestWindowFor } from "./request-window";
 import { heldSeats, heldSeatsForDate } from "./requests";
 import { startTimesFor } from "./schedule";
 import type { Slot } from "./types";
+
+// slotsForDate for showing to people: remembered for 30 seconds per venue, and
+// cleared at once by any booking, request, block or room change (rest() →
+// lib/db-cache.ts), so a slot never shows free after it's been taken. The 30
+// seconds only covers what time alone changes — a start time passing, a hold
+// lapsing — and booking re-checks everything live regardless.
+export function shownSlotsForDate(date: string): Promise<Slot[]> {
+  return cachedForVenue(pinnedTenantId(), ["slots", date], [AVAILABILITY_TAG], 30, () => slotsForDate(date));
+}
 
 export async function slotsForDate(date: string): Promise<Slot[]> {
   const isToday = date === todayISO();

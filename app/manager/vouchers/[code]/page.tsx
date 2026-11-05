@@ -19,7 +19,7 @@ export default async function VoucherPage({ params }: { params: Promise<{ code: 
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link href="/manager/vouchers">← Back to gift vouchers</Link>
+        <Link prefetch={false} href="/manager/vouchers">← Back to gift vouchers</Link>
       </p>
       <h1 className="mgr-page-title">Gift voucher</h1>
       <p className="mgr-page-sub">
