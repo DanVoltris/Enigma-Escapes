@@ -1,5 +1,5 @@
 import BoardPage from "@/components/manager/BoardPage";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import RoomBadge from "@/components/RoomBadge";
 import { listExperiences } from "@/lib/experiences";
@@ -35,7 +35,7 @@ export default async function ManagerExperiences({
           <h2>
             {experiences.length} experience{experiences.length === 1 ? "" : "s"}
           </h2>
-          <Link prefetch={false} href="/manager/experiences/new" className="btn" style={{ marginLeft: "auto" }}>
+          <Link href="/manager/experiences/new" className="btn" style={{ marginLeft: "auto" }}>
             + Add experience
           </Link>
         </div>
@@ -82,7 +82,7 @@ export default async function ManagerExperiences({
                   <span className={`mgr-pill${e.active ? " on" : ""}`}>{e.active ? "Live" : "Hidden"}</span>
                 </td>
                 <td>
-                  <Link prefetch={false} href={`/manager/experiences/${e.id}`}>Edit</Link>
+                  <Link href={`/manager/experiences/${e.id}`}>Edit</Link>
                 </td>
               </tr>
             ))}

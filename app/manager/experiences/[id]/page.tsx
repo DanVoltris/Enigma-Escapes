@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { allowedLocations, canSeeLocation, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import DeleteExperience from "@/components/manager/DeleteExperience";
@@ -21,7 +21,7 @@ export default async function EditExperiencePage({ params }: { params: Promise<{
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link prefetch={false} href="/manager/experiences">← Back to experiences</Link>
+        <Link href="/manager/experiences">← Back to experiences</Link>
       </p>
       <h1 className="mgr-page-title">Edit {experience.name}</h1>
       <p className="mgr-page-sub">

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import CampaignComposer from "@/components/manager/CampaignComposer";
 import { requirePermission } from "@/lib/auth";
 import { listCampaigns, progressForAll } from "@/lib/campaigns";
@@ -85,7 +85,7 @@ export default async function MarketingPage() {
                         )}
                       </td>
                       <td>
-                        <Link prefetch={false} href={`/manager/marketing/${c.id}`}>Open</Link>
+                        <Link href={`/manager/marketing/${c.id}`}>Open</Link>
                       </td>
                     </tr>
                   );

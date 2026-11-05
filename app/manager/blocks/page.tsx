@@ -1,5 +1,5 @@
 import BoardPage from "@/components/manager/BoardPage";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { allowedLocations, requirePermission } from "@/lib/auth";
 import BlockRules from "@/components/manager/BlockRules";
 import BlocksManager from "@/components/manager/BlocksManager";
@@ -39,14 +39,14 @@ export default async function BlocksPage() {
     <>
       <BoardPage />
       <p style={{ marginBottom: 16 }}>
-        <Link prefetch={false} href="/manager/calendar">← Back to calendar</Link>
+        <Link href="/manager/calendar">← Back to calendar</Link>
       </p>
       <h1 className="mgr-page-title">Blocked hours</h1>
       <p className="mgr-page-sub">
         Take sessions out of service — maintenance, private events, short staffing. Blocked slots disappear from the
         booking site and can&apos;t be booked by customers or staff until you unblock them. To change what a room
         normally runs, or run different times on some dates, edit the room in{" "}
-        <Link prefetch={false} href="/manager/experiences">Experiences</Link>.
+        <Link href="/manager/experiences">Experiences</Link>.
       </p>
       <BlocksManager initialBlocks={scopedBlocks} roomNames={roomNames} />
       <BlockRules rooms={rooms} rules={liveRules} roomNames={roomNames} />

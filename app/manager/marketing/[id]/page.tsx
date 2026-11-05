@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { notFound } from "next/navigation";
 import CampaignRun from "@/components/manager/CampaignRun";
 import { requirePermission } from "@/lib/auth";
@@ -25,7 +25,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link prefetch={false} href="/manager/marketing">← Back to marketing</Link>
+        <Link href="/manager/marketing">← Back to marketing</Link>
       </p>
       <h1 className="mgr-page-title">{campaign.name}</h1>
       <p className="mgr-page-sub">

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { useEffect, useRef } from "react";
 import type { ImportedHistory } from "@/lib/customers";
 import { formatDateLong, formatMoney } from "@/lib/format";
@@ -165,7 +165,7 @@ export default function CustomerQuickView({
           <a href={`mailto:${customer.email}`} className="btn btn-outline">
             Email
           </a>
-          <Link prefetch={false} href={`/manager/customers/${encodeURIComponent(customer.email)}`} className="btn">
+          <Link href={`/manager/customers/${encodeURIComponent(customer.email)}`} className="btn">
             View full profile
           </Link>
         </div>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { canSeeLocation, hasPermission, requirePermission } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import BookingActions from "@/components/manager/BookingActions";
@@ -103,7 +103,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
   return (
     <>
       <div className="cust-topbar">
-        <Link prefetch={false} href="/manager/bookings">← Back to all bookings</Link>
+        <Link href="/manager/bookings">← Back to all bookings</Link>
         <div className="bk-actions">
           <a href={`mailto:${customer.email}`}>Email customer</a>
           {/* A cancelled booking is not attending anything — no toggle, just the fact. */}
@@ -123,7 +123,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
             </div>
             <h1 className="cust-name">{name}</h1>
             <p className="cust-since">
-              <Link prefetch={false} href={`/manager/customers/${encodeURIComponent(customer.email)}`}>View customer profile</Link>
+              <Link href={`/manager/customers/${encodeURIComponent(customer.email)}`}>View customer profile</Link>
             </p>
 
             <div className="cust-info">
@@ -166,7 +166,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                       {earnedSpentOn ? (
                         <>
                           {" "}
-                          — spent on <Link prefetch={false} href={`/manager/bookings/${earnedSpentOn.id}`}>{earnedSpentOn.reference}</Link>
+                          — spent on <Link href={`/manager/bookings/${earnedSpentOn.id}`}>{earnedSpentOn.reference}</Link>
                         </>
                       ) : earned.status === "revoked" ? (
                         " — cancelled with this booking"
@@ -184,7 +184,7 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
                       {cameFrom ? (
                         <>
                           {" "}
-                          — earned on <Link prefetch={false} href={`/manager/bookings/${cameFrom.id}`}>{cameFrom.reference}</Link>
+                          — earned on <Link href={`/manager/bookings/${cameFrom.id}`}>{cameFrom.reference}</Link>
                         </>
                       ) : null}
                     </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import IntentLink from "@/components/IntentLink";
 import { useCart } from "@/lib/cart";
 import { useSiteConfig } from "@/lib/site-config";
 
@@ -25,14 +26,14 @@ export default function Header({ company }: { company: string }) {
         </Link>
         <div className="header-right">
           {parties && (
-            <Link prefetch={false} href="/parties" className="header-home-link">
+            <IntentLink href="/parties" className="header-home-link">
               {partiesLinkLabel}
-            </Link>
+            </IntentLink>
           )}
           {showGiftVouchers && (
-            <Link prefetch={false} href="/gift-vouchers" className="header-home-link">
+            <IntentLink href="/gift-vouchers" className="header-home-link">
               Gift vouchers
-            </Link>
+            </IntentLink>
           )}
           <Link href="/checkout" className="cart-button" aria-label={`Cart, ${count} booking(s)`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

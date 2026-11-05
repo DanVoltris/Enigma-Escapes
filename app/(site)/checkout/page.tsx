@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import IntentLink from "@/components/IntentLink";
 import { useRouter } from "next/navigation";
 import CartSummary from "@/components/CartSummary";
 import HoldBanner from "@/components/HoldBanner";
@@ -126,7 +127,7 @@ export default function CheckoutDetailsPage() {
                 <span>Subscribe to receive emails from us with the latest promotions and news.</span>
               </label>
               <p className="field-hint">
-                How we handle your details: <Link prefetch={false} href="/privacy">privacy policy</Link>.
+                How we handle your details: <IntentLink href="/privacy">privacy policy</IntentLink>.
               </p>
 
               <h3>Contact information</h3>

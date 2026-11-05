@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { usePathname } from "next/navigation";
 
 // Resova-style grouped settings rail. Each entry is its own route under
@@ -46,7 +46,7 @@ export default function SettingsNav() {
       {SECTIONS.map((s) => (
         <div className="rpt-nav-group" key={s.heading} title={s.heading}>
           {s.items.map((t) => (
-            <Link prefetch={false} key={t.href} href={t.href} className={pathname === t.href ? "active" : undefined}>
+            <Link key={t.href} href={t.href} className={pathname === t.href ? "active" : undefined}>
               {t.label}
             </Link>
           ))}

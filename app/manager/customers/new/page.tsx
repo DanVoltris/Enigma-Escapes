@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { requirePermission } from "@/lib/auth";
 import AddCustomerForm from "@/components/manager/AddCustomerForm";
 
@@ -7,7 +7,7 @@ export default async function NewCustomerPage() {
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link prefetch={false} href="/manager/customers">← Back to all customers</Link>
+        <Link href="/manager/customers">← Back to all customers</Link>
       </p>
       <h1 className="mgr-page-title">Add customer</h1>
       <p className="mgr-page-sub">

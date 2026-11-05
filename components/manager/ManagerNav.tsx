@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { usePathname } from "next/navigation";
 import type { Permission } from "@/lib/permissions";
 
@@ -41,13 +41,13 @@ export default function ManagerNav({ permissions }: { permissions: Permission[] 
   });
 
   return (
-    // Tabs aren't prefetched (nor is any portal link): every page is rendered
-    // per request, so prefetching saved little on a click but cost a server
-    // render of all sixteen tabs on every portal page view.
+    // Portal links load their page when pointed at, not on sight
+    // (components/IntentLink.tsx): on sight cost a server render of all
+    // sixteen tabs on every portal page view.
     <nav className="mgr-nav" aria-label="Manager sections">
       <div className="mgr-nav-inner">
         {visible.map((tab) => (
-          <Link prefetch={false} key={tab.href} href={tab.href} className={`mgr-tab${isActive(tab.href) ? " active" : ""}`}>
+          <Link key={tab.href} href={tab.href} className={`mgr-tab${isActive(tab.href) ? " active" : ""}`}>
             {tab.label}
           </Link>
         ))}

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { notFound } from "next/navigation";
 import VoucherDetail from "@/components/manager/VoucherDetail";
 import { requirePermission } from "@/lib/auth";
@@ -19,7 +19,7 @@ export default async function VoucherPage({ params }: { params: Promise<{ code: 
   return (
     <>
       <p style={{ marginBottom: 16 }}>
-        <Link prefetch={false} href="/manager/vouchers">← Back to gift vouchers</Link>
+        <Link href="/manager/vouchers">← Back to gift vouchers</Link>
       </p>
       <h1 className="mgr-page-title">Gift voucher</h1>
       <p className="mgr-page-sub">

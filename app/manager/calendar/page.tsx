@@ -1,5 +1,5 @@
 import BoardPage from "@/components/manager/BoardPage";
-import Link from "next/link";
+import Link from "@/components/IntentLink";
 import { allowedLocations, hasPermission, requirePermission } from "@/lib/auth";
 import DateJump from "@/components/manager/DateJump";
 import CalendarFilterBar from "@/components/manager/CalendarFilterBar";
@@ -122,17 +122,17 @@ export default async function ManagerCalendar({
           Calendar
         </h1>
         {hasPermission(staff, "blocks") && (
-          <Link prefetch={false} href="/manager/blocks" className="btn btn-outline">
+          <Link href="/manager/blocks" className="btn btn-outline">
             Block off hours
           </Link>
         )}
       </div>
 
       <nav className="mgr-subtabs" aria-label="Calendar views">
-        <Link prefetch={false} href={href({ view: "calendar" })} className={`mgr-subtab${view === "calendar" ? " active" : ""}`}>
+        <Link href={href({ view: "calendar" })} className={`mgr-subtab${view === "calendar" ? " active" : ""}`}>
           Calendar grid
         </Link>
-        <Link prefetch={false} href={href({ view: "list" })} className={`mgr-subtab${view === "list" ? " active" : ""}`}>
+        <Link href={href({ view: "list" })} className={`mgr-subtab${view === "list" ? " active" : ""}`}>
           List
         </Link>
       </nav>
@@ -145,11 +145,11 @@ export default async function ManagerCalendar({
           <CalendarFilterBar experiences={allExperiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))} />
         </div>
         <div className="cal-daynav">
-          <Link prefetch={false} href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline" title="Previous day">
+          <Link href={href({ date: addDaysISO(date, -1) })} className="btn btn-outline" title="Previous day">
             ‹ Day
           </Link>
           <DateJump date={date} basePath="/manager/calendar" />
-          <Link prefetch={false} href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline" title="Next day">
+          <Link href={href({ date: addDaysISO(date, 1) })} className="btn btn-outline" title="Next day">
             Day ›
           </Link>
         </div>
