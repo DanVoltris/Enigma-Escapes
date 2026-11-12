@@ -37,8 +37,12 @@ describe("the service_role key stays out of the app", () => {
   test("a venue without its settings fails rather than falling back", () => {
     const src = read("lib/supabase.ts");
     // The one place a request is built: it is reached only past the refusal.
+    // Found by the call itself, not by how the line around it is worded — the
+    // read cache turned `return fetch(` into `const load = () => fetch(` and
+    // this check went red with nothing actually wrong.
     const refusal = src.indexOf("database access is not configured");
-    const request = src.indexOf("return fetch(");
+    const request = src.indexOf("fetch(`${SUPABASE_URL}/rest/v1/");
+    assert.equal(src.split("fetch(").length - 1, 1, "lib/supabase.ts has more than one place that calls the database");
     assert.ok(refusal > -1 && request > refusal, "the request is built before the settings are checked");
   });
 
