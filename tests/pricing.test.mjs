@@ -78,3 +78,35 @@ test("a promo still comes off, and tax-inclusive pricing lands on the round numb
   });
   assert.equal(inclusive.totalCents, 9000); // exactly $90 for the pair
 });
+
+// A promo limited to some rooms (WELCOMEBACKSOS, for the room that came back).
+import { promoMissesRooms, promoRoomsMessage } from "../lib/pricing.ts";
+const sos = (quantity) => room(quantity, { roomId: "school-of-sorcery", roomName: "School of Sorcery" });
+
+test("a room-limited promo discounts only that room's sessions", () => {
+  // $28.58 x 4 in each room; 20% off School of Sorcery only.
+  const items = [sos(4), room(4)];
+  const t = computeTotals(items, 20, 5, DEFAULT_PRICING_MODE, 0, true, ["school-of-sorcery"]);
+  assert.equal(t.discountCents, Math.round((PRICE * 4 * 20) / 100)); // 2286, not 4573
+  const everywhere = computeTotals(items, 20, 5, DEFAULT_PRICING_MODE);
+  assert.equal(everywhere.discountCents, Math.round((PRICE * 8 * 20) / 100));
+});
+
+test("a room-limited promo leaves the corporate fee alone", () => {
+  const t = computeTotals([sos(4)], 50, 5, DEFAULT_PRICING_MODE, 35000, true, ["school-of-sorcery"]);
+  assert.equal(t.discountCents, Math.round((PRICE * 4) / 2));
+});
+
+test("an empty room list means every room, as before", () => {
+  const a = computeTotals([sos(4), room(3)], 10, 5, DEFAULT_PRICING_MODE, 0, true, []);
+  const b = computeTotals([sos(4), room(3)], 10, 5, DEFAULT_PRICING_MODE);
+  assert.deepEqual(a, b);
+});
+
+test("a booking without the code's room is refused it, with the room named", () => {
+  assert.equal(promoMissesRooms(["school-of-sorcery"], [room(4)]), true);
+  assert.equal(promoMissesRooms(["school-of-sorcery"], [room(4), sos(3)]), false);
+  assert.equal(promoMissesRooms([], [room(4)]), false);
+  assert.equal(promoRoomsMessage("WELCOMEBACKSOS", ["School of Sorcery"]), "WELCOMEBACKSOS only works on School of Sorcery.");
+  assert.equal(promoRoomsMessage("X", ["A", "B", "C"]), "X only works on A, B or C.");
+});

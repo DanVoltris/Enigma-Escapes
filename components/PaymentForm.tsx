@@ -8,7 +8,7 @@ import HoldBanner from "@/components/HoldBanner";
 import ProgressSteps from "@/components/ProgressSteps";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
-import { cardDueCents, computeTotals, voucherAppliedCents } from "@/lib/pricing";
+import { cardDueCents, computeTotals, promoMissesRooms, promoRoomsMessage, voucherAppliedCents } from "@/lib/pricing";
 
 // The manager-approved token that lets the server accept a sub-4h booking.
 // Held in the cart (persisted), with the URL as a fallback for browsers where
@@ -79,7 +79,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
     if (items.length > 0 && !customer) router.replace("/checkout");
   }, [items.length, customer, router]);
 
-  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent, pricingMode);
+  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent, pricingMode, 0, true, promo?.roomIds ?? []);
   // Only offer the deposit option when it's actually less than the full amount
   // (an all-100%-deposit cart requires full payment up front).
   const depositOffered = totals.depositCents < totals.totalCents;
@@ -122,7 +122,12 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       if (data.kind === "voucher") {
         setVoucher({ code: data.code, remainingCents: data.remainingCents });
       } else {
-        setPromo({ code: data.code, percentOff: data.percentOff });
+        // A code for one room is no good on a cart without it — say so now,
+        // not after the booking is sent.
+        if (promoMissesRooms(data.roomIds ?? [], items)) {
+          throw new Error(promoRoomsMessage(data.code, data.roomNames ?? []));
+        }
+        setPromo({ code: data.code, percentOff: data.percentOff, roomIds: data.roomIds, roomNames: data.roomNames });
       }
       setPromoInput("");
     } catch (err) {
@@ -264,7 +269,8 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                 </div>
                 {promo && (
                   <p className="promo-note ok">
-                    Code {promo.code} applied — you saved {formatMoney(totals.discountCents)}.{" "}
+                    Code {promo.code} applied — you saved {formatMoney(totals.discountCents)}
+                    {promo.roomNames?.length ? ` on ${promo.roomNames.join(" and ")}` : ""}.{" "}
                     <button type="button" className="link-button" onClick={() => setPromo(null)}>
                       Remove
                     </button>

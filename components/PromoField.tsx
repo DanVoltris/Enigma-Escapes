@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
+import { promoMissesRooms, promoRoomsMessage } from "@/lib/pricing";
 
 // Code entry for promo codes and gift vouchers alike — one box, because a
 // customer holding a code shouldn't have to know which kind it is. Validated
 // against the server before it's applied, so what's shown always matches what
 // create-booking will recompute.
 export default function PromoField() {
-  const { promo, voucher, setPromo, setVoucher } = useCart();
+  const { items, promo, voucher, setPromo, setVoucher } = useCart();
   const [code, setCode] = useState("");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +27,10 @@ export default function PromoField() {
       if (data.kind === "voucher") {
         setVoucher({ code: data.code, remainingCents: data.remainingCents });
       } else {
-        setPromo({ code: data.code, percentOff: data.percentOff });
+        if (promoMissesRooms(data.roomIds ?? [], items)) {
+          throw new Error(promoRoomsMessage(data.code, data.roomNames ?? []));
+        }
+        setPromo({ code: data.code, percentOff: data.percentOff, roomIds: data.roomIds, roomNames: data.roomNames });
       }
       setCode("");
     } catch (err) {
@@ -42,6 +46,7 @@ export default function PromoField() {
           <div className="promo-applied">
             <span>
               <strong>{promo.code}</strong> applied — {promo.percentOff}% off
+              {promo.roomNames?.length ? ` ${promo.roomNames.join(" and ")}` : ""}
             </span>
             <button type="button" className="link-button" onClick={() => setPromo(null)}>
               Remove

@@ -16,6 +16,8 @@ import {
   STAFF_BOOKING_WINDOW_DAYS,
   cardDueCents,
   computeTotals,
+  promoMissesRooms,
+  promoRoomsMessage,
   voucherAppliedCents,
 } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
@@ -105,6 +107,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   const items: CartItem[] = [];
   let percentOff = 0;
   let promoCode: string | null = null;
+  let promoRoomIds: string[] = [];
   let rewardCode: string | null = null;
   let voucherCode: string | null = null;
 
@@ -117,6 +120,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       if (promo && promo.active && (!promo.staffOnly || source === "in_person")) {
         promoCode = promo.code;
         percentOff = promo.percentOff;
+        promoRoomIds = promo.roomIds;
       } else {
         // Not a promo — it may be a 20% reward code from an earlier booking.
         // Those are checked against the cart below, once the sessions are
@@ -294,6 +298,19 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     if (problem) return err(problem);
   }
 
+  // A code limited to some rooms needs at least one of them on the booking.
+  if (promoCode && promoMissesRooms(promoRoomIds, items)) {
+    let names: string[] = [];
+    try {
+      names = (await Promise.all(promoRoomIds.map((rid) => getExperience(rid))))
+        .filter((e) => !!e)
+        .map((e) => e!.name);
+    } catch {
+      // Named if we can; the refusal stands either way.
+    }
+    return err(promoRoomsMessage(promoCode, names));
+  }
+
   const flatFeeCents = corporate ? pricingMode.corporateFeeCents : 0;
   const totals = computeTotals(
     items,
@@ -301,7 +318,8 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     await activeTaxPercent(),
     pricingMode,
     flatFeeCents,
-    !rewardCode // a promo reaches the fee; the 20% loyalty code doesn't
+    !rewardCode, // a promo reaches the fee; the 20% loyalty code doesn't
+    promoRoomIds
   );
 
   // Gift voucher — a prepaid balance, checked here against the real cart so the
@@ -361,6 +379,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       paidCents,
       balanceCents: totals.totalCents - paidCents,
       ...(corporate ? { corporate: true, flatFeeCents } : {}),
+      ...(promoRoomIds.length > 0 ? { promoRoomIds } : {}),
       voucherCode,
       voucherCents,
       voucherRedeemed: false, // set once the balance is actually taken
