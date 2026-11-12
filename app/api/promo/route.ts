@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentStaff } from "@/lib/auth";
 import { getPromo } from "@/lib/db";
+import { getExperience } from "@/lib/experiences";
 import { todayISO } from "@/lib/format";
 import { getRewardCode, rewardProblem } from "@/lib/reward-codes";
 import { getVoucher } from "@/lib/vouchers";
@@ -24,7 +25,16 @@ export async function GET(req: NextRequest) {
     // Staff-only codes answer only to a signed-in staff session (the walk-in
     // form's Apply button); to the public they don't exist.
     if (promo && promo.active && (!promo.staffOnly || (await currentStaff()))) {
-      return NextResponse.json({ kind: "promo", code: promo.code, percentOff: promo.percentOff });
+      // A code limited to some rooms says which, so the checkout can refuse it
+      // on a cart without them — and say why — before the booking is sent.
+      const rooms = await Promise.all(promo.roomIds.map((id) => getExperience(id)));
+      return NextResponse.json({
+        kind: "promo",
+        code: promo.code,
+        percentOff: promo.percentOff,
+        roomIds: promo.roomIds,
+        roomNames: rooms.filter((r) => !!r).map((r) => r!.name),
+      });
     }
 
     const voucher = await getVoucher(code);

@@ -7,7 +7,9 @@ import type { CartItem, Customer, PaymentOption } from "./types";
 
 const STORAGE_KEY = "voltris-cart";
 
-type AppliedPromo = { code: string; percentOff: number };
+// roomIds: the rooms a limited code discounts (empty/absent = every room). A
+// cart saved before limits existed has no roomIds, which reads as every room.
+type AppliedPromo = { code: string; percentOff: number; roomIds?: string[]; roomNames?: string[] };
 // A gift voucher is a prepaid balance, not a discount — it pays down the total
 // after tax. remainingCents is what the server said was left when it was applied.
 type AppliedVoucher = { code: string; remainingCents: number };

@@ -4,7 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Promo } from "@/lib/types";
 
-export default function PromoManager({ promos }: { promos: Promo[] }) {
+type Room = { id: string; name: string; location: string };
+
+// Ticks for the rooms a code is limited to. None ticked = every room.
+function RoomPicker({ rooms, value, onChange }: { rooms: Room[]; value: string[]; onChange: (ids: string[]) => void }) {
+  const toggle = (id: string) => onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  return (
+    <div className="vch-items">
+      {rooms.map((r) => (
+        <label key={r.id} className="vch-check">
+          <input type="checkbox" checked={value.includes(r.id)} onChange={() => toggle(r.id)} />
+          {r.name} <span style={{ color: "var(--text-secondary)" }}>· {r.location}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms: Room[] }) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
@@ -13,6 +30,12 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
   const [rewardPercent, setRewardPercent] = useState("20");
   const [rewardDays, setRewardDays] = useState("7");
   const [rewardMultiUse, setRewardMultiUse] = useState(false);
+  // Some rooms only — WELCOMEBACKSOS for the room that came back.
+  const [someRooms, setSomeRooms] = useState(false);
+  const [roomIds, setRoomIds] = useState<string[]>([]);
+  // The code whose rooms are being changed in the list, and the ticks so far.
+  const [editingRooms, setEditingRooms] = useState<{ code: string; ids: string[] } | null>(null);
+  const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "a removed room";
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCode, setConfirmCode] = useState<string | null>(null); // code pending delete confirmation
@@ -20,6 +43,10 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
   async function addPromo(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (someRooms && roomIds.length === 0) {
+      setError("Tick the rooms this code works on, or untick “Only some rooms”.");
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/manager/promos", {
@@ -32,12 +59,15 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
           rewardPercent: earns ? Number(rewardPercent) : 0,
           rewardDays: earns ? Number(rewardDays) : 0,
           rewardMultiUse: earns && rewardMultiUse,
+          roomIds: someRooms ? roomIds : [],
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save the code.");
       setCode("");
       setStaffOnly(false);
+      setSomeRooms(false);
+      setRoomIds([]);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save the code.");
@@ -46,7 +76,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
     }
   }
 
-  async function toggle(promo: Promo, patch: { active?: boolean; staffOnly?: boolean }) {
+  async function toggle(promo: Promo, patch: { active?: boolean; staffOnly?: boolean; roomIds?: string[] }) {
     setError(null);
     try {
       const res = await fetch(`/api/manager/promos/${encodeURIComponent(promo.code)}`, {
@@ -56,6 +86,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not update the code.");
+      if (patch.roomIds) setEditingRooms(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the code.");
@@ -112,6 +143,15 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
             <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} />
             <span>Staff only — works at the desk, never on the website</span>
           </label>
+          <label className="checkbox-row" style={{ alignSelf: "center" }}>
+            <input type="checkbox" checked={someRooms} onChange={(e) => setSomeRooms(e.target.checked)} />
+            <span>Only some rooms</span>
+          </label>
+          {someRooms && (
+            <div style={{ flexBasis: "100%" }}>
+              <RoomPicker rooms={rooms} value={roomIds} onChange={setRoomIds} />
+            </div>
+          )}
           {/* A code can hand the customer a second code with their confirmation
               text — the hotel guest who books at 10% off and gets 20% off for
               the rest of the week. */}
@@ -175,6 +215,7 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                   <th>Code</th>
                   <th className="num">Discount</th>
                   <th>Works</th>
+                  <th>Rooms</th>
                   <th>Follow-up code</th>
                   <th>Status</th>
                   <th></th>
@@ -188,6 +229,41 @@ export default function PromoManager({ promos }: { promos: Promo[] }) {
                     </td>
                     <td className="num">{p.percentOff}% off</td>
                     <td>{p.staffOnly ? "Desk only" : "Website + desk"}</td>
+                    <td>
+                      {editingRooms?.code === p.code ? (
+                        <div>
+                          <p className="sub" style={{ margin: "0 0 6px" }}>None ticked = every room.</p>
+                          <RoomPicker
+                            rooms={rooms}
+                            value={editingRooms.ids}
+                            onChange={(ids) => setEditingRooms({ code: p.code, ids })}
+                          />
+                          <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => toggle(p, { roomIds: editingRooms.ids })}
+                            >
+                              Save rooms
+                            </button>
+                            <button type="button" className="link-button" onClick={() => setEditingRooms(null)}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {p.roomIds.length > 0 ? p.roomIds.map(roomName).join(", ") : "Every room"}{" "}
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => setEditingRooms({ code: p.code, ids: p.roomIds })}
+                          >
+                            Change
+                          </button>
+                        </>
+                      )}
+                    </td>
                     <td>
                       {p.rewardPercent > 0
                         ? `${p.rewardPercent}% off, ${p.rewardDays} day${p.rewardDays === 1 ? "" : "s"}` +

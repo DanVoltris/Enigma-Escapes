@@ -767,6 +767,8 @@ type PromoRow = {
   reward_percent?: number | null;
   reward_days?: number | null;
   reward_multi_use?: boolean | null;
+  // Migration 0019; absent on a database that hasn't had it.
+  room_ids?: string[] | null;
 };
 
 function toPromo(r: PromoRow): Promo {
@@ -778,6 +780,7 @@ function toPromo(r: PromoRow): Promo {
     rewardPercent: r.reward_percent ?? 0,
     rewardDays: r.reward_days ?? 0,
     rewardMultiUse: r.reward_multi_use === true,
+    roomIds: r.room_ids ?? [],
   };
 }
 
@@ -824,6 +827,8 @@ export async function createPromo(promo: Promo): Promise<void> {
             reward_multi_use: promo.rewardMultiUse,
           }
         : {}),
+      // And again: only sent when the code is limited to some rooms (0019).
+      ...(promo.roomIds.length > 0 ? { room_ids: promo.roomIds } : {}),
     }),
   });
   if (!res.ok) throw await restError(res, "Creating the promo code");
@@ -838,6 +843,7 @@ export async function updatePromo(
     rewardPercent?: number;
     rewardDays?: number;
     rewardMultiUse?: boolean;
+    roomIds?: string[];
   }
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -847,6 +853,7 @@ export async function updatePromo(
   if (patch.rewardPercent !== undefined) row.reward_percent = patch.rewardPercent;
   if (patch.rewardDays !== undefined) row.reward_days = patch.rewardDays;
   if (patch.rewardMultiUse !== undefined) row.reward_multi_use = patch.rewardMultiUse;
+  if (patch.roomIds !== undefined) row.room_ids = patch.roomIds;
   const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },

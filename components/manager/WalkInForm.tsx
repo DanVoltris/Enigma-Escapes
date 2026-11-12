@@ -108,7 +108,13 @@ export default function WalkInForm({
   // moment they're applied, so a bad code is heard about before the customer's
   // details are typed in; the booking endpoint re-validates them regardless.
   const [codeInput, setCodeInput] = useState("");
-  const [appliedCode, setAppliedCode] = useState<{ code: string; percentOff: number } | null>(null);
+  // roomIds/roomNames: a code limited to some rooms (empty = every room).
+  const [appliedCode, setAppliedCode] = useState<{
+    code: string;
+    percentOff: number;
+    roomIds: string[];
+    roomNames: string[];
+  } | null>(null);
   const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; remainingCents: number } | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [checkingCode, setCheckingCode] = useState(false);
@@ -340,7 +346,14 @@ export default function WalkInForm({
   // Preview only — the server reprices from the database at save time, with the
   // same rounding. A promo's cut of the corporate fee is left out here (the
   // preview can't tell a promo from a reward code), so it can only understate.
-  const discount = appliedCode ? Math.round((roomsTotal * appliedCode.percentOff) / 100) : 0;
+  // A code limited to some rooms only discounts those sessions.
+  const discountable = appliedCode?.roomIds.length
+    ? sessions.reduce((sum, x) => {
+        const exp = expFor(x);
+        return sum + (exp && appliedCode.roomIds.includes(exp.id) ? exp.priceCents * chargedFor(x.quantity) : 0);
+      }, 0)
+    : roomsTotal;
+  const discount = appliedCode ? Math.round((discountable * appliedCode.percentOff) / 100) : 0;
 
   // Corporate events run all their rooms at one time, so a single start time
   // governs the booking — the desk picks rooms, not a time per room.
@@ -376,7 +389,12 @@ export default function WalkInForm({
       if (data.kind === "voucher") {
         setAppliedVoucher({ code: data.code, remainingCents: data.remainingCents });
       } else {
-        setAppliedCode({ code: data.code, percentOff: data.percentOff });
+        setAppliedCode({
+          code: data.code,
+          percentOff: data.percentOff,
+          roomIds: data.roomIds ?? [],
+          roomNames: data.roomNames ?? [],
+        });
       }
       setCodeInput("");
     } catch (err) {
@@ -707,7 +725,8 @@ export default function WalkInForm({
         <label htmlFor="walkin-code">Promo, reward or gift voucher code</label>
         {appliedCode && (
           <p className="sub" style={{ margin: "8px 0 0" }}>
-            <strong>{appliedCode.code}</strong> — {appliedCode.percentOff}% off{" "}
+            <strong>{appliedCode.code}</strong> — {appliedCode.percentOff}% off
+            {appliedCode.roomNames.length > 0 ? `, ${appliedCode.roomNames.join(" and ")} only` : ""}{" "}
             <button type="button" className="mgr-linklike danger" onClick={() => setAppliedCode(null)}>
               Remove
             </button>

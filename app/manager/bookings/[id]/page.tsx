@@ -12,7 +12,7 @@ import { getRewardCode, rewardForBooking } from "@/lib/reward-codes";
 import { listExperiences } from "@/lib/experiences";
 import { maxPerBooking } from "@/lib/capacity";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { lineCents, outstandingCents, refundGoingBackCents } from "@/lib/pricing";
+import { lineCents, outstandingCents, promoMissesRooms, refundGoingBackCents } from "@/lib/pricing";
 import { emailConfigured } from "@/lib/email";
 import { cardEntryKey, stripeConfigured } from "@/lib/stripe";
 import { listTaxes } from "@/lib/taxes";
@@ -264,7 +264,10 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               purchases={purchases}
               promoCode={booking.promoCode}
               discountCents={pricing.discountCents}
-              activePromos={promos.filter((p) => p.active).map((p) => ({ code: p.code, percentOff: p.percentOff }))}
+              activePromos={promos
+                // A code for one room isn't offered on a booking without it.
+                .filter((p) => p.active && !promoMissesRooms(p.roomIds, booking.items))
+                .map((p) => ({ code: p.code, percentOff: p.percentOff }))}
               customerName={name}
               customerEmail={customer.email}
               participants={participants}
