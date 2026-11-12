@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { createPromo, getPromo, logActivity } from "@/lib/db";
+import { PROMO_ROOMS_MIGRATION, parsePromoRooms } from "@/lib/promo-rooms";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown };
+  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown; roomIds?: unknown };
   const staffOnly = d.staffOnly === true;
 
   const code = typeof d.code === "string" ? d.code.trim().toUpperCase() : "";
@@ -34,7 +35,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Discount must be a whole number from 1 to 100 percent." }, { status: 400 });
   }
 
+  let rooms: { ids: string[]; names: string[] } = { ids: [], names: [] };
   try {
+    const parsed = await parsePromoRooms(d.roomIds);
+    if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    rooms = parsed;
     if (await getPromo(code)) {
       return NextResponse.json({ error: `${code} already exists. Edit it in the list instead.` }, { status: 409 });
     }
@@ -62,10 +67,11 @@ export async function POST(req: NextRequest) {
       rewardPercent,
       rewardDays,
       rewardMultiUse: rewardPercent > 0 && d.rewardMultiUse === true,
+      roomIds: rooms.ids,
     });
     await logActivity(
       "Created promo code",
-      `${code} — ${percentOff}% off${staffOnly ? " (staff only)" : ""}` +
+      `${code} — ${percentOff}% off${rooms.names.length ? ` ${rooms.names.join(", ")} only` : ""}${staffOnly ? " (staff only)" : ""}` +
         (rewardPercent > 0
           ? `, earns ${rewardPercent}% off for ${rewardDays} days${d.rewardMultiUse === true ? ", reusable" : ""}`
           : "")
@@ -75,6 +81,9 @@ export async function POST(req: NextRequest) {
     console.error("creating promo failed:", err);
     if (staffOnly && err instanceof Error && err.message.includes("staff_only")) {
       return NextResponse.json({ error: STAFF_ONLY_MIGRATION }, { status: 500 });
+    }
+    if (rooms.ids.length > 0 && err instanceof Error && err.message.includes("room_ids")) {
+      return NextResponse.json({ error: PROMO_ROOMS_MIGRATION }, { status: 500 });
     }
     return NextResponse.json(
       { error: "Could not save the code right now. Please try again shortly." },

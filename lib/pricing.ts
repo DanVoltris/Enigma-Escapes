@@ -102,15 +102,22 @@ export function computeTotals(
   // giveaway has to be able to make a booking genuinely free. The 20% loyalty
   // code does not: it is a nudge to come back for another game, and letting it
   // take a cut of the host's time hands away $70 an event nobody chose to give.
-  feeDiscountable = true
+  feeDiscountable = true,
+  // A promo code limited to some rooms (WELCOMEBACKSOS, for the room that came
+  // back) discounts only those rooms' sessions, and never the fee — the fee
+  // isn't any one room's. Empty = every room, as before.
+  discountRoomIds: readonly string[] = []
 ): Totals {
   const roomsCents = items.reduce((sum, i) => sum + lineCents(i, mode), 0);
+  const limited = discountRoomIds.length > 0;
   // Discounted along with everything else. It used to sit outside the discount
   // base on the theory that a promo is for the games and not the host's time —
   // which meant a 100% "prize" code left $350 to pay on a booking that was
   // supposed to be free. A code discounts the booking.
   const listedCents = roomsCents + flatFeeCents;
-  const discountBase = roomsCents + (feeDiscountable ? flatFeeCents : 0);
+  const discountBase = limited
+    ? items.filter((i) => discountRoomIds.includes(i.roomId)).reduce((sum, i) => sum + lineCents(i, mode), 0)
+    : roomsCents + (feeDiscountable ? flatFeeCents : 0);
   const discountCents = Math.round((discountBase * percentOff) / 100);
 
   let subtotalCents: number;
@@ -193,4 +200,20 @@ export function outstandingCents(booking: {
   if (booking.status === "cancelled") return 0; // nothing is chased on a cancelled booking
   const kept = booking.pricing.paidCents - refundGoingBackCents(booking.pricing);
   return booking.pricing.totalCents - Math.max(0, kept);
+}
+
+// Whether a room-limited promo has anything to discount: true when the code is
+// limited (roomIds non-empty) and none of the sessions are in its rooms. Such a
+// booking is refused the code rather than shown it "applied" for $0 off.
+export function promoMissesRooms(roomIds: readonly string[], items: readonly { roomId: string }[]): boolean {
+  return roomIds.length > 0 && !items.some((i) => roomIds.includes(i.roomId));
+}
+
+// "WELCOMEBACKSOS only works on School of Sorcery." — names, not ids.
+export function promoRoomsMessage(code: string, roomNames: readonly string[]): string {
+  const names =
+    roomNames.length <= 1
+      ? roomNames[0] ?? "certain rooms"
+      : `${roomNames.slice(0, -1).join(", ")} or ${roomNames[roomNames.length - 1]}`;
+  return `${code} only works on ${names}.`;
 }

@@ -329,10 +329,15 @@ export async function changePartySize(
   // Same base the discount was struck against. A promo reached the fee, the
   // loyalty code didn't — read the rate back off the wrong one and the rebuild
   // moves money.
-  const feeDiscountable = !booking.pricing.rewardCode;
+  // A promo limited to some rooms was struck against those rooms' sessions
+  // alone (never the fee), so its rate is read back off them and the rebuild
+  // discounts the same rooms — drop the last of them and the discount goes too.
+  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
+  const feeDiscountable = !booking.pricing.rewardCode && promoRoomIds.length === 0;
   const listedBefore =
-    booking.items.reduce((sum, i) => sum + lineCents(i), 0) +
-    (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
+    booking.items
+      .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
+      .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
   // Resized to the party that turned up; the minimum charge is re-applied, so
   // a booking cut from four to two still bills the venue's minimum.
@@ -352,7 +357,8 @@ export async function changePartySize(
     await activeTaxPercent(),
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
-    feeDiscountable
+    feeDiscountable,
+    promoRoomIds
   );
 
   const paid = booking.pricing.paidCents;
@@ -453,10 +459,15 @@ export async function cancelItemForStaff(
   // change does: per-person prices stay, and the discount rate the booking was
   // sold at is carried across so a since-expired promo isn't taken away.
   const remaining = booking.items.filter((_, idx) => idx !== itemIndex);
-  const feeDiscountable = !booking.pricing.rewardCode;
+  // A promo limited to some rooms was struck against those rooms' sessions
+  // alone (never the fee), so its rate is read back off them and the rebuild
+  // discounts the same rooms — drop the last of them and the discount goes too.
+  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
+  const feeDiscountable = !booking.pricing.rewardCode && promoRoomIds.length === 0;
   const listedBefore =
-    booking.items.reduce((sum, i) => sum + lineCents(i), 0) +
-    (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
+    booking.items
+      .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
+      .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
   // The corporate fee is charged once per booking, not per room, so it rides
   // through untouched — the group still gets the thing the fee paid for.
@@ -466,7 +477,8 @@ export async function cancelItemForStaff(
     await activeTaxPercent(),
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
-    feeDiscountable
+    feeDiscountable,
+    promoRoomIds
   );
   // paidCents records what was collected and is left alone — the refund side
   // carries the money going back, so the booking never starts showing a fresh
@@ -623,7 +635,21 @@ export async function rescheduleForStaff(
         }
       : i
   );
-  await rescheduleBooking(booking.id, items);
+  // The move keeps the price it was sold at, discount included. If that
+  // discount came from a promo limited to the room being left, the new room
+  // joins the promo's list, or a later resize would read the session as never
+  // discounted and quietly take it away.
+  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
+  if (promoRoomIds.includes(item.roomId) && !promoRoomIds.includes(exp.id)) {
+    await updateBookingPartySize(
+      booking.id,
+      items,
+      { ...booking.pricing, promoRoomIds: [...promoRoomIds, exp.id] },
+      "Rescheduling the booking"
+    );
+  } else {
+    await rescheduleBooking(booking.id, items);
+  }
   await logActivity(
     "Booking rescheduled by staff",
     `${booking.reference} — ${staffName} — ${item.roomName} ${item.date} ${formatTime(item.time)} → ${exp.name} ${target.date} ${formatTime(target.time)}`

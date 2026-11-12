@@ -61,6 +61,12 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   column if not exists staff_only boolean not null default false;` (the portal
   says so if a staff-only code is saved before the column exists; local mode
   needs nothing).
+  A code can also be limited to **some rooms** (`room_ids`, migration 0019 — empty =
+  every room; WELCOMEBACKSOS is School of Sorcery's). It then discounts only those
+  rooms' sessions and never the corporate fee (`computeTotals`' last argument), and a
+  booking with none of them is refused it (`promoMissesRooms`). The booking keeps its
+  own copy in `pricing.promoRoomIds`, so a resize, a dropped room or a staff move to
+  another room re-figures the discount the way it was sold. `npm run test:pricing`.
 - Availability is served by `GET /api/availability?date=YYYY-MM-DD` from real bookings only
   (the old fake "seeded" availability was removed when the portal arrived — new slots start
   fully open).

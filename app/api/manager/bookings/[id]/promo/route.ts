@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getPricingMode } from "@/lib/pricing-settings";
 import { getBooking, getPromo, logActivity, updateBookingFields } from "@/lib/db";
-import { computeTotals } from "@/lib/pricing";
+import { getExperience } from "@/lib/experiences";
+import { computeTotals, promoMissesRooms, promoRoomsMessage } from "@/lib/pricing";
 import { getRewardCode } from "@/lib/reward-codes";
 import { activeTaxPercent } from "@/lib/taxes";
 import type { Booking } from "@/lib/types";
@@ -11,7 +12,14 @@ export const dynamic = "force-dynamic";
 
 // Recompute a booking's pricing for a given discount, keeping what was already
 // paid. Tax uses the current configured rate (staff is editing the booking now).
-async function repriced(booking: Booking, percentOff: number, feeDiscountable = true): Promise<Booking["pricing"]> {
+// roomIds: the rooms a limited promo covers (empty = every room), remembered on
+// the booking so a later resize discounts the same sessions.
+async function repriced(
+  booking: Booking,
+  percentOff: number,
+  feeDiscountable = true,
+  roomIds: string[] = []
+): Promise<Booking["pricing"]> {
   const taxPercent = await activeTaxPercent();
   const totals = computeTotals(
     booking.items,
@@ -19,10 +27,13 @@ async function repriced(booking: Booking, percentOff: number, feeDiscountable = 
     taxPercent,
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
-    feeDiscountable // a promo applied by hand has the same reach as one typed at checkout
+    feeDiscountable, // a promo applied by hand has the same reach as one typed at checkout
+    roomIds
   );
+  const { promoRoomIds: _was, ...rest } = booking.pricing;
   return {
-    ...booking.pricing,
+    ...rest,
+    ...(roomIds.length > 0 ? { promoRoomIds: roomIds } : {}),
     subtotalCents: totals.subtotalCents,
     discountCents: totals.discountCents,
     gstCents: totals.gstCents,
@@ -75,7 +86,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: "That code is not valid or is inactive." }, { status: 404 });
     }
 
-    const pricing = await repriced(booking, promo.percentOff);
+    if (promoMissesRooms(promo.roomIds, booking.items)) {
+      const rooms = await Promise.all(promo.roomIds.map((rid) => getExperience(rid)));
+      const names = rooms.filter((r) => !!r).map((r) => r!.name);
+      return NextResponse.json(
+        { error: `${promoRoomsMessage(promo.code, names)} This booking has none of those rooms.` },
+        { status: 400 }
+      );
+    }
+
+    const pricing = await repriced(booking, promo.percentOff, true, promo.roomIds);
     await updateBookingFields(id, { pricing, promoCode: promo.code });
     await logActivity("Applied promo", `${promo.code} (${promo.percentOff}% off) to ${booking.reference}`);
     return NextResponse.json({ ok: true, pricing, promoCode: promo.code });

@@ -153,6 +153,9 @@ export type Promo = {
   // hotel guest playing a different room every night of their stay. False is
   // the house behaviour: one use.
   rewardMultiUse: boolean;
+  // Experience ids it discounts; empty = every room. On a booking that mixes
+  // rooms only these sessions come off (migration 0019).
+  roomIds: string[];
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
@@ -195,6 +198,11 @@ export type BookingPricing = {
   // it.
   corporate?: boolean;
   flatFeeCents?: number;
+  // The rooms the booking's promo code was limited to, copied from the code
+  // when it was applied. Kept on the booking because a resize or a dropped room
+  // rebuilds the discount from the booking alone, and the code may since have
+  // changed or gone. Absent/empty = the promo covered every room.
+  promoRoomIds?: string[];
   // Gift voucher put towards this booking. voucherCents counts inside
   // paidCents — it is money the customer already handed over, not a discount.
   // voucherRedeemed guards the balance being taken more than once when the

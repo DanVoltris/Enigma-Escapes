@@ -6,6 +6,7 @@ import PromoManager from "@/components/manager/PromoManager";
 import VoucherManager from "@/components/manager/VoucherManager";
 import { requirePermission } from "@/lib/auth";
 import { getBookingsByIds, listPromos } from "@/lib/db";
+import { listExperiences } from "@/lib/experiences";
 import { listRewardCodes } from "@/lib/reward-codes";
 import { getRewardSettings } from "@/lib/reward-settings";
 import { listVoucherPage, voucherTotalsFromDb } from "@/lib/vouchers";
@@ -16,12 +17,13 @@ export default async function ManagerPromos() {
   await requirePermission("promos", "/manager/promos");
   // Only the first page of codes travels with the HTML; searching and paging
   // go back to the database. There are a couple of thousand of these.
-  const [promos, page, totals, rewards, rewardSettings] = await Promise.all([
+  const [promos, page, totals, rewards, rewardSettings, experiences] = await Promise.all([
     listPromos(),
     listVoucherPage({ limit: 60 }),
     voucherTotalsFromDb(),
     listRewardCodes(),
     getRewardSettings(),
+    listExperiences(),
   ]);
   // Both ends of every reward in one query, so each row can link the booking
   // that earned it to the booking that spent it.
@@ -34,7 +36,10 @@ export default async function ManagerPromos() {
       <BoardPage />
       <h1 className="mgr-page-title">Promo codes</h1>
       <p className="mgr-page-sub">Percentage discounts customers can apply at checkout.</p>
-      <PromoManager promos={promos} />
+      <PromoManager
+        promos={promos}
+        rooms={experiences.map((e) => ({ id: e.id, name: e.name, location: e.location }))}
+      />
 
       <h2 className="mgr-page-title" style={{ marginTop: 34 }}>
         Voucher codes

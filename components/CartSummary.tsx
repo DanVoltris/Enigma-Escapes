@@ -14,7 +14,7 @@ export default function CartSummary({
   showCustomer?: boolean;
 }) {
   const { items, customer, promo, voucher, paymentOption, taxPercent, pricingMode, taxLabel, removeItem } = useCart();
-  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent, pricingMode);
+  const totals = computeTotals(items, promo?.percentOff ?? 0, taxPercent, pricingMode, 0, true, promo?.roomIds ?? []);
   // The voucher is money already paid, so it lands after tax and pays the
   // deposit first — the same arithmetic the server does at booking time.
   const voucherCents = voucher ? voucherAppliedCents(totals, voucher.remainingCents) : 0;

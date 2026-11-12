@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { deletePromo, getPromo, logActivity, updatePromo } from "@/lib/db";
+import { PROMO_ROOMS_MIGRATION, parsePromoRooms } from "@/lib/promo-rooms";
 import { STAFF_ONLY_MIGRATION } from "../route";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +18,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { active?: unknown; staffOnly?: unknown };
+  const d = body as { active?: unknown; staffOnly?: unknown; roomIds?: unknown };
   const active = typeof d.active === "boolean" ? d.active : undefined;
   const staffOnly = typeof d.staffOnly === "boolean" ? d.staffOnly : undefined;
-  if (active === undefined && staffOnly === undefined) {
+  const changingRooms = d.roomIds !== undefined;
+  if (active === undefined && staffOnly === undefined && !changingRooms) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
@@ -28,7 +30,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
     if (!(await getPromo(code))) {
       return NextResponse.json({ error: "That code no longer exists." }, { status: 404 });
     }
-    await updatePromo(code, { active, staffOnly });
+    let rooms: { ids: string[]; names: string[] } | undefined;
+    if (changingRooms) {
+      const parsed = await parsePromoRooms(d.roomIds);
+      if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+      rooms = parsed;
+    }
+    // Bookings already made keep the discount they were sold with: they carry
+    // their own copy of the rooms (pricing.promoRoomIds).
+    await updatePromo(code, { active, staffOnly, roomIds: rooms?.ids });
+    if (rooms) {
+      await logActivity(
+        "Promo code rooms changed",
+        `${code} — ${rooms.names.length ? `${rooms.names.join(", ")} only` : "every room"}`
+      );
+    }
     if (active !== undefined) await logActivity(active ? "Turned on promo code" : "Turned off promo code", code);
     if (staffOnly !== undefined) {
       await logActivity(staffOnly ? "Promo code made staff-only" : "Promo code opened to the website", code);
@@ -38,6 +54,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
     console.error("updating promo failed:", err);
     if (staffOnly !== undefined && err instanceof Error && err.message.includes("staff_only")) {
       return NextResponse.json({ error: STAFF_ONLY_MIGRATION }, { status: 500 });
+    }
+    if (changingRooms && err instanceof Error && err.message.includes("room_ids")) {
+      return NextResponse.json({ error: PROMO_ROOMS_MIGRATION }, { status: 500 });
     }
     return NextResponse.json(
       { error: "Could not update the code right now. Please try again shortly." },
