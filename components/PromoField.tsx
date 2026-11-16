@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
 import { promoMissesRooms, promoRoomsMessage } from "@/lib/pricing";
+import { promoOffLabel } from "@/lib/promo-label";
 
 // Code entry for promo codes and gift vouchers alike — one box, because a
 // customer holding a code shouldn't have to know which kind it is. Validated
@@ -30,7 +31,13 @@ export default function PromoField() {
         if (promoMissesRooms(data.roomIds ?? [], items)) {
           throw new Error(promoRoomsMessage(data.code, data.roomNames ?? []));
         }
-        setPromo({ code: data.code, percentOff: data.percentOff, roomIds: data.roomIds, roomNames: data.roomNames });
+        setPromo({
+          code: data.code,
+          percentOff: data.percentOff,
+          amountOffCents: data.amountOffCents,
+          roomIds: data.roomIds,
+          roomNames: data.roomNames,
+        });
       }
       setCode("");
     } catch (err) {
@@ -45,7 +52,7 @@ export default function PromoField() {
         {promo && (
           <div className="promo-applied">
             <span>
-              <strong>{promo.code}</strong> applied — {promo.percentOff}% off
+              <strong>{promo.code}</strong> applied — {promoOffLabel(promo)}
               {promo.roomNames?.length ? ` ${promo.roomNames.join(" and ")}` : ""}
             </span>
             <button type="button" className="link-button" onClick={() => setPromo(null)}>

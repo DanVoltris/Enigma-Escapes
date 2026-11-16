@@ -67,6 +67,12 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   booking with none of them is refused it (`promoMissesRooms`). The booking keeps its
   own copy in `pricing.promoRoomIds`, so a resize, a dropped room or a staff move to
   another room re-figures the discount the way it was sold. `npm run test:pricing`.
+  The percentage takes up to two decimals (Enigma's $30.01 head is $25.00 at 16.69%). A
+  code can instead be **dollars off the whole booking** (`amount_off_cents`, migration
+  0020; `percent_off` is then 0): before tax like a percentage, the same sum whatever the
+  group, never below zero. `computeTotals` takes a bare percentage or a `Discount`
+  (`discountOf(promo)`); the booking keeps `pricing.promoAmountOffCents` so a resize
+  doesn't re-read $20 as a rate. Show either kind with `promoOffLabel`.
 - Availability is served by `GET /api/availability?date=YYYY-MM-DD` from real bookings only
   (the old fake "seeded" availability was removed when the portal arrived — new slots start
   fully open).

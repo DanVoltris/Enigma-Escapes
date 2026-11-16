@@ -339,6 +339,10 @@ export async function changePartySize(
       .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
       .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
+  // A dollar code stays the same dollars — re-read as a rate it would grow and
+  // shrink with the party.
+  const amountOffCents = booking.pricing.promoAmountOffCents ?? 0;
+  const discount = amountOffCents > 0 ? { percentOff: 0, amountOffCents } : percentOff;
   // Resized to the party that turned up; the minimum charge is re-applied, so
   // a booking cut from four to two still bills the venue's minimum.
   const minCharged = (await getPricingMode()).minChargedGuests;
@@ -353,7 +357,7 @@ export async function changePartySize(
   // the new party nor dropped by the rebuild.
   const totals = computeTotals(
     items,
-    percentOff,
+    discount,
     await activeTaxPercent(),
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
@@ -469,11 +473,15 @@ export async function cancelItemForStaff(
       .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
       .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
+  // A dollar code stays the same dollars — re-read as a rate it would grow and
+  // shrink with the party.
+  const amountOffCents = booking.pricing.promoAmountOffCents ?? 0;
+  const discount = amountOffCents > 0 ? { percentOff: 0, amountOffCents } : percentOff;
   // The corporate fee is charged once per booking, not per room, so it rides
   // through untouched — the group still gets the thing the fee paid for.
   const totals = computeTotals(
     remaining,
-    percentOff,
+    discount,
     await activeTaxPercent(),
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
