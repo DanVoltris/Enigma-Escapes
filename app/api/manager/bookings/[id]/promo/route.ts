@@ -3,7 +3,8 @@ import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getPricingMode } from "@/lib/pricing-settings";
 import { getBooking, getPromo, logActivity, updateBookingFields } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
-import { computeTotals, promoMissesRooms, promoRoomsMessage } from "@/lib/pricing";
+import { computeTotals, promoMissesRooms, promoRoomsMessage, type Discount } from "@/lib/pricing";
+import { promoOffLabel } from "@/lib/promo-label";
 import { getRewardCode } from "@/lib/reward-codes";
 import { activeTaxPercent } from "@/lib/taxes";
 import type { Booking } from "@/lib/types";
@@ -12,28 +13,31 @@ export const dynamic = "force-dynamic";
 
 // Recompute a booking's pricing for a given discount, keeping what was already
 // paid. Tax uses the current configured rate (staff is editing the booking now).
-// roomIds: the rooms a limited promo covers (empty = every room), remembered on
-// the booking so a later resize discounts the same sessions.
+// roomIds: the rooms a limited promo covers (empty = every room), and a dollar
+// code's amount, both remembered on the booking so a later resize discounts
+// the same way.
 async function repriced(
   booking: Booking,
-  percentOff: number,
+  discount: number | Discount,
   feeDiscountable = true,
   roomIds: string[] = []
 ): Promise<Booking["pricing"]> {
   const taxPercent = await activeTaxPercent();
   const totals = computeTotals(
     booking.items,
-    percentOff,
+    discount,
     taxPercent,
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
     feeDiscountable, // a promo applied by hand has the same reach as one typed at checkout
     roomIds
   );
-  const { promoRoomIds: _was, ...rest } = booking.pricing;
+  const { promoRoomIds: _rooms, promoAmountOffCents: _amount, ...rest } = booking.pricing;
+  const amountOffCents = typeof discount === "number" ? 0 : (discount.amountOffCents ?? 0);
   return {
     ...rest,
     ...(roomIds.length > 0 ? { promoRoomIds: roomIds } : {}),
+    ...(amountOffCents > 0 ? { promoAmountOffCents: amountOffCents } : {}),
     subtotalCents: totals.subtotalCents,
     discountCents: totals.discountCents,
     gstCents: totals.gstCents,
@@ -95,9 +99,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       );
     }
 
-    const pricing = await repriced(booking, promo.percentOff, true, promo.roomIds);
+    const pricing = await repriced(
+      booking,
+      { percentOff: promo.percentOff, amountOffCents: promo.amountOffCents },
+      true,
+      promo.roomIds
+    );
     await updateBookingFields(id, { pricing, promoCode: promo.code });
-    await logActivity("Applied promo", `${promo.code} (${promo.percentOff}% off) to ${booking.reference}`);
+    await logActivity("Applied promo", `${promo.code} (${promoOffLabel(promo)}) to ${booking.reference}`);
     return NextResponse.json({ ok: true, pricing, promoCode: promo.code });
   } catch (err) {
     console.error("applying promo failed:", err);

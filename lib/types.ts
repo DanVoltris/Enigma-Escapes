@@ -156,6 +156,9 @@ export type Promo = {
   // Experience ids it discounts; empty = every room. On a booking that mixes
   // rooms only these sessions come off (migration 0019).
   roomIds: string[];
+  // A dollar code: this much off the whole booking, before tax, instead of a
+  // percentage (percentOff is then 0). 0 = a percentage code (migration 0020).
+  amountOffCents: number;
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
@@ -203,6 +206,10 @@ export type BookingPricing = {
   // rebuilds the discount from the booking alone, and the code may since have
   // changed or gone. Absent/empty = the promo covered every room.
   promoRoomIds?: string[];
+  // A dollar-amount promo (see Promo.amountOffCents), kept on the booking for
+  // the same reason: a resize or a dropped room keeps the same $20 off rather
+  // than re-reading it as a percentage and scaling it with the group.
+  promoAmountOffCents?: number;
   // Gift voucher put towards this booking. voucherCents counts inside
   // paidCents — it is money the customer already handed over, not a discount.
   // voucherRedeemed guards the balance being taken more than once when the

@@ -7,6 +7,7 @@ import SingleSelect from "@/components/SingleSelect";
 import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@/lib/format";
 import { CORPORATE_LEAD_IN_MINUTES, STAFF_BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 import { minutesOfTime, minutesToTime, STAFF_OVER_LIMIT } from "@/lib/capacity";
+import { promoOffLabel } from "@/lib/promo-label";
 
 // Staff can book walk-ins of any size; the 4-person minimum is customer-only.
 const WALK_IN_MIN = 1;
@@ -112,6 +113,7 @@ export default function WalkInForm({
   const [appliedCode, setAppliedCode] = useState<{
     code: string;
     percentOff: number;
+    amountOffCents: number; // a dollar code; 0 = percentage
     roomIds: string[];
     roomNames: string[];
   } | null>(null);
@@ -353,7 +355,11 @@ export default function WalkInForm({
         return sum + (exp && appliedCode.roomIds.includes(exp.id) ? exp.priceCents * chargedFor(x.quantity) : 0);
       }, 0)
     : roomsTotal;
-  const discount = appliedCode ? Math.round((discountable * appliedCode.percentOff) / 100) : 0;
+  const discount = !appliedCode
+    ? 0
+    : appliedCode.amountOffCents > 0
+      ? Math.min(appliedCode.amountOffCents, discountable)
+      : Math.round((discountable * appliedCode.percentOff) / 100);
 
   // Corporate events run all their rooms at one time, so a single start time
   // governs the booking — the desk picks rooms, not a time per room.
@@ -392,6 +398,7 @@ export default function WalkInForm({
         setAppliedCode({
           code: data.code,
           percentOff: data.percentOff,
+          amountOffCents: data.amountOffCents ?? 0,
           roomIds: data.roomIds ?? [],
           roomNames: data.roomNames ?? [],
         });
@@ -725,7 +732,7 @@ export default function WalkInForm({
         <label htmlFor="walkin-code">Promo, reward or gift voucher code</label>
         {appliedCode && (
           <p className="sub" style={{ margin: "8px 0 0" }}>
-            <strong>{appliedCode.code}</strong> — {appliedCode.percentOff}% off
+            <strong>{appliedCode.code}</strong> — {promoOffLabel(appliedCode)}
             {appliedCode.roomNames.length > 0 ? `, ${appliedCode.roomNames.join(" and ")} only` : ""}{" "}
             <button type="button" className="mgr-linklike danger" onClick={() => setAppliedCode(null)}>
               Remove

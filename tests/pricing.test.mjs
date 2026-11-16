@@ -119,3 +119,35 @@ test("16.69% off a $30.01 head lands on $25.00", () => {
     assert.equal(computeTotals([room(q)], 16.69, 5, DEFAULT_PRICING_MODE).totalCents, 2500 * q);
   }
 });
+
+// A dollar-amount code: a fixed sum off the whole booking, before tax.
+test("$20 off comes off before tax, the same $20 whatever the group", () => {
+  const four = computeTotals([room(4)], { percentOff: 0, amountOffCents: 2000 }, 5, DEFAULT_PRICING_MODE);
+  assert.equal(four.discountCents, 2000);
+  assert.equal(four.subtotalCents, PRICE * 4 - 2000); // $94.32
+  assert.equal(four.totalCents, Math.round((PRICE * 4 - 2000) * 1.05)); // $99.04: $21 less than $120.04
+  const eight = computeTotals([room(8)], { percentOff: 0, amountOffCents: 2000 }, 5, DEFAULT_PRICING_MODE);
+  assert.equal(eight.discountCents, 2000);
+});
+
+test("a dollar code never takes a booking below zero", () => {
+  const t = computeTotals([room(3)], { percentOff: 0, amountOffCents: 50000 }, 5, DEFAULT_PRICING_MODE);
+  assert.equal(t.discountCents, PRICE * 3);
+  assert.equal(t.totalCents, 0);
+});
+
+test("a dollar code limited to a room comes off that room's sessions only", () => {
+  // $20 off School of Sorcery, on a booking where its session is only $10 worth.
+  const cheap = room(1, { roomId: "school-of-sorcery", priceCents: 1000 });
+  const t = computeTotals([cheap, room(4)], { percentOff: 0, amountOffCents: 2000 }, 5, DEFAULT_PRICING_MODE, 0, true, [
+    "school-of-sorcery",
+  ]);
+  assert.equal(t.discountCents, 1000);
+});
+
+test("a bare number still means a percentage", () => {
+  assert.deepEqual(
+    computeTotals([room(4)], 10, 5, DEFAULT_PRICING_MODE),
+    computeTotals([room(4)], { percentOff: 10, amountOffCents: 0 }, 5, DEFAULT_PRICING_MODE)
+  );
+});

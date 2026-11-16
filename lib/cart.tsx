@@ -9,7 +9,14 @@ const STORAGE_KEY = "voltris-cart";
 
 // roomIds: the rooms a limited code discounts (empty/absent = every room). A
 // cart saved before limits existed has no roomIds, which reads as every room.
-type AppliedPromo = { code: string; percentOff: number; roomIds?: string[]; roomNames?: string[] };
+// amountOffCents: a dollar code ($20 off the booking); absent/0 = percentage.
+type AppliedPromo = {
+  code: string;
+  percentOff: number;
+  amountOffCents?: number;
+  roomIds?: string[];
+  roomNames?: string[];
+};
 // A gift voucher is a prepaid balance, not a discount — it pays down the total
 // after tax. remainingCents is what the server said was left when it was applied.
 type AppliedVoucher = { code: string; remainingCents: number };

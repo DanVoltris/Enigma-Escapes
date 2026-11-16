@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import SingleSelect from "@/components/SingleSelect";
+import { promoOffLabel } from "@/lib/promo-label";
 import type { Promo } from "@/lib/types";
 
 type Room = { id: string; name: string; location: string };
@@ -25,6 +27,9 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
   const router = useRouter();
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
+  // "$ off" codes take a fixed amount off the whole booking, before tax.
+  const [kind, setKind] = useState<"percent" | "amount">("percent");
+  const [amount, setAmount] = useState("20");
   const [staffOnly, setStaffOnly] = useState(false);
   const [earns, setEarns] = useState(false);
   const [rewardPercent, setRewardPercent] = useState("20");
@@ -54,7 +59,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code,
-          percentOff: Number(percent),
+          ...(kind === "amount" ? { amountOff: Number(amount) } : { percentOff: Number(percent) }),
           staffOnly,
           rewardPercent: earns ? Number(rewardPercent) : 0,
           rewardDays: earns ? Number(rewardDays) : 0,
@@ -128,17 +133,44 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
               style={{ minWidth: 200, textTransform: "uppercase" }}
             />
           </div>
-          <div className="field">
-            <label htmlFor="promo-percent">Discount (%)</label>
-            <input
-              id="promo-percent"
-              type="text"
-              inputMode="decimal"
-              value={percent}
-              onChange={(e) => setPercent(e.target.value)}
-              style={{ width: 100 }}
+          <div className="field" style={{ minWidth: 190 }}>
+            <label>Type</label>
+            <SingleSelect
+              value={kind}
+              onChange={(v) => setKind(v as "percent" | "amount")}
+              ariaLabel="What kind of discount"
+              options={[
+                { value: "percent", label: "% off" },
+                { value: "amount", label: "$ off the booking" },
+              ]}
             />
           </div>
+          {kind === "percent" ? (
+            <div className="field">
+              <label htmlFor="promo-percent">Discount (%)</label>
+              <input
+                id="promo-percent"
+                type="text"
+                inputMode="decimal"
+                value={percent}
+                onChange={(e) => setPercent(e.target.value)}
+                style={{ width: 100 }}
+              />
+            </div>
+          ) : (
+            <div className="field">
+              {/* Before tax, like a percentage: $20 off is $21 off the total with 5% GST. */}
+              <label htmlFor="promo-amount">Amount off, before tax ($)</label>
+              <input
+                id="promo-amount"
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                style={{ width: 120 }}
+              />
+            </div>
+          )}
           <label className="checkbox-row" style={{ alignSelf: "center" }}>
             <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} />
             <span>Staff only — works at the desk, never on the website</span>
@@ -227,7 +259,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
                     <td>
                       <strong>{p.code}</strong>
                     </td>
-                    <td className="num">{p.percentOff}% off</td>
+                    <td className="num">{promoOffLabel(p)}</td>
                     <td>{p.staffOnly ? "Desk only" : "Website + desk"}</td>
                     <td>
                       {editingRooms?.code === p.code ? (
