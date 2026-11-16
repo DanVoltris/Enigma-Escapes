@@ -30,9 +30,19 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  // Up to two decimal places: a $30.01 room (tax on top) only lands on a round
+  // $25 at 16.69%, which no whole number reaches. The column is numeric.
   const percentOff = Number(d.percentOff);
-  if (!Number.isInteger(percentOff) || percentOff < 1 || percentOff > 100) {
-    return NextResponse.json({ error: "Discount must be a whole number from 1 to 100 percent." }, { status: 400 });
+  if (
+    !Number.isFinite(percentOff) ||
+    Math.round(percentOff * 100) / 100 !== percentOff ||
+    percentOff < 0.01 ||
+    percentOff > 100
+  ) {
+    return NextResponse.json(
+      { error: "Discount must be from 0.01 to 100 percent, with at most two decimal places — e.g. 10 or 16.69." },
+      { status: 400 }
+    );
   }
 
   let rooms: { ids: string[]; names: string[] } = { ids: [], names: [] };
