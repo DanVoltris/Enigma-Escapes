@@ -8,6 +8,7 @@ import RoomBadge from "@/components/RoomBadge";
 import SingleSelect from "@/components/SingleSelect";
 import RefundPanel from "@/components/manager/RefundPanel";
 import CardCharge from "@/components/manager/CardCharge";
+import { promoOffLabel } from "@/lib/promo-label";
 import { formatMoney, formatTimestamp } from "@/lib/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS } from "@/lib/payment-methods";
 import type { BookingPayment, Participant } from "@/lib/types";
@@ -31,7 +32,7 @@ type Props = {
   purchases: PurchaseLine[];
   promoCode: string | null;
   discountCents: number;
-  activePromos: { code: string; percentOff: number }[];
+  activePromos: { code: string; percentOff: number; amountOffCents: number }[];
   customerName: string;
   customerEmail: string;
   participants: Participant[];
@@ -209,7 +210,7 @@ function PromosTab({
   bookingId: string;
   promoCode: string | null;
   discountCents: number;
-  activePromos: { code: string; percentOff: number }[];
+  activePromos: { code: string; percentOff: number; amountOffCents: number }[];
   voucherCode: string | null;
   voucherPaidCents: number;
   balanceCents: number;
@@ -367,7 +368,7 @@ function PromosTab({
                   ariaLabel="Choose a discount code"
                   options={[
                     { value: "", label: "Choose a code…" },
-                    ...activePromos.map((p) => ({ value: p.code, label: `${p.code} — ${p.percentOff}% off` })),
+                    ...activePromos.map((p) => ({ value: p.code, label: `${p.code} — ${promoOffLabel(p)}` })),
                   ]}
                 />
               </div>

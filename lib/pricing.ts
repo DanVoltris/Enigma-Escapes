@@ -81,6 +81,18 @@ function blendedDepositPercent(items: CartItem[], mode?: PricingMode): number {
   return weighted / base;
 }
 
+// What a promo code takes off: a percentage, or a dollar amount off the whole
+// booking (amountOffCents > 0, migration 0020). The amount comes off before
+// tax, like a percentage does — $20 off on a tax-exclusive venue drops the
+// total by $21 — and never below zero.
+export type Discount = { percentOff: number; amountOffCents?: number };
+
+// The discount argument: a bare percentage, or a Discount (a promo code that
+// may be a dollar amount).
+export function discountOf(promo: { percentOff: number; amountOffCents?: number } | null | undefined): Discount {
+  return { percentOff: promo?.percentOff ?? 0, amountOffCents: promo?.amountOffCents ?? 0 };
+}
+
 // percentOff comes from a validated promo code (0 when none applied).
 // taxPercent is the combined active tax rate (e.g. 5 for 5%). Both promo codes
 // and taxes live in the database; the server revalidates at booking time.
@@ -92,7 +104,7 @@ function blendedDepositPercent(items: CartItem[], mode?: PricingMode): number {
 
 export function computeTotals(
   items: CartItem[],
-  percentOff: number,
+  discount: number | Discount,
   taxPercent: number,
   mode: PricingMode = DEFAULT_PRICING_MODE,
   // A one-off charge for the whole booking — the corporate event fee. Added
@@ -118,7 +130,13 @@ export function computeTotals(
   const discountBase = limited
     ? items.filter((i) => discountRoomIds.includes(i.roomId)).reduce((sum, i) => sum + lineCents(i, mode), 0)
     : roomsCents + (feeDiscountable ? flatFeeCents : 0);
-  const discountCents = Math.round((discountBase * percentOff) / 100);
+  const percentOff = typeof discount === "number" ? discount : discount.percentOff;
+  const amountOffCents = typeof discount === "number" ? 0 : (discount.amountOffCents ?? 0);
+  // A dollar amount is a fixed sum, not a share: the same $20 whatever the
+  // group, capped at what it could come off (a $20 code on a $15 room is free,
+  // not a credit).
+  const discountCents =
+    amountOffCents > 0 ? Math.min(amountOffCents, discountBase) : Math.round((discountBase * percentOff) / 100);
 
   let subtotalCents: number;
   let gstCents: number;

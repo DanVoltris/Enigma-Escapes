@@ -108,6 +108,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   let percentOff = 0;
   let promoCode: string | null = null;
   let promoRoomIds: string[] = [];
+  let amountOffCents = 0; // a dollar-amount promo; 0 for a percentage
   let rewardCode: string | null = null;
   let voucherCode: string | null = null;
 
@@ -121,6 +122,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
         promoCode = promo.code;
         percentOff = promo.percentOff;
         promoRoomIds = promo.roomIds;
+        amountOffCents = promo.amountOffCents;
       } else {
         // Not a promo — it may be a 20% reward code from an earlier booking.
         // Those are checked against the cart below, once the sessions are
@@ -314,7 +316,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   const flatFeeCents = corporate ? pricingMode.corporateFeeCents : 0;
   const totals = computeTotals(
     items,
-    percentOff,
+    { percentOff, amountOffCents },
     await activeTaxPercent(),
     pricingMode,
     flatFeeCents,
@@ -380,6 +382,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       balanceCents: totals.totalCents - paidCents,
       ...(corporate ? { corporate: true, flatFeeCents } : {}),
       ...(promoRoomIds.length > 0 ? { promoRoomIds } : {}),
+      ...(amountOffCents > 0 ? { promoAmountOffCents: amountOffCents } : {}),
       voucherCode,
       voucherCents,
       voucherRedeemed: false, // set once the balance is actually taken
