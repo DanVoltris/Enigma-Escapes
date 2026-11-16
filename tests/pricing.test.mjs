@@ -110,3 +110,12 @@ test("a booking without the code's room is refused it, with the room named", () 
   assert.equal(promoRoomsMessage("WELCOMEBACKSOS", ["School of Sorcery"]), "WELCOMEBACKSOS only works on School of Sorcery.");
   assert.equal(promoRoomsMessage("X", ["A", "B", "C"]), "X only works on A, B or C.");
 });
+
+// A decimal percentage: Enigma's student rate. $28.58 + 5% GST is $30.01 a
+// head; 16.69% off lands on $25.00 exactly for groups of three to nine. (From
+// ten up, half-cent tax rounding makes it a cent over — any percentage would.)
+test("16.69% off a $30.01 head lands on $25.00", () => {
+  for (const q of [3, 4, 5, 6, 7, 8, 9]) {
+    assert.equal(computeTotals([room(q)], 16.69, 5, DEFAULT_PRICING_MODE).totalCents, 2500 * q);
+  }
+});

@@ -133,7 +133,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
             <input
               id="promo-percent"
               type="text"
-              inputMode="numeric"
+              inputMode="decimal"
               value={percent}
               onChange={(e) => setPercent(e.target.value)}
               style={{ width: 100 }}
