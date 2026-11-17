@@ -32,12 +32,19 @@ async function repriced(
     feeDiscountable, // a promo applied by hand has the same reach as one typed at checkout
     roomIds
   );
-  const { promoRoomIds: _rooms, promoAmountOffCents: _amount, ...rest } = booking.pricing;
+  const {
+    promoRoomIds: _rooms,
+    promoAmountOffCents: _amount,
+    promoAmountPerPerson: _perPerson,
+    ...rest
+  } = booking.pricing;
   const amountOffCents = typeof discount === "number" ? 0 : (discount.amountOffCents ?? 0);
+  const perPerson = typeof discount !== "number" && discount.perPerson === true;
   return {
     ...rest,
     ...(roomIds.length > 0 ? { promoRoomIds: roomIds } : {}),
     ...(amountOffCents > 0 ? { promoAmountOffCents: amountOffCents } : {}),
+    ...(amountOffCents > 0 && perPerson ? { promoAmountPerPerson: true } : {}),
     subtotalCents: totals.subtotalCents,
     discountCents: totals.discountCents,
     gstCents: totals.gstCents,
@@ -101,7 +108,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const pricing = await repriced(
       booking,
-      { percentOff: promo.percentOff, amountOffCents: promo.amountOffCents },
+      { percentOff: promo.percentOff, amountOffCents: promo.amountOffCents, perPerson: promo.amountPerPerson },
       true,
       promo.roomIds
     );

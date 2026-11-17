@@ -6,6 +6,8 @@ import { promoOffLabel } from "@/lib/promo-label";
 
 const PROMO_AMOUNT_MIGRATION =
   "Dollar-amount codes need migration 0020 (promo amount off) on this venue's database first.";
+const PROMO_PER_PERSON_MIGRATION =
+  "Per-person dollar codes need migration 0021 (promo amount per person) on this venue's database first.";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown; roomIds?: unknown; amountOff?: unknown };
+  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown; roomIds?: unknown; amountOff?: unknown; amountPerPerson?: unknown };
   const staffOnly = d.staffOnly === true;
 
   const code = typeof d.code === "string" ? d.code.trim().toUpperCase() : "";
@@ -39,6 +41,8 @@ export async function POST(req: NextRequest) {
   const isAmount = d.amountOff !== undefined && d.amountOff !== null && d.amountOff !== "";
   const amountOff = Number(d.amountOff);
   const amountOffCents = isAmount ? Math.round(amountOff * 100) : 0;
+  // $5 off each person rather than $5 off the booking.
+  const amountPerPerson = isAmount && d.amountPerPerson === true;
   if (isAmount && (!Number.isFinite(amountOff) || amountOffCents < 1 || amountOffCents > 100000)) {
     return NextResponse.json({ error: "The dollar amount must be from $0.01 to $1,000 — e.g. 20." }, { status: 400 });
   }
@@ -92,10 +96,11 @@ export async function POST(req: NextRequest) {
       rewardMultiUse: rewardPercent > 0 && d.rewardMultiUse === true,
       roomIds: rooms.ids,
       amountOffCents,
+      amountPerPerson,
     });
     await logActivity(
       "Created promo code",
-      `${code} — ${promoOffLabel({ percentOff, amountOffCents })}${rooms.names.length ? ` ${rooms.names.join(", ")} only` : ""}${staffOnly ? " (staff only)" : ""}` +
+      `${code} — ${promoOffLabel({ percentOff, amountOffCents, amountPerPerson })}${rooms.names.length ? ` ${rooms.names.join(", ")} only` : ""}${staffOnly ? " (staff only)" : ""}` +
         (rewardPercent > 0
           ? `, earns ${rewardPercent}% off for ${rewardDays} days${d.rewardMultiUse === true ? ", reusable" : ""}`
           : "")
@@ -105,6 +110,9 @@ export async function POST(req: NextRequest) {
     console.error("creating promo failed:", err);
     if (staffOnly && err instanceof Error && err.message.includes("staff_only")) {
       return NextResponse.json({ error: STAFF_ONLY_MIGRATION }, { status: 500 });
+    }
+    if (amountPerPerson && err instanceof Error && err.message.includes("amount_per_person")) {
+      return NextResponse.json({ error: PROMO_PER_PERSON_MIGRATION }, { status: 500 });
     }
     if (isAmount && err instanceof Error && err.message.includes("amount_off_cents")) {
       return NextResponse.json({ error: PROMO_AMOUNT_MIGRATION }, { status: 500 });

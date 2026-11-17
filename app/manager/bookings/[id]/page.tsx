@@ -274,7 +274,12 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               activePromos={promos
                 // A code for one room isn't offered on a booking without it.
                 .filter((p) => p.active && !promoMissesRooms(p.roomIds, booking.items))
-                .map((p) => ({ code: p.code, percentOff: p.percentOff, amountOffCents: p.amountOffCents }))}
+                .map((p) => ({
+                  code: p.code,
+                  percentOff: p.percentOff,
+                  amountOffCents: p.amountOffCents,
+                  amountPerPerson: p.amountPerPerson,
+                }))}
               customerName={name}
               customerEmail={customer.email}
               participants={participants}

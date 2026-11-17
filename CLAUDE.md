@@ -72,7 +72,10 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   0020; `percent_off` is then 0): before tax like a percentage, the same sum whatever the
   group, never below zero. `computeTotals` takes a bare percentage or a `Discount`
   (`discountOf(promo)`); the booking keeps `pricing.promoAmountOffCents` so a resize
-  doesn't re-read $20 as a rate. Show either kind with `promoOffLabel`.
+  doesn't re-read $20 as a rate. Show either kind with `promoOffLabel`. A dollar code can
+  be **per person** instead (`amount_per_person`, migration 0021; `Discount.perPerson`,
+  `pricing.promoAmountPerPerson`): that amount off each head charged for in the rooms it
+  covers, so it does scale on a resize.
 - Availability is served by `GET /api/availability?date=YYYY-MM-DD` from real bookings only
   (the old fake "seeded" availability was removed when the portal arrived — new slots start
   fully open).

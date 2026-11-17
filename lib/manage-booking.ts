@@ -301,8 +301,10 @@ function discountAsSold(booking: Booking): {
       .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
   const amountOffCents = booking.pricing.promoAmountOffCents ?? 0;
+  // A per-person dollar code does scale with the party: $5 each, however many.
+  const perPerson = booking.pricing.promoAmountPerPerson === true;
   return {
-    discount: amountOffCents > 0 ? { percentOff: 0, amountOffCents } : percentOff,
+    discount: amountOffCents > 0 ? { percentOff: 0, amountOffCents, perPerson } : percentOff,
     feeDiscountable,
     promoRoomIds,
   };
