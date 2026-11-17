@@ -235,3 +235,17 @@ export function promoRoomsMessage(code: string, roomNames: readonly string[]): s
       : `${roomNames.slice(0, -1).join(", ")} or ${roomNames[roomNames.length - 1]}`;
   return `${code} only works on ${names}.`;
 }
+
+// A per-person price as staff say it — what each person pays, tax included
+// ("$25 a head") — turned into the price a session stores. Tax-exclusive
+// venues store the pre-tax figure ($25 → $23.81 at 5%); tax-inclusive ones
+// store it as said. Rounding means a big tax-exclusive group can land a cent
+// off (10 × $23.81 + 5% = $250.01) — the same as the room's own price does.
+export function storedPriceFor(paidPerPersonCents: number, taxPercent: number, mode: PricingMode): number {
+  return mode.taxInclusive ? paidPerPersonCents : Math.round(paidPerPersonCents / (1 + taxPercent / 100));
+}
+
+// The other way: a stored price as what each person pays, tax included.
+export function paidPerPersonFor(priceCents: number, taxPercent: number, mode: PricingMode): number {
+  return mode.taxInclusive ? priceCents : Math.round(priceCents * (1 + taxPercent / 100));
+}

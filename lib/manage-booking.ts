@@ -16,7 +16,7 @@ import { getExperience } from "./experiences";
 import { addDaysISO, formatMoney, formatTime, minutesUntilSlot, todayISO } from "./format";
 import { getSiteSettings } from "./site-settings";
 import { getLocationHours } from "./hours";
-import { computeTotals, lineCents, refundGoingBackCents } from "./pricing";
+import { computeTotals, lineCents, refundGoingBackCents, storedPriceFor, type Discount } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
 import { activeTaxPercent } from "./taxes";
 import { startTimesFor } from "./schedule";
@@ -277,6 +277,37 @@ export async function cancelForStaff(
 // Change how many people are playing — the group that turns up with two more
 // than they booked, or two fewer.
 //
+// The discount a booking was sold with, in the form computeTotals takes, for
+// rebuilding its totals after a resize, a dropped room or a price change.
+// Worked back out of what was charged rather than re-read from the code, so a
+// promo that has since expired or changed isn't quietly taken away.
+//
+// Same base the discount was struck against: a promo reached the fee, the
+// loyalty code didn't. A promo limited to some rooms was struck against those
+// rooms' sessions alone (never the fee), so its rate is read back off them and
+// the rebuild discounts the same rooms — drop the last of them and the
+// discount goes too. A dollar code stays the same dollars; re-read as a rate it
+// would grow and shrink with the party.
+function discountAsSold(booking: Booking): {
+  discount: number | Discount;
+  feeDiscountable: boolean;
+  promoRoomIds: string[];
+} {
+  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
+  const feeDiscountable = !booking.pricing.rewardCode && promoRoomIds.length === 0;
+  const listedBefore =
+    booking.items
+      .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
+      .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
+  const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
+  const amountOffCents = booking.pricing.promoAmountOffCents ?? 0;
+  return {
+    discount: amountOffCents > 0 ? { percentOff: 0, amountOffCents } : percentOff,
+    feeDiscountable,
+    promoRoomIds,
+  };
+}
+
 // The money is re-figured from the price already on the booking, not today's
 // price list: the same reasoning as a staff move, which carries the original
 // price across rather than silently re-quoting. Any discount they had is kept
@@ -326,23 +357,7 @@ export async function changePartySize(
   // effective discount rate this booking was sold at. The rate comes off the
   // whole booking, not this one session, or a two-room booking would have its
   // discount recalculated from a fraction of what it was sold at.
-  // Same base the discount was struck against. A promo reached the fee, the
-  // loyalty code didn't — read the rate back off the wrong one and the rebuild
-  // moves money.
-  // A promo limited to some rooms was struck against those rooms' sessions
-  // alone (never the fee), so its rate is read back off them and the rebuild
-  // discounts the same rooms — drop the last of them and the discount goes too.
-  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
-  const feeDiscountable = !booking.pricing.rewardCode && promoRoomIds.length === 0;
-  const listedBefore =
-    booking.items
-      .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
-      .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
-  const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
-  // A dollar code stays the same dollars — re-read as a rate it would grow and
-  // shrink with the party.
-  const amountOffCents = booking.pricing.promoAmountOffCents ?? 0;
-  const discount = amountOffCents > 0 ? { percentOff: 0, amountOffCents } : percentOff;
+  const { discount, feeDiscountable, promoRoomIds } = discountAsSold(booking);
   // Resized to the party that turned up; the minimum charge is re-applied, so
   // a booking cut from four to two still bills the venue's minimum.
   const minCharged = (await getPricingMode()).minChargedGuests;
@@ -385,6 +400,88 @@ export async function changePartySize(
   await addBookingNote(
     booking.id,
     `${which}party size changed from ${item.quantity} to ${quantity}. Total is now ${formatMoney(totals.totalCents)}; ` +
+      (pricing.balanceCents > 0
+        ? `${formatMoney(pricing.balanceCents)} still to collect.`
+        : pricing.balanceCents < 0
+          ? `${formatMoney(-pricing.balanceCents)} to refund.`
+          : "nothing further owed."),
+    staffName
+  );
+  return { items, pricing };
+}
+
+// A group rate agreed with the customer: staff set what each person on one
+// session pays ("$25 a head" instead of $30.01), the way the old system's price
+// override worked. It changes the session's own per-person price, so a party
+// that books for twelve and turns up as ten is resized at $25 each without
+// anyone redoing the sum. Saying `paidPerPersonCents` equal to the room's
+// original price puts the session back as sold.
+//
+// Not alongside a promo or reward code: the code would then come off the $25
+// as well, and a group rate is already the price agreed. Remove the code first.
+export async function setSessionPrice(
+  booking: Booking,
+  itemIndex: number,
+  paidPerPersonCents: number,
+  staffName: string
+): Promise<{ items: Booking["items"]; pricing: Booking["pricing"] } | { error: string }> {
+  if (booking.status === "cancelled") return { error: "This booking is cancelled." };
+  const item = booking.items[itemIndex];
+  if (!item) return { error: "That session is no longer on this booking." };
+  if (!Number.isInteger(paidPerPersonCents) || paidPerPersonCents < 0 || paidPerPersonCents > 100000) {
+    return { error: "Enter a price from $0 to $1,000 a person." };
+  }
+  if (booking.promoCode) {
+    return {
+      error: `Promo ${booking.promoCode} is on this booking and would come off the new price too. Remove it on the Promos/Gifts tab first.`,
+    };
+  }
+  if (booking.pricing.rewardCode && !booking.pricing.rewardVoidedAt) {
+    return {
+      error: `Reward code ${booking.pricing.rewardCode} is on this booking and would come off the new price too.`,
+    };
+  }
+
+  const mode = await getPricingMode();
+  const taxPercent = await activeTaxPercent();
+  const priceCents = storedPriceFor(paidPerPersonCents, taxPercent, mode);
+  if (priceCents === item.priceCents) return { error: "That's already the price for this session." };
+
+  // Remember the price it sold at the first time it's changed, and forget it
+  // once it's put back — so "was $28.58" is always the room's own price.
+  const soldAt = item.staffPriceFromCents ?? item.priceCents;
+  const items: Booking["items"] = booking.items.map((i, idx) => {
+    if (idx !== itemIndex) return i;
+    const { staffPriceFromCents: _was, ...rest } = i;
+    return { ...rest, priceCents, ...(priceCents !== soldAt ? { staffPriceFromCents: soldAt } : {}) };
+  });
+  const { discount, feeDiscountable, promoRoomIds } = discountAsSold(booking);
+  const totals = computeTotals(
+    items,
+    discount,
+    taxPercent,
+    mode,
+    booking.pricing.flatFeeCents ?? 0,
+    feeDiscountable,
+    promoRoomIds
+  );
+  const pricing: Booking["pricing"] = {
+    ...booking.pricing,
+    subtotalCents: totals.subtotalCents,
+    discountCents: totals.discountCents,
+    gstCents: totals.gstCents,
+    totalCents: totals.totalCents,
+    balanceCents: totals.totalCents - booking.pricing.paidCents,
+  };
+
+  await updateBookingPartySize(booking.id, items, pricing, "Changing the price");
+  const which = booking.items.length > 1 ? `${item.roomName} ${formatTime(item.time)}: ` : "";
+  const said = formatMoney(paidPerPersonCents);
+  await logActivity("Price changed by staff", `${booking.reference} — ${staffName} — ${which}${said} a person`);
+  await addBookingNote(
+    booking.id,
+    `${which}price set to ${said} a person${priceCents === soldAt ? " (back to the room's price)" : ""}. ` +
+      `Total is now ${formatMoney(totals.totalCents)}; ` +
       (pricing.balanceCents > 0
         ? `${formatMoney(pricing.balanceCents)} still to collect.`
         : pricing.balanceCents < 0
@@ -463,20 +560,7 @@ export async function cancelItemForStaff(
   // change does: per-person prices stay, and the discount rate the booking was
   // sold at is carried across so a since-expired promo isn't taken away.
   const remaining = booking.items.filter((_, idx) => idx !== itemIndex);
-  // A promo limited to some rooms was struck against those rooms' sessions
-  // alone (never the fee), so its rate is read back off them and the rebuild
-  // discounts the same rooms — drop the last of them and the discount goes too.
-  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
-  const feeDiscountable = !booking.pricing.rewardCode && promoRoomIds.length === 0;
-  const listedBefore =
-    booking.items
-      .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
-      .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
-  const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
-  // A dollar code stays the same dollars — re-read as a rate it would grow and
-  // shrink with the party.
-  const amountOffCents = booking.pricing.promoAmountOffCents ?? 0;
-  const discount = amountOffCents > 0 ? { percentOff: 0, amountOffCents } : percentOff;
+  const { discount, feeDiscountable, promoRoomIds } = discountAsSold(booking);
   // The corporate fee is charged once per booking, not per room, so it rides
   // through untouched — the group still gets the thing the fee paid for.
   const totals = computeTotals(

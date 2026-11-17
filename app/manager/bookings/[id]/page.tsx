@@ -12,10 +12,11 @@ import { getRewardCode, rewardForBooking } from "@/lib/reward-codes";
 import { listExperiences } from "@/lib/experiences";
 import { maxPerBooking } from "@/lib/capacity";
 import { PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { lineCents, outstandingCents, promoMissesRooms, refundGoingBackCents } from "@/lib/pricing";
+import { lineCents, outstandingCents, paidPerPersonFor, promoMissesRooms, refundGoingBackCents } from "@/lib/pricing";
+import { getPricingMode } from "@/lib/pricing-settings";
 import { emailConfigured } from "@/lib/email";
 import { cardEntryKey, stripeConfigured } from "@/lib/stripe";
-import { listTaxes } from "@/lib/taxes";
+import { activeTaxPercent, listTaxes } from "@/lib/taxes";
 import { formatDateLong, formatMoney, formatTime, formatTimestamp } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +28,13 @@ function initials(first: string, last: string): string {
 export default async function ManagerBookingDetail({ params }: { params: Promise<{ id: string }> }) {
   const staff = await requirePermission("bookings.view", "/manager/bookings/[id]");
   const { id } = await params;
-  const [booking, experiences, promos, taxes] = await Promise.all([
+  const [booking, experiences, promos, taxes, pricingMode, taxPercent] = await Promise.all([
     getBooking(id),
     listExperiences(),
     listPromos(),
     listTaxes(),
+    getPricingMode(),
+    activeTaxPercent(),
   ]);
   if (!booking) notFound();
   // Scoped accounts reach bookings by id from links elsewhere; the list only
@@ -57,6 +60,10 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
     quantity: i.quantity,
     ...(i.chargedQuantity && i.chargedQuantity > i.quantity ? { chargedQuantity: i.chargedQuantity } : {}),
     amountCents: lineCents(i),
+    paidPerPersonCents: paidPerPersonFor(i.priceCents, taxPercent, pricingMode),
+    ...(i.staffPriceFromCents !== undefined
+      ? { wasPaidPerPersonCents: paidPerPersonFor(i.staffPriceFromCents, taxPercent, pricingMode) }
+      : {}),
   }));
 
   const outstanding = outstandingCents(booking);
@@ -281,6 +288,11 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               balanceCents={pricing.balanceCents}
               cancelled={booking.status === "cancelled"}
               cardKey={cardEntryKey()}
+              priceSettings={{
+                taxPercent,
+                taxInclusive: pricingMode.taxInclusive,
+                canEdit: hasPermission(staff, "bookings.modify") && booking.status !== "cancelled",
+              }}
             />
 
             <div className="cust-totals">

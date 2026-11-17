@@ -1624,6 +1624,7 @@ a:hover {
 /* one purchased line item */
 .cust-purchase {
   display: flex;
+  flex-wrap: wrap; /* the "Change price" box drops onto its own line */
   align-items: center;
   gap: 14px;
   padding: 14px 0;
@@ -1655,6 +1656,18 @@ a:hover {
   text-align: right;
   font-weight: 700;
   white-space: nowrap;
+}
+/* Per-person price under the amount, and the link to change it. */
+.cust-purchase-amt .sub {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.cust-purchase-amt .mgr-linklike {
+  display: block;
+  margin-left: auto;
+  font-size: 13px;
 }
 .cust-purchase-qty .k,
 .cust-purchase-amt .k {
