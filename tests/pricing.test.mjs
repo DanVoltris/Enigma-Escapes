@@ -151,3 +151,45 @@ test("a bare number still means a percentage", () => {
     computeTotals([room(4)], { percentOff: 10, amountOffCents: 0 }, 5, DEFAULT_PRICING_MODE)
   );
 });
+
+// A group rate typed as "$25 a person, tax included" (the booking's Change
+// price box), stored as the session's price.
+import { paidPerPersonFor, storedPriceFor } from "../lib/pricing.ts";
+
+test("$25 a person, tax included, is $23.81 before 5% GST", () => {
+  assert.equal(storedPriceFor(2500, 5, DEFAULT_PRICING_MODE), 2381);
+  assert.equal(paidPerPersonFor(2381, 5, DEFAULT_PRICING_MODE), 2500);
+  assert.equal(paidPerPersonFor(PRICE, 5, DEFAULT_PRICING_MODE), 3001); // the room's own $30.01
+  const inclusive = { ...DEFAULT_PRICING_MODE, taxInclusive: true };
+  assert.equal(storedPriceFor(2500, 5, inclusive), 2500);
+});
+
+test("a group rate holds when the party shrinks from 12 to 10", () => {
+  const at = (q) => computeTotals([room(q, { priceCents: storedPriceFor(2500, 5, DEFAULT_PRICING_MODE) })], 0, 5);
+  assert.equal(at(12).totalCents, 30001); // $300.01: half-cent tax rounding, as with any price
+  assert.equal(at(10).totalCents, 25001);
+  assert.equal(at(8).totalCents, 20000);
+});
+
+// A per-person dollar code: $5 off each person charged for.
+test("$5 off each person scales with the group", () => {
+  const each = (q) => computeTotals([room(q)], { percentOff: 0, amountOffCents: 500, perPerson: true }, 5);
+  assert.equal(each(4).discountCents, 2000);
+  assert.equal(each(10).discountCents, 5000);
+  // Once per booking, for comparison.
+  assert.equal(computeTotals([room(10)], { percentOff: 0, amountOffCents: 500 }, 5).discountCents, 500);
+});
+
+test("per person counts the heads charged for, in the code's rooms only", () => {
+  const sosPair = room(2, { roomId: "school-of-sorcery", chargedQuantity: 3 }); // a pair billed as three
+  const t = computeTotals(
+    [sosPair, room(4)],
+    { percentOff: 0, amountOffCents: 500, perPerson: true },
+    5,
+    withMinimum,
+    0,
+    true,
+    ["school-of-sorcery"]
+  );
+  assert.equal(t.discountCents, 1500);
+});

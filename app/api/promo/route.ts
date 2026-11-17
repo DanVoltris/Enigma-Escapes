@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         code: promo.code,
         percentOff: promo.percentOff,
         amountOffCents: promo.amountOffCents,
+        amountPerPerson: promo.amountPerPerson,
         roomIds: promo.roomIds,
         roomNames: rooms.filter((r) => !!r).map((r) => r!.name),
       });

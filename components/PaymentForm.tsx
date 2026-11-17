@@ -138,6 +138,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
           code: data.code,
           percentOff: data.percentOff,
           amountOffCents: data.amountOffCents,
+          amountPerPerson: data.amountPerPerson,
           roomIds: data.roomIds,
           roomNames: data.roomNames,
         });

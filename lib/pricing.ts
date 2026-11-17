@@ -84,13 +84,20 @@ function blendedDepositPercent(items: CartItem[], mode?: PricingMode): number {
 // What a promo code takes off: a percentage, or a dollar amount off the whole
 // booking (amountOffCents > 0, migration 0020). The amount comes off before
 // tax, like a percentage does — $20 off on a tax-exclusive venue drops the
-// total by $21 — and never below zero.
-export type Discount = { percentOff: number; amountOffCents?: number };
+// total by $21 — and never below zero. perPerson (migration 0021) makes it that
+// amount off each person charged for instead of once for the booking.
+export type Discount = { percentOff: number; amountOffCents?: number; perPerson?: boolean };
 
 // The discount argument: a bare percentage, or a Discount (a promo code that
 // may be a dollar amount).
-export function discountOf(promo: { percentOff: number; amountOffCents?: number } | null | undefined): Discount {
-  return { percentOff: promo?.percentOff ?? 0, amountOffCents: promo?.amountOffCents ?? 0 };
+export function discountOf(
+  promo: { percentOff: number; amountOffCents?: number; amountPerPerson?: boolean } | null | undefined
+): Discount {
+  return {
+    percentOff: promo?.percentOff ?? 0,
+    amountOffCents: promo?.amountOffCents ?? 0,
+    perPerson: promo?.amountPerPerson === true,
+  };
 }
 
 // percentOff comes from a validated promo code (0 when none applied).
@@ -127,16 +134,22 @@ export function computeTotals(
   // which meant a 100% "prize" code left $350 to pay on a booking that was
   // supposed to be free. A code discounts the booking.
   const listedCents = roomsCents + flatFeeCents;
+  const discounted = limited ? items.filter((i) => discountRoomIds.includes(i.roomId)) : items;
   const discountBase = limited
-    ? items.filter((i) => discountRoomIds.includes(i.roomId)).reduce((sum, i) => sum + lineCents(i, mode), 0)
+    ? discounted.reduce((sum, i) => sum + lineCents(i, mode), 0)
     : roomsCents + (feeDiscountable ? flatFeeCents : 0);
   const percentOff = typeof discount === "number" ? discount : discount.percentOff;
   const amountOffCents = typeof discount === "number" ? 0 : (discount.amountOffCents ?? 0);
+  const perPerson = typeof discount !== "number" && discount.perPerson === true;
   // A dollar amount is a fixed sum, not a share: the same $20 whatever the
-  // group, capped at what it could come off (a $20 code on a $15 room is free,
-  // not a credit).
+  // group — or, per person, $5 for each head charged for in the rooms it
+  // covers — capped at what it could come off (a $20 code on a $15 room is
+  // free, not a credit).
+  const amountCents = perPerson
+    ? amountOffCents * discounted.reduce((sum, i) => sum + chargedGuests(i, mode), 0)
+    : amountOffCents;
   const discountCents =
-    amountOffCents > 0 ? Math.min(amountOffCents, discountBase) : Math.round((discountBase * percentOff) / 100);
+    amountOffCents > 0 ? Math.min(amountCents, discountBase) : Math.round((discountBase * percentOff) / 100);
 
   let subtotalCents: number;
   let gstCents: number;
@@ -234,4 +247,18 @@ export function promoRoomsMessage(code: string, roomNames: readonly string[]): s
       ? roomNames[0] ?? "certain rooms"
       : `${roomNames.slice(0, -1).join(", ")} or ${roomNames[roomNames.length - 1]}`;
   return `${code} only works on ${names}.`;
+}
+
+// A per-person price as staff say it — what each person pays, tax included
+// ("$25 a head") — turned into the price a session stores. Tax-exclusive
+// venues store the pre-tax figure ($25 → $23.81 at 5%); tax-inclusive ones
+// store it as said. Rounding means a big tax-exclusive group can land a cent
+// off (10 × $23.81 + 5% = $250.01) — the same as the room's own price does.
+export function storedPriceFor(paidPerPersonCents: number, taxPercent: number, mode: PricingMode): number {
+  return mode.taxInclusive ? paidPerPersonCents : Math.round(paidPerPersonCents / (1 + taxPercent / 100));
+}
+
+// The other way: a stored price as what each person pays, tax included.
+export function paidPerPersonFor(priceCents: number, taxPercent: number, mode: PricingMode): number {
+  return mode.taxInclusive ? priceCents : Math.round(priceCents * (1 + taxPercent / 100));
 }

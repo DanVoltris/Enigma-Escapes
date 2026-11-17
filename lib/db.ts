@@ -771,6 +771,8 @@ type PromoRow = {
   room_ids?: string[] | null;
   // Migration 0020; absent on a database that hasn't had it.
   amount_off_cents?: number | null;
+  // Migration 0021.
+  amount_per_person?: boolean | null;
 };
 
 function toPromo(r: PromoRow): Promo {
@@ -784,6 +786,7 @@ function toPromo(r: PromoRow): Promo {
     rewardMultiUse: r.reward_multi_use === true,
     roomIds: r.room_ids ?? [],
     amountOffCents: r.amount_off_cents ?? 0,
+    amountPerPerson: r.amount_per_person === true,
   };
 }
 
@@ -834,6 +837,7 @@ export async function createPromo(promo: Promo): Promise<void> {
       ...(promo.roomIds.length > 0 ? { room_ids: promo.roomIds } : {}),
       // Likewise only for a dollar code (0020).
       ...(promo.amountOffCents > 0 ? { amount_off_cents: promo.amountOffCents } : {}),
+      ...(promo.amountOffCents > 0 && promo.amountPerPerson ? { amount_per_person: true } : {}),
     }),
   });
   if (!res.ok) throw await restError(res, "Creating the promo code");

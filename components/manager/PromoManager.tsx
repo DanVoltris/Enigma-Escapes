@@ -28,7 +28,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState("10");
   // "$ off" codes take a fixed amount off the whole booking, before tax.
-  const [kind, setKind] = useState<"percent" | "amount">("percent");
+  const [kind, setKind] = useState<"percent" | "amount" | "amountEach">("percent");
   const [amount, setAmount] = useState("20");
   const [staffOnly, setStaffOnly] = useState(false);
   const [earns, setEarns] = useState(false);
@@ -59,7 +59,9 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code,
-          ...(kind === "amount" ? { amountOff: Number(amount) } : { percentOff: Number(percent) }),
+          ...(kind === "percent"
+            ? { percentOff: Number(percent) }
+            : { amountOff: Number(amount), amountPerPerson: kind === "amountEach" }),
           staffOnly,
           rewardPercent: earns ? Number(rewardPercent) : 0,
           rewardDays: earns ? Number(rewardDays) : 0,
@@ -137,11 +139,12 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
             <label>Type</label>
             <SingleSelect
               value={kind}
-              onChange={(v) => setKind(v as "percent" | "amount")}
+              onChange={(v) => setKind(v as "percent" | "amount" | "amountEach")}
               ariaLabel="What kind of discount"
               options={[
                 { value: "percent", label: "% off" },
                 { value: "amount", label: "$ off the booking" },
+                { value: "amountEach", label: "$ off each person" },
               ]}
             />
           </div>
@@ -160,7 +163,9 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
           ) : (
             <div className="field">
               {/* Before tax, like a percentage: $20 off is $21 off the total with 5% GST. */}
-              <label htmlFor="promo-amount">Amount off, before tax ($)</label>
+              <label htmlFor="promo-amount">
+                {kind === "amountEach" ? "Off each person, before tax ($)" : "Amount off, before tax ($)"}
+              </label>
               <input
                 id="promo-amount"
                 type="text"

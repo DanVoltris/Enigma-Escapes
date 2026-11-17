@@ -23,7 +23,16 @@ export type PurchaseLine = {
   quantity: number;
   chargedQuantity?: number; // set when a smaller party is billed at the venue's minimum
   amountCents: number;
+  // What each person pays, tax included, and — when staff changed it — what
+  // they paid at the room's own price. For the "Change price" box.
+  paidPerPersonCents: number;
+  wasPaidPerPersonCents?: number;
 };
+
+// Turning "$25 a person, tax included" into the session's total, for the
+// preview before saving. Mirrors lib/pricing.ts (storedPriceFor + computeTotals
+// on one session with no discount), so the figure shown is the figure saved.
+export type PriceSettings = { taxPercent: number; taxInclusive: boolean; canEdit: boolean };
 
 type Props = {
   emailReady: boolean; // whether RESEND_API_KEY / EMAIL_FROM are set
@@ -32,7 +41,7 @@ type Props = {
   purchases: PurchaseLine[];
   promoCode: string | null;
   discountCents: number;
-  activePromos: { code: string; percentOff: number; amountOffCents: number }[];
+  activePromos: { code: string; percentOff: number; amountOffCents: number; amountPerPerson: boolean }[];
   customerName: string;
   customerEmail: string;
   participants: Participant[];
@@ -46,6 +55,7 @@ type Props = {
   voucherPaidCents: number;
   cancelled: boolean;
   cardKey: string | null; // Stripe publishable key when card entry is set up
+  priceSettings: PriceSettings;
 };
 
 type TabKey = "purchases" | "promos" | "customers" | "taxes" | "payments" | "questions";
@@ -93,7 +103,9 @@ export default function BookingTabs(props: Props) {
       </div>
 
       <div className="cust-tabpanel">
-        {tab === "purchases" && <PurchasesTab purchases={props.purchases} />}
+        {tab === "purchases" && (
+          <PurchasesTab bookingId={props.bookingId} purchases={props.purchases} settings={props.priceSettings} />
+        )}
         {tab === "promos" && (
           <PromosTab
             bookingId={props.bookingId}
@@ -138,7 +150,44 @@ export default function BookingTabs(props: Props) {
   );
 }
 
-function PurchasesTab({ purchases }: { purchases: PurchaseLine[] }) {
+function PurchasesTab({
+  bookingId,
+  purchases,
+  settings,
+}: {
+  bookingId: string;
+  purchases: PurchaseLine[];
+  settings: PriceSettings;
+}) {
+  const router = useRouter();
+  // The session whose price is being changed, and the price typed so far.
+  const [editing, setEditing] = useState<{ index: number; value: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const sessionTotal = (paidPerPersonCents: number, heads: number) => {
+    if (settings.taxInclusive) return paidPerPersonCents * heads;
+    const stored = Math.round(paidPerPersonCents / (1 + settings.taxPercent / 100));
+    const subtotal = stored * heads;
+    return subtotal + Math.round((subtotal * settings.taxPercent) / 100);
+  };
+
+  async function save(index: number, paidPerPersonCents: number) {
+    setBusy(true);
+    setError(null);
+    const err = await call(`/api/manager/bookings/${bookingId}/price`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemIndex: index, paidPerPersonCents }),
+    });
+    setBusy(false);
+    if (err) setError(err);
+    else {
+      setEditing(null);
+      router.refresh();
+    }
+  }
+
   return purchases.length === 0 ? (
     <p className="cust-empty">No items on this booking.</p>
   ) : (
@@ -166,9 +215,77 @@ function PurchasesTab({ purchases }: { purchases: PurchaseLine[] }) {
           <div className="cust-purchase-amt">
             <span className="k">Amount</span>
             {formatMoney(p.amountCents)}
+            <span className="sub">
+              {formatMoney(p.paidPerPersonCents)} a person{settings.taxInclusive ? "" : " with tax"}
+              {p.wasPaidPerPersonCents !== undefined && ` · was ${formatMoney(p.wasPaidPerPersonCents)}`}
+            </span>
+            {settings.canEdit && editing?.index !== i && (
+              <button
+                type="button"
+                className="mgr-linklike"
+                onClick={() => {
+                  setError(null);
+                  setEditing({ index: i, value: (p.paidPerPersonCents / 100).toFixed(2) });
+                }}
+              >
+                Change price
+              </button>
+            )}
           </div>
+          {editing?.index === i &&
+            (() => {
+              const cents = Math.round(Number(editing.value) * 100);
+              const valid = editing.value.trim() !== "" && Number.isFinite(cents) && cents >= 0 && cents <= 100000;
+              const heads = p.chargedQuantity ?? p.quantity;
+              return (
+                <div className="bk-add" style={{ flexBasis: "100%", marginTop: 10 }}>
+                  <div className="mgr-inline-form">
+                    <div className="field">
+                      <label htmlFor={`bk-price-${i}`}>Each person pays ($, tax included)</label>
+                      <input
+                        id={`bk-price-${i}`}
+                        type="text"
+                        inputMode="decimal"
+                        autoFocus
+                        value={editing.value}
+                        onChange={(e) => setEditing({ index: i, value: e.target.value })}
+                        style={{ width: 120 }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={busy || !valid}
+                      onClick={() => save(i, cents)}
+                    >
+                      {busy ? "Saving…" : "Save price"}
+                    </button>
+                    {p.wasPaidPerPersonCents !== undefined && (
+                      <button
+                        type="button"
+                        className="mgr-linklike"
+                        disabled={busy}
+                        onClick={() => save(i, p.wasPaidPerPersonCents!)}
+                      >
+                        Back to {formatMoney(p.wasPaidPerPersonCents)}
+                      </button>
+                    )}
+                    <button type="button" className="mgr-linklike" onClick={() => setEditing(null)} disabled={busy}>
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="card-sub" style={{ marginTop: 8 }}>
+                    {valid
+                      ? `${heads} ${heads === 1 ? "person" : "people"} × ${formatMoney(cents)} = ${formatMoney(sessionTotal(cents, heads))}. `
+                      : ""}
+                    Stays this price per person if the group size changes later.
+                  </p>
+                </div>
+              );
+            })()}
         </div>
       ))}
+      {error && <p className="field-error" style={{ marginTop: 10 }}>{error}</p>}
     </>
   );
 }
@@ -210,7 +327,7 @@ function PromosTab({
   bookingId: string;
   promoCode: string | null;
   discountCents: number;
-  activePromos: { code: string; percentOff: number; amountOffCents: number }[];
+  activePromos: { code: string; percentOff: number; amountOffCents: number; amountPerPerson: boolean }[];
   voucherCode: string | null;
   voucherPaidCents: number;
   balanceCents: number;

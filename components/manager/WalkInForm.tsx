@@ -114,6 +114,7 @@ export default function WalkInForm({
     code: string;
     percentOff: number;
     amountOffCents: number; // a dollar code; 0 = percentage
+    amountPerPerson: boolean;
     roomIds: string[];
     roomNames: string[];
   } | null>(null);
@@ -358,7 +359,17 @@ export default function WalkInForm({
   const discount = !appliedCode
     ? 0
     : appliedCode.amountOffCents > 0
-      ? Math.min(appliedCode.amountOffCents, discountable)
+      ? Math.min(
+          appliedCode.amountPerPerson
+            ? appliedCode.amountOffCents *
+                sessions.reduce((sum, x) => {
+                  const exp = expFor(x);
+                  const covered = exp && (!appliedCode.roomIds.length || appliedCode.roomIds.includes(exp.id));
+                  return sum + (covered ? chargedFor(x.quantity) : 0);
+                }, 0)
+            : appliedCode.amountOffCents,
+          discountable
+        )
       : Math.round((discountable * appliedCode.percentOff) / 100);
 
   // Corporate events run all their rooms at one time, so a single start time
@@ -399,6 +410,7 @@ export default function WalkInForm({
           code: data.code,
           percentOff: data.percentOff,
           amountOffCents: data.amountOffCents ?? 0,
+          amountPerPerson: data.amountPerPerson === true,
           roomIds: data.roomIds ?? [],
           roomNames: data.roomNames ?? [],
         });

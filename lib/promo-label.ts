@@ -3,6 +3,7 @@
 // alone would show it as "0% off".
 import { formatMoney } from "./format";
 
-export function promoOffLabel(p: { percentOff: number; amountOffCents?: number }): string {
-  return p.amountOffCents && p.amountOffCents > 0 ? `${formatMoney(p.amountOffCents)} off` : `${p.percentOff}% off`;
+export function promoOffLabel(p: { percentOff: number; amountOffCents?: number; amountPerPerson?: boolean }): string {
+  if (!p.amountOffCents || p.amountOffCents <= 0) return `${p.percentOff}% off`;
+  return `${formatMoney(p.amountOffCents)} off${p.amountPerPerson ? " each person" : ""}`;
 }

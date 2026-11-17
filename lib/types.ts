@@ -111,6 +111,10 @@ export type CartItem = {
   // only occupied from `time`, which is why nothing in the scheduling code has
   // to know about this — it is an arrival time, not a longer booking.
   leadInMinutes?: number;
+  // Set when staff changed this session's per-person price on the booking (the
+  // group rate agreed on the phone): the room's price it had before, so the
+  // booking can say so and staff can put it back. Absent = the price it sold at.
+  staffPriceFromCents?: number;
 };
 
 export type Customer = {
@@ -159,6 +163,8 @@ export type Promo = {
   // A dollar code: this much off the whole booking, before tax, instead of a
   // percentage (percentOff is then 0). 0 = a percentage code (migration 0020).
   amountOffCents: number;
+  // A dollar code taken off each person charged for, not once (migration 0021).
+  amountPerPerson: boolean;
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
@@ -210,6 +216,9 @@ export type BookingPricing = {
   // the same reason: a resize or a dropped room keeps the same $20 off rather
   // than re-reading it as a percentage and scaling it with the group.
   promoAmountOffCents?: number;
+  // ...and whether that amount is per person, so a resize scales it with the
+  // party ($5 each) rather than keeping the same total.
+  promoAmountPerPerson?: boolean;
   // Gift voucher put towards this booking. voucherCents counts inside
   // paidCents — it is money the customer already handed over, not a discount.
   // voucherRedeemed guards the balance being taken more than once when the
