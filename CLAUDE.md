@@ -184,6 +184,13 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   nothing); with Stripe live it goes back automatically, otherwise the amount is
   recorded as owed. Moving can also switch experience, and carries the original
   price across rather than silently re-quoting.
+  **Change price** on a session (Purchases tab, `setSessionPrice`, `PATCH
+  /api/manager/bookings/[id]/price`) is the old system's per-person override: staff
+  type what each person pays *with tax* ("$25") and it becomes the session's stored
+  price (`storedPriceFor` — $23.81 at 5% GST), so a resize from 12 to 10 stays at $25 a
+  head. `staffPriceFromCents` keeps the room's price for "was $30.01" and "Back to".
+  Refused while a promo or reward code is on the booking (it would come off the $25 too).
+  Tax-exclusive rounding can land 10+ people a cent over ($250.01), as any price does.
 - Room limits are the website's, not the desk's: staff may book or resize a party up to
   `STAFF_OVER_LIMIT` (4) over a room's published maximum (`lib/capacity.ts`), after a
   confirmation that names the limit. Eleven in a room sold for ten is a squeeze, not a mistake,

@@ -111,6 +111,10 @@ export type CartItem = {
   // only occupied from `time`, which is why nothing in the scheduling code has
   // to know about this — it is an arrival time, not a longer booking.
   leadInMinutes?: number;
+  // Set when staff changed this session's per-person price on the booking (the
+  // group rate agreed on the phone): the room's price it had before, so the
+  // booking can say so and staff can put it back. Absent = the price it sold at.
+  staffPriceFromCents?: number;
 };
 
 export type Customer = {
