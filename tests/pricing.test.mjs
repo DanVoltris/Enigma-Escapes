@@ -170,3 +170,26 @@ test("a group rate holds when the party shrinks from 12 to 10", () => {
   assert.equal(at(10).totalCents, 25001);
   assert.equal(at(8).totalCents, 20000);
 });
+
+// A per-person dollar code: $5 off each person charged for.
+test("$5 off each person scales with the group", () => {
+  const each = (q) => computeTotals([room(q)], { percentOff: 0, amountOffCents: 500, perPerson: true }, 5);
+  assert.equal(each(4).discountCents, 2000);
+  assert.equal(each(10).discountCents, 5000);
+  // Once per booking, for comparison.
+  assert.equal(computeTotals([room(10)], { percentOff: 0, amountOffCents: 500 }, 5).discountCents, 500);
+});
+
+test("per person counts the heads charged for, in the code's rooms only", () => {
+  const sosPair = room(2, { roomId: "school-of-sorcery", chargedQuantity: 3 }); // a pair billed as three
+  const t = computeTotals(
+    [sosPair, room(4)],
+    { percentOff: 0, amountOffCents: 500, perPerson: true },
+    5,
+    withMinimum,
+    0,
+    true,
+    ["school-of-sorcery"]
+  );
+  assert.equal(t.discountCents, 1500);
+});

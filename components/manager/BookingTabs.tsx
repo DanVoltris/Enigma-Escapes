@@ -41,7 +41,7 @@ type Props = {
   purchases: PurchaseLine[];
   promoCode: string | null;
   discountCents: number;
-  activePromos: { code: string; percentOff: number; amountOffCents: number }[];
+  activePromos: { code: string; percentOff: number; amountOffCents: number; amountPerPerson: boolean }[];
   customerName: string;
   customerEmail: string;
   participants: Participant[];
@@ -327,7 +327,7 @@ function PromosTab({
   bookingId: string;
   promoCode: string | null;
   discountCents: number;
-  activePromos: { code: string; percentOff: number; amountOffCents: number }[];
+  activePromos: { code: string; percentOff: number; amountOffCents: number; amountPerPerson: boolean }[];
   voucherCode: string | null;
   voucherPaidCents: number;
   balanceCents: number;

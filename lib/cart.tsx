@@ -14,6 +14,7 @@ type AppliedPromo = {
   code: string;
   percentOff: number;
   amountOffCents?: number;
+  amountPerPerson?: boolean; // the amount comes off each person
   roomIds?: string[];
   roomNames?: string[];
 };
