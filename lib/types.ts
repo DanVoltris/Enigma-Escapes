@@ -165,6 +165,13 @@ export type Promo = {
   amountOffCents: number;
   // A dollar code taken off each person charged for, not once (migration 0021).
   amountPerPerson: boolean;
+  // Dates, "YYYY-MM-DD" in the venue's time, inclusive; null = open on that
+  // side (migration 0022, lib/promo-dates.ts). use*: the days the code can be
+  // typed in. play*: the game dates it discounts, like roomIds does rooms.
+  useFrom: string | null;
+  useUntil: string | null;
+  playFrom: string | null;
+  playUntil: string | null;
 };
 
 // A payment staff recorded after booking (cash, terminal, e-transfer). The
@@ -212,6 +219,10 @@ export type BookingPricing = {
   // rebuilds the discount from the booking alone, and the code may since have
   // changed or gone. Absent/empty = the promo covered every room.
   promoRoomIds?: string[];
+  // ...and the game dates it was limited to, for the same reason (a staff move
+  // of a discounted session to another day widens these to keep the price).
+  promoPlayFrom?: string;
+  promoPlayUntil?: string;
   // A dollar-amount promo (see Promo.amountOffCents), kept on the booking for
   // the same reason: a resize or a dropped room keeps the same $20 off rather
   // than re-reading it as a percentage and scaling it with the group.

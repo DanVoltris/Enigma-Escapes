@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { createPromo, getPromo, logActivity } from "@/lib/db";
 import { PROMO_ROOMS_MIGRATION, parsePromoRooms } from "@/lib/promo-rooms";
+import { PROMO_DATES_MIGRATION, isPromoDatesColumnError, parsePromoDates, promoDatesSummary } from "@/lib/promo-dates";
 import { promoOffLabel } from "@/lib/promo-label";
 
 const PROMO_AMOUNT_MIGRATION =
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown; roomIds?: unknown; amountOff?: unknown; amountPerPerson?: unknown };
+  const d = body as { code?: unknown; percentOff?: unknown; staffOnly?: unknown; rewardPercent?: unknown; rewardDays?: unknown; rewardMultiUse?: unknown; roomIds?: unknown; amountOff?: unknown; amountPerPerson?: unknown; useFrom?: unknown; useUntil?: unknown; playFrom?: unknown; playUntil?: unknown };
   const staffOnly = d.staffOnly === true;
 
   const code = typeof d.code === "string" ? d.code.trim().toUpperCase() : "";
@@ -61,6 +62,11 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+
+  // When the code can be used, and which game dates it covers (0022).
+  const dates = parsePromoDates(d);
+  if ("error" in dates) return NextResponse.json({ error: dates.error }, { status: 400 });
+  const hasDates = !!(dates.useFrom || dates.useUntil || dates.playFrom || dates.playUntil);
 
   let rooms: { ids: string[]; names: string[] } = { ids: [], names: [] };
   try {
@@ -97,10 +103,11 @@ export async function POST(req: NextRequest) {
       roomIds: rooms.ids,
       amountOffCents,
       amountPerPerson,
+      ...dates,
     });
     await logActivity(
       "Created promo code",
-      `${code} — ${promoOffLabel({ percentOff, amountOffCents, amountPerPerson })}${rooms.names.length ? ` ${rooms.names.join(", ")} only` : ""}${staffOnly ? " (staff only)" : ""}` +
+      `${code} — ${promoOffLabel({ percentOff, amountOffCents, amountPerPerson })}${rooms.names.length ? ` ${rooms.names.join(", ")} only` : ""}${hasDates ? ` (${promoDatesSummary(dates)})` : ""}${staffOnly ? " (staff only)" : ""}` +
         (rewardPercent > 0
           ? `, earns ${rewardPercent}% off for ${rewardDays} days${d.rewardMultiUse === true ? ", reusable" : ""}`
           : "")
@@ -116,6 +123,9 @@ export async function POST(req: NextRequest) {
     }
     if (isAmount && err instanceof Error && err.message.includes("amount_off_cents")) {
       return NextResponse.json({ error: PROMO_AMOUNT_MIGRATION }, { status: 500 });
+    }
+    if (hasDates && isPromoDatesColumnError(err)) {
+      return NextResponse.json({ error: PROMO_DATES_MIGRATION }, { status: 500 });
     }
     if (rooms.ids.length > 0 && err instanceof Error && err.message.includes("room_ids")) {
       return NextResponse.json({ error: PROMO_ROOMS_MIGRATION }, { status: 500 });

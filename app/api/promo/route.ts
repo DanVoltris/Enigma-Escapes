@@ -3,6 +3,7 @@ import { currentStaff } from "@/lib/auth";
 import { getPromo } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { todayISO } from "@/lib/format";
+import { promoUseProblem } from "@/lib/promo-dates";
 import { getRewardCode, rewardProblem } from "@/lib/reward-codes";
 import { getVoucher } from "@/lib/vouchers";
 import { voucherProblem } from "@/lib/voucher-types";
@@ -24,9 +25,16 @@ export async function GET(req: NextRequest) {
     const promo = await getPromo(code);
     // Staff-only codes answer only to a signed-in staff session (the walk-in
     // form's Apply button); to the public they don't exist.
-    if (promo && promo.active && (!promo.staffOnly || (await currentStaff()))) {
-      // A code limited to some rooms says which, so the checkout can refuse it
-      // on a cart without them — and say why — before the booking is sent.
+    const staff = promo ? await currentStaff() : null;
+    if (promo && promo.active && (!promo.staffOnly || staff)) {
+      // A code with days it can be used says so outside them, rather than
+      // falling through to "not valid" — it is a real code, just not today.
+      // The desk (a signed-in staff session) may use it any day.
+      const notToday = staff ? null : promoUseProblem(promo, todayISO());
+      if (notToday) return NextResponse.json({ error: notToday }, { status: 409 });
+      // A code limited to some rooms or game dates says which, so the checkout
+      // can refuse it on a cart without them — and say why — before the
+      // booking is sent.
       const rooms = await Promise.all(promo.roomIds.map((id) => getExperience(id)));
       return NextResponse.json({
         kind: "promo",
@@ -35,6 +43,8 @@ export async function GET(req: NextRequest) {
         amountOffCents: promo.amountOffCents,
         amountPerPerson: promo.amountPerPerson,
         roomIds: promo.roomIds,
+        playFrom: promo.playFrom,
+        playUntil: promo.playUntil,
         roomNames: rooms.filter((r) => !!r).map((r) => r!.name),
       });
     }
