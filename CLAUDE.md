@@ -342,6 +342,8 @@ project and its own Supabase project (built with `scripts/schema.sql`). Time Zon
 venue's database — rooms, prices, taxes, hours, copy, deposit and the corporate event fee
 (Settings → Taxes & fees) — never in a branch.
 
+- Live addresses: Enigma is https://enigmaescapes.voltrisbooking.com (staff portal at `/manager`);
+  staging is https://voltris-staging.vercel.app.
 - Staging comes first. A throwaway venue — Vercel project `voltris-staging`
   (https://voltris-staging.vercel.app), its own Supabase project, `.env.staging`, fake rooms from
   `scripts/venues/staging.json` — rehearses every change before a venue that takes money sees it.
