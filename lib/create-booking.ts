@@ -17,10 +17,10 @@ import {
   cardDueCents,
   computeTotals,
   promoMissesRooms,
-  promoRoomsMessage,
   voucherAppliedCents,
 } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
+import { promoMissMessage, promoScopeOf, promoUseProblem, scopePricingFields, type PromoScope } from "./promo-dates";
 import { getVoucher } from "./vouchers";
 import { voucherProblem } from "./voucher-types";
 import { getSiteSettings } from "./site-settings";
@@ -107,7 +107,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
   const items: CartItem[] = [];
   let percentOff = 0;
   let promoCode: string | null = null;
-  let promoRoomIds: string[] = [];
+  let promoScope: PromoScope = { roomIds: [] };
   let amountOffCents = 0; // a dollar-amount promo; 0 for a percentage
   let amountPerPerson = false; // ...taken off each person rather than once
   let rewardCode: string | null = null;
@@ -120,9 +120,13 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       // A staff-only code exists for the desk alone; typed into the website it
       // is simply not a valid code.
       if (promo && promo.active && (!promo.staffOnly || source === "in_person")) {
+        // A code with days it can be used (Black Friday) is refused outside
+        // them, at the desk as online — it's the code's rule, not the website's.
+        const notToday = promoUseProblem(promo, today);
+        if (notToday) return err(notToday);
         promoCode = promo.code;
         percentOff = promo.percentOff;
-        promoRoomIds = promo.roomIds;
+        promoScope = promoScopeOf(promo);
         amountOffCents = promo.amountOffCents;
         amountPerPerson = promo.amountPerPerson;
       } else {
@@ -302,17 +306,18 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     if (problem) return err(problem);
   }
 
-  // A code limited to some rooms needs at least one of them on the booking.
-  if (promoCode && promoMissesRooms(promoRoomIds, items)) {
+  // A code limited to some rooms or game dates needs at least one session it
+  // covers on the booking.
+  if (promoCode && promoMissesRooms(promoScope, items)) {
     let names: string[] = [];
     try {
-      names = (await Promise.all(promoRoomIds.map((rid) => getExperience(rid))))
+      names = (await Promise.all(promoScope.roomIds.map((rid) => getExperience(rid))))
         .filter((e) => !!e)
         .map((e) => e!.name);
     } catch {
       // Named if we can; the refusal stands either way.
     }
-    return err(promoRoomsMessage(promoCode, names));
+    return err(promoMissMessage(promoCode, promoScope, items, names) ?? `${promoCode} doesn't cover these sessions.`);
   }
 
   const flatFeeCents = corporate ? pricingMode.corporateFeeCents : 0;
@@ -323,7 +328,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
     pricingMode,
     flatFeeCents,
     !rewardCode, // a promo reaches the fee; the 20% loyalty code doesn't
-    promoRoomIds
+    promoScope
   );
 
   // Gift voucher — a prepaid balance, checked here against the real cart so the
@@ -383,7 +388,7 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       paidCents,
       balanceCents: totals.totalCents - paidCents,
       ...(corporate ? { corporate: true, flatFeeCents } : {}),
-      ...(promoRoomIds.length > 0 ? { promoRoomIds } : {}),
+      ...scopePricingFields(promoScope),
       ...(amountOffCents > 0 ? { promoAmountOffCents: amountOffCents } : {}),
       ...(amountOffCents > 0 && amountPerPerson ? { promoAmountPerPerson: true } : {}),
       voucherCode,

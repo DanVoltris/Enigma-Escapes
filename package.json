@@ -10,7 +10,7 @@
     "import:bookings": "node --env-file=.env.local scripts/import-bookings.mjs",
     "test:isolation": "node --import ./tests/resolve-ts.mjs --test tests/tenant-token.test.mjs tests/tenant-resolve.test.mjs tests/tenant-only.test.mjs tests/whole-table-rules.test.mjs tests/tenant-hosts.test.mjs tests/signup.test.mjs tests/tenant-isolation.test.mjs",
     "test:push": "node --test tests/push-events.test.mjs",
-    "test:pricing": "node --test tests/pricing.test.mjs",
+    "test:pricing": "node --import ./tests/resolve-ts.mjs --test tests/pricing.test.mjs",
     "test:season": "node --test tests/season.test.mjs",
     "test:capacity": "node --import ./tests/resolve-ts.mjs --test tests/capacity.test.mjs",
     "test:blocks": "node --import ./tests/resolve-ts.mjs --test tests/block-rules.test.mjs",

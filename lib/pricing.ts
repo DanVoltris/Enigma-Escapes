@@ -1,3 +1,4 @@
+import { promoCovers, promoLimited, promoMissMessage, type PromoScope } from "./promo-dates";
 import type { BookingPricing, CartItem, PaymentOption } from "./types";
 
 export const HOLD_MINUTES = 15;
@@ -123,18 +124,19 @@ export function computeTotals(
   // take a cut of the host's time hands away $70 an event nobody chose to give.
   feeDiscountable = true,
   // A promo code limited to some rooms (WELCOMEBACKSOS, for the room that came
-  // back) discounts only those rooms' sessions, and never the fee — the fee
-  // isn't any one room's. Empty = every room, as before.
-  discountRoomIds: readonly string[] = []
+  // back) or to some game dates (a Black Friday weekend, lib/promo-dates.ts)
+  // discounts only those sessions, and never the fee — the fee isn't any one
+  // session's. Empty = every session, as before.
+  discountScope: readonly string[] | PromoScope = []
 ): Totals {
   const roomsCents = items.reduce((sum, i) => sum + lineCents(i, mode), 0);
-  const limited = discountRoomIds.length > 0;
+  const limited = promoLimited(discountScope);
   // Discounted along with everything else. It used to sit outside the discount
   // base on the theory that a promo is for the games and not the host's time —
   // which meant a 100% "prize" code left $350 to pay on a booking that was
   // supposed to be free. A code discounts the booking.
   const listedCents = roomsCents + flatFeeCents;
-  const discounted = limited ? items.filter((i) => discountRoomIds.includes(i.roomId)) : items;
+  const discounted = limited ? items.filter((i) => promoCovers(discountScope, i)) : items;
   const discountBase = limited
     ? discounted.reduce((sum, i) => sum + lineCents(i, mode), 0)
     : roomsCents + (feeDiscountable ? flatFeeCents : 0);
@@ -233,11 +235,15 @@ export function outstandingCents(booking: {
   return booking.pricing.totalCents - Math.max(0, kept);
 }
 
-// Whether a room-limited promo has anything to discount: true when the code is
-// limited (roomIds non-empty) and none of the sessions are in its rooms. Such a
-// booking is refused the code rather than shown it "applied" for $0 off.
-export function promoMissesRooms(roomIds: readonly string[], items: readonly { roomId: string }[]): boolean {
-  return roomIds.length > 0 && !items.some((i) => roomIds.includes(i.roomId));
+// Whether a limited promo has anything to discount: true when the code is
+// limited (to some rooms, or some game dates) and none of the sessions are
+// covered. Such a booking is refused the code rather than shown it "applied"
+// for $0 off. promoMissMessage (lib/promo-dates.ts) says why.
+export function promoMissesRooms(
+  scope: readonly string[] | PromoScope,
+  items: readonly { roomId: string; date?: string }[]
+): boolean {
+  return promoMissMessage("", scope, items, []) !== null;
 }
 
 // "WELCOMEBACKSOS only works on School of Sorcery." — names, not ids.

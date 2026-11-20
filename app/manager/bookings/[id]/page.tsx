@@ -17,7 +17,8 @@ import { getPricingMode } from "@/lib/pricing-settings";
 import { emailConfigured } from "@/lib/email";
 import { cardEntryKey, stripeConfigured } from "@/lib/stripe";
 import { activeTaxPercent, listTaxes } from "@/lib/taxes";
-import { formatDateLong, formatMoney, formatTime, formatTimestamp } from "@/lib/format";
+import { formatDateLong, formatMoney, formatTime, formatTimestamp, todayISO } from "@/lib/format";
+import { promoScopeOf, promoUseProblem } from "@/lib/promo-dates";
 
 export const dynamic = "force-dynamic";
 
@@ -272,8 +273,14 @@ export default async function ManagerBookingDetail({ params }: { params: Promise
               promoCode={booking.promoCode}
               discountCents={pricing.discountCents}
               activePromos={promos
-                // A code for one room isn't offered on a booking without it.
-                .filter((p) => p.active && !promoMissesRooms(p.roomIds, booking.items))
+                // A code for one room or some game dates isn't offered on a
+                // booking without them, nor outside the days it can be used.
+                .filter(
+                  (p) =>
+                    p.active &&
+                    !promoMissesRooms(promoScopeOf(p), booking.items) &&
+                    !promoUseProblem(p, todayISO())
+                )
                 .map((p) => ({
                   code: p.code,
                   percentOff: p.percentOff,

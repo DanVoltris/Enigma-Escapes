@@ -3,7 +3,9 @@ import { apiGuard, canSeeLocation } from "@/lib/auth";
 import { getPricingMode } from "@/lib/pricing-settings";
 import { getBooking, getPromo, logActivity, updateBookingFields } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
-import { computeTotals, promoMissesRooms, promoRoomsMessage, type Discount } from "@/lib/pricing";
+import { computeTotals, type Discount } from "@/lib/pricing";
+import { todayISO } from "@/lib/format";
+import { promoMissMessage, promoScopeOf, promoUseProblem, scopePricingFields, type PromoScope } from "@/lib/promo-dates";
 import { promoOffLabel } from "@/lib/promo-label";
 import { getRewardCode } from "@/lib/reward-codes";
 import { activeTaxPercent } from "@/lib/taxes";
@@ -13,14 +15,14 @@ export const dynamic = "force-dynamic";
 
 // Recompute a booking's pricing for a given discount, keeping what was already
 // paid. Tax uses the current configured rate (staff is editing the booking now).
-// roomIds: the rooms a limited promo covers (empty = every room), and a dollar
-// code's amount, both remembered on the booking so a later resize discounts
-// the same way.
+// scope: the rooms and game dates a limited promo covers (empty = every
+// session), and a dollar code's amount, both remembered on the booking so a
+// later resize discounts the same way.
 async function repriced(
   booking: Booking,
   discount: number | Discount,
   feeDiscountable = true,
-  roomIds: string[] = []
+  scope: PromoScope = { roomIds: [] }
 ): Promise<Booking["pricing"]> {
   const taxPercent = await activeTaxPercent();
   const totals = computeTotals(
@@ -30,10 +32,12 @@ async function repriced(
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
     feeDiscountable, // a promo applied by hand has the same reach as one typed at checkout
-    roomIds
+    scope
   );
   const {
     promoRoomIds: _rooms,
+    promoPlayFrom: _playFrom,
+    promoPlayUntil: _playUntil,
     promoAmountOffCents: _amount,
     promoAmountPerPerson: _perPerson,
     ...rest
@@ -42,7 +46,7 @@ async function repriced(
   const perPerson = typeof discount !== "number" && discount.perPerson === true;
   return {
     ...rest,
-    ...(roomIds.length > 0 ? { promoRoomIds: roomIds } : {}),
+    ...scopePricingFields(scope),
     ...(amountOffCents > 0 ? { promoAmountOffCents: amountOffCents } : {}),
     ...(amountOffCents > 0 && perPerson ? { promoAmountPerPerson: true } : {}),
     subtotalCents: totals.subtotalCents,
@@ -97,20 +101,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: "That code is not valid or is inactive." }, { status: 404 });
     }
 
-    if (promoMissesRooms(promo.roomIds, booking.items)) {
-      const rooms = await Promise.all(promo.roomIds.map((rid) => getExperience(rid)));
-      const names = rooms.filter((r) => !!r).map((r) => r!.name);
-      return NextResponse.json(
-        { error: `${promoRoomsMessage(promo.code, names)} This booking has none of those rooms.` },
-        { status: 400 }
-      );
+    const notToday = promoUseProblem(promo, todayISO());
+    if (notToday) return NextResponse.json({ error: notToday }, { status: 409 });
+
+    const scope = promoScopeOf(promo);
+    const rooms = await Promise.all(promo.roomIds.map((rid) => getExperience(rid)));
+    const miss = promoMissMessage(
+      promo.code,
+      scope,
+      booking.items,
+      rooms.filter((r) => !!r).map((r) => r!.name)
+    );
+    if (miss) {
+      return NextResponse.json({ error: `${miss} Nothing on this booking qualifies.` }, { status: 400 });
     }
 
     const pricing = await repriced(
       booking,
       { percentOff: promo.percentOff, amountOffCents: promo.amountOffCents, perPerson: promo.amountPerPerson },
       true,
-      promo.roomIds
+      scope
     );
     await updateBookingFields(id, { pricing, promoCode: promo.code });
     await logActivity("Applied promo", `${promo.code} (${promoOffLabel(promo)}) to ${booking.reference}`);

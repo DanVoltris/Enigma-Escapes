@@ -193,3 +193,87 @@ test("per person counts the heads charged for, in the code's rooms only", () => 
   );
   assert.equal(t.discountCents, 1500);
 });
+
+// Dates on a promo code (migration 0022, lib/promo-dates.ts): the days it can
+// be used, and the game dates it discounts — Time Zone's Black Friday sale.
+import {
+  dateRangeLabel,
+  parsePromoDates,
+  promoCovers,
+  promoMissMessage,
+  promoUseProblem,
+} from "../lib/promo-dates.ts";
+const on = (date, quantity = 4, extra = {}) => room(quantity, { date, ...extra });
+const BF = { roomIds: [], playFrom: "2026-11-27", playUntil: "2026-11-29" };
+
+test("a date-limited promo discounts only the games on those days", () => {
+  const items = [on("2026-11-28"), on("2026-12-05")];
+  const t = computeTotals(items, 20, 5, DEFAULT_PRICING_MODE, 0, true, BF);
+  assert.equal(t.discountCents, Math.round((PRICE * 4 * 20) / 100));
+});
+
+test("both ends of the game dates count, and either can be open", () => {
+  assert.equal(promoCovers(BF, { roomId: "x", date: "2026-11-27" }), true);
+  assert.equal(promoCovers(BF, { roomId: "x", date: "2026-11-29" }), true);
+  assert.equal(promoCovers(BF, { roomId: "x", date: "2026-11-26" }), false);
+  assert.equal(promoCovers(BF, { roomId: "x", date: "2026-11-30" }), false);
+  assert.equal(promoCovers({ roomIds: [], playFrom: "2026-11-27" }, { roomId: "x", date: "2027-06-01" }), true);
+  assert.equal(promoCovers({ roomIds: [], playUntil: "2026-11-29" }, { roomId: "x", date: "2026-01-01" }), true);
+});
+
+test("rooms and dates together: the session must match both", () => {
+  const scope = { ...BF, roomIds: ["school-of-sorcery"] };
+  const sosOn = (date) => on(date, 4, { roomId: "school-of-sorcery", roomName: "School of Sorcery" });
+  const items = [sosOn("2026-11-28"), on("2026-11-28"), sosOn("2026-12-05")];
+  const t = computeTotals(items, 20, 5, DEFAULT_PRICING_MODE, 0, true, scope);
+  assert.equal(t.discountCents, Math.round((PRICE * 4 * 20) / 100));
+});
+
+test("a date-limited promo leaves the corporate fee alone", () => {
+  const t = computeTotals([on("2026-11-28")], 50, 5, DEFAULT_PRICING_MODE, 35000, true, BF);
+  assert.equal(t.discountCents, Math.round((PRICE * 4) / 2));
+});
+
+test("a booking with no game on the dates is refused, with the dates named", () => {
+  assert.equal(promoMissesRooms(BF, [on("2026-12-05")]), true);
+  assert.equal(promoMissesRooms(BF, [on("2026-12-05"), on("2026-11-27")]), false);
+  assert.equal(
+    promoMissMessage("BLACKFRIDAY", BF, [on("2026-12-05")], []),
+    "BLACKFRIDAY only works for games played Nov 27–29."
+  );
+  assert.equal(
+    promoMissMessage("X", { ...BF, roomIds: ["school-of-sorcery"] }, [on("2026-12-05")], ["School of Sorcery"]),
+    "X only works on School of Sorcery, for games played Nov 27–29."
+  );
+  assert.equal(promoMissMessage("X", BF, [on("2026-11-28")], []), null);
+});
+
+test("the days a code can be used", () => {
+  const p = { code: "BLACKFRIDAY", useFrom: "2026-11-27", useUntil: "2026-11-29" };
+  assert.equal(promoUseProblem(p, "2026-11-26"), "BLACKFRIDAY can be used Nov 27–29.");
+  assert.equal(promoUseProblem(p, "2026-11-27"), null);
+  assert.equal(promoUseProblem(p, "2026-11-29"), null);
+  assert.equal(promoUseProblem(p, "2026-11-30"), "BLACKFRIDAY ended on Nov 29.");
+  assert.equal(promoUseProblem({ code: "X", useFrom: null, useUntil: null }, "2030-01-01"), null);
+});
+
+test("date labels", () => {
+  assert.equal(dateRangeLabel("2026-11-27", "2026-11-29"), "Nov 27–29");
+  assert.equal(dateRangeLabel("2026-11-30", "2026-12-02"), "Nov 30 – Dec 2");
+  assert.equal(dateRangeLabel("2026-11-27", "2026-11-27"), "on Nov 27");
+  assert.equal(dateRangeLabel("2026-11-27", null), "from Nov 27");
+  assert.equal(dateRangeLabel(null, "2026-11-29"), "until Nov 29");
+  assert.equal(dateRangeLabel(null, null), "");
+});
+
+test("dates from the portal are checked", () => {
+  assert.deepEqual(parsePromoDates({ playFrom: "2026-11-27", playUntil: "" }), {
+    useFrom: null,
+    useUntil: null,
+    playFrom: "2026-11-27",
+    playUntil: null,
+  });
+  assert.ok("error" in parsePromoDates({ useFrom: "2026-02-30" }));
+  assert.ok("error" in parsePromoDates({ playFrom: "2026-11-29", playUntil: "2026-11-27" }));
+  assert.ok("error" in parsePromoDates({ useFrom: "Nov 27" }));
+});
