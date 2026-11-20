@@ -4,8 +4,7 @@ import { getPricingMode } from "@/lib/pricing-settings";
 import { getBooking, getPromo, logActivity, updateBookingFields } from "@/lib/db";
 import { getExperience } from "@/lib/experiences";
 import { computeTotals, type Discount } from "@/lib/pricing";
-import { todayISO } from "@/lib/format";
-import { promoMissMessage, promoScopeOf, promoUseProblem, scopePricingFields, type PromoScope } from "@/lib/promo-dates";
+import { promoMissMessage, promoScopeOf, scopePricingFields, type PromoScope } from "@/lib/promo-dates";
 import { promoOffLabel } from "@/lib/promo-label";
 import { getRewardCode } from "@/lib/reward-codes";
 import { activeTaxPercent } from "@/lib/taxes";
@@ -101,9 +100,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return NextResponse.json({ error: "That code is not valid or is inactive." }, { status: 404 });
     }
 
-    const notToday = promoUseProblem(promo, todayISO());
-    if (notToday) return NextResponse.json({ error: notToday }, { status: 409 });
-
+    // The days a code can be used bind the website, not the desk: staff may
+    // apply it any day. Which games it covers still holds.
     const scope = promoScopeOf(promo);
     const rooms = await Promise.all(promo.roomIds.map((rid) => getExperience(rid)));
     const miss = promoMissMessage(

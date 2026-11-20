@@ -24,6 +24,7 @@ import {
   promoCovers,
   promoLimited,
   scopePricingFields,
+  shortDate,
   type PromoScope,
 } from "./promo-dates";
 import { activeTaxPercent } from "./taxes";
@@ -647,15 +648,11 @@ export async function cancelItemForStaff(
   };
 }
 
-// A promo's scope stretched to cover a session moved to another room or day:
-// the room joins the list (if the code had one) and the dates widen to take in
-// the new day (if the code had any). Null when nothing needs to change.
-function widenScope(scope: PromoScope, roomId: string, date: string): PromoScope | null {
-  const roomIds = scope.roomIds.length > 0 && !scope.roomIds.includes(roomId) ? [...scope.roomIds, roomId] : scope.roomIds;
-  const playFrom = scope.playFrom && date < scope.playFrom ? date : scope.playFrom;
-  const playUntil = scope.playUntil && date > scope.playUntil ? date : scope.playUntil;
-  if (roomIds === scope.roomIds && playFrom === scope.playFrom && playUntil === scope.playUntil) return null;
-  return { roomIds, playFrom, playUntil };
+// A room-limited promo's list with the room a discounted session moved to
+// added, so the move keeps its price. Null when nothing needs to change.
+function widenRooms(scope: PromoScope, roomId: string): PromoScope | null {
+  if (scope.roomIds.length === 0 || scope.roomIds.includes(roomId)) return null;
+  return { ...scope, roomIds: [...scope.roomIds, roomId] };
 }
 
 export async function rescheduleForStaff(
@@ -762,17 +759,49 @@ export async function rescheduleForStaff(
   );
   // The move keeps the price it was sold at, discount included. If that
   // discount came from a promo limited to the room being left, the new room
-  // joins the promo's list; if it was limited to game dates, they stretch to
-  // take in the new day — or a later resize would read the session as never
-  // discounted and quietly take it away.
+  // joins the promo's list, or a later resize would read the session as never
+  // discounted and quietly take it away. A promo limited to game dates is the
+  // other way round: the price was for those days, so a game moved outside
+  // them loses its discount and the booking is re-priced.
   const scope = bookingPromoScope(booking.pricing);
-  const widened = promoLimited(scope) && promoCovers(scope, item) ? widenScope(scope, exp.id, target.date) : null;
-  if (widened) {
+  const wasCovered = !!booking.promoCode && promoLimited(scope) && promoCovers(scope, item);
+  const roomsWidened = wasCovered ? widenRooms(scope, exp.id) : null;
+  const newScope = roomsWidened ?? scope;
+  const leavesDates = wasCovered && !promoCovers(newScope, { roomId: exp.id, date: target.date });
+  if (leavesDates) {
+    const { discount, feeDiscountable } = discountAsSold(booking);
+    const totals = computeTotals(
+      items,
+      discount,
+      await activeTaxPercent(),
+      await getPricingMode(),
+      booking.pricing.flatFeeCents ?? 0,
+      feeDiscountable,
+      newScope
+    );
+    const { promoRoomIds: _r, promoPlayFrom: _f, promoPlayUntil: _u, ...rest } = booking.pricing;
+    const pricing: Booking["pricing"] = {
+      ...rest,
+      ...scopePricingFields(newScope),
+      subtotalCents: totals.subtotalCents,
+      discountCents: totals.discountCents,
+      gstCents: totals.gstCents,
+      totalCents: totals.totalCents,
+      balanceCents: totals.totalCents - booking.pricing.paidCents,
+    };
+    await updateBookingPartySize(booking.id, items, pricing, "Rescheduling the booking");
+    await addBookingNote(
+      booking.id,
+      `${booking.promoCode} is for games ${dateRangeLabel(scope.playFrom, scope.playUntil)}, so moving ` +
+        `${item.roomName} to ${shortDate(target.date)} took its discount off. Total is now ${formatMoney(totals.totalCents)}` +
+        (pricing.balanceCents > 0 ? `; ${formatMoney(pricing.balanceCents)} to collect.` : ".")
+    );
+  } else if (roomsWidened) {
     const { promoRoomIds: _r, promoPlayFrom: _f, promoPlayUntil: _u, ...rest } = booking.pricing;
     await updateBookingPartySize(
       booking.id,
       items,
-      { ...rest, ...scopePricingFields(widened) },
+      { ...rest, ...scopePricingFields(roomsWidened) },
       "Rescheduling the booking"
     );
   } else {

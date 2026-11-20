@@ -77,13 +77,13 @@ Vercel doesn't set it, so production keeps using Supabase. Remove the line to sw
   `pricing.promoAmountPerPerson`): that amount off each head charged for in the rooms it
   covers, so it does scale on a resize.
   A code can carry **dates** (migration 0022, `lib/promo-dates.ts`), two kinds, both optional
-  and inclusive: `use_from`/`use_until` — the days it can be applied (refused outside them,
-  online and at the desk alike) — and `play_from`/`play_until` — the game dates it discounts,
+  and inclusive: `use_from`/`use_until` — the days it can be applied on the website (the desk
+  may apply it any day) — and `play_from`/`play_until` — the game dates it discounts,
   which works exactly like a room limit (only those sessions, never the corporate fee, a
   booking with none refused; rooms and dates together must both match). The booking keeps
-  `pricing.promoPlayFrom`/`promoPlayUntil`; a staff move of a discounted session widens them
-  to the new day so the price goes with it, while a customer's own reschedule out of the
-  dates is refused ("give us a call"). `computeTotals`' last argument takes a room list or a
+  `pricing.promoPlayFrom`/`promoPlayUntil`; a staff move of a discounted session outside
+  them re-prices the booking without that session's discount (and notes it on the booking),
+  while a customer's own reschedule out of the dates is refused ("give us a call"). `computeTotals`' last argument takes a room list or a
   `PromoScope`.
 - Availability is served by `GET /api/availability?date=YYYY-MM-DD` from real bookings only
   (the old fake "seeded" availability was removed when the portal arrived — new slots start

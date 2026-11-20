@@ -120,9 +120,10 @@ export async function buildBooking(raw: RawInput, source: BookingSource): Promis
       // A staff-only code exists for the desk alone; typed into the website it
       // is simply not a valid code.
       if (promo && promo.active && (!promo.staffOnly || source === "in_person")) {
-        // A code with days it can be used (Black Friday) is refused outside
-        // them, at the desk as online — it's the code's rule, not the website's.
-        const notToday = promoUseProblem(promo, today);
+        // A code with days it can be used (Black Friday) is refused online
+        // outside them. The desk may still give it — the customer who rings
+        // the Monday after, having meant to book on Saturday.
+        const notToday = source === "in_person" ? null : promoUseProblem(promo, today);
         if (notToday) return err(notToday);
         promoCode = promo.code;
         percentOff = promo.percentOff;
