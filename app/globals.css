@@ -5502,3 +5502,24 @@ textarea:focus {
 .signup-done .btn {
   margin-top: 18px;
 }
+
+/* Promo codes → Add a code: pick-one button rows instead of checkboxes, and
+   date boxes with a fixed width — an empty date input has nothing to size
+   itself by and collapsed to a sliver on iPad Safari. */
+.promo-choices { flex-basis: 100%; display: flex; flex-direction: column; gap: 14px; }
+.promo-choice { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.promo-choice-label {
+  min-width: 130px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.promo-choice-extra { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; padding-left: 144px; }
+.promo-choice-indent { padding-left: 144px; margin-top: -4px; }
+.field.promo-date-field input[type="date"] { width: 180px; min-width: 180px; min-height: 46px; }
+@media (max-width: 640px) {
+  .promo-choice-label { min-width: 0; flex-basis: 100%; }
+  .promo-choice-extra, .promo-choice-indent { padding-left: 0; }
+}

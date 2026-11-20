@@ -24,6 +24,39 @@ function RoomPicker({ rooms, value, onChange }: { rooms: Room[]; value: string[]
   );
 }
 
+// A pick-one row of buttons in the page's filter-button style — clearer at a
+// glance than a checkbox ("Every room" vs "Some rooms" both say what they mean).
+function Choice<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="promo-choice">
+      <span className="promo-choice-label">{label}</span>
+      <div className="vch-filters" role="group" aria-label={label}>
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            className={`vch-chip${value === o.value ? " on" : ""}`}
+            aria-pressed={value === o.value}
+            onClick={() => onChange(o.value)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type Dates = { useFrom: string; useUntil: string; playFrom: string; playUntil: string };
 const NO_DATES: Dates = { useFrom: "", useUntil: "", playFrom: "", playUntil: "" };
 const datesOf = (p: Promo): Dates => ({
@@ -38,7 +71,7 @@ const datesOf = (p: Promo): Dates => ({
 // A Black Friday sale is usually one or the other; both is fine too.
 function DatesPicker({ value, onChange }: { value: Dates; onChange: (d: Dates) => void }) {
   const field = (key: keyof Dates, label: string) => (
-    <div className="field">
+    <div className="field promo-date-field">
       <label htmlFor={`promo-${key}`}>{label}</label>
       <input
         id={`promo-${key}`}
@@ -52,7 +85,8 @@ function DatesPicker({ value, onChange }: { value: Dates; onChange: (d: Dates) =
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
         <p className="sub" style={{ margin: "0 0 4px" }}>
-          <strong>Can be used</strong> — the days customers (or the desk) can apply it, for a game any day.
+          <strong>Can be used</strong> — the days customers can apply it online, for a game any day. The desk can
+          apply it any day.
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {field("useFrom", "From")}
@@ -251,37 +285,58 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
               />
             </div>
           )}
-          <label className="checkbox-row" style={{ alignSelf: "center" }}>
-            <input type="checkbox" checked={staffOnly} onChange={(e) => setStaffOnly(e.target.checked)} />
-            <span>Staff only — works at the desk, never on the website</span>
-          </label>
-          <label className="checkbox-row" style={{ alignSelf: "center" }}>
-            <input type="checkbox" checked={someRooms} onChange={(e) => setSomeRooms(e.target.checked)} />
-            <span>Only some rooms</span>
-          </label>
-          {someRooms && (
-            <div style={{ flexBasis: "100%" }}>
-              <RoomPicker rooms={rooms} value={roomIds} onChange={setRoomIds} />
-            </div>
-          )}
-          <label className="checkbox-row" style={{ alignSelf: "center" }}>
-            <input type="checkbox" checked={someDates} onChange={(e) => setSomeDates(e.target.checked)} />
-            <span>Only on some dates</span>
-          </label>
-          {someDates && (
-            <div style={{ flexBasis: "100%" }}>
-              <DatesPicker value={dates} onChange={setDates} />
-            </div>
-          )}
-          {/* A code can hand the customer a second code with their confirmation
-              text — the hotel guest who books at 10% off and gets 20% off for
-              the rest of the week. */}
-          <label className="checkbox-row" style={{ alignSelf: "center" }}>
-            <input type="checkbox" checked={earns} onChange={(e) => setEarns(e.target.checked)} />
-            <span>Texts them a follow-up code with their confirmation</span>
-          </label>
-          {earns && (
-            <>
+          <div className="promo-choices">
+            <Choice
+              label="Works on"
+              value={staffOnly ? "desk" : "both"}
+              onChange={(v) => setStaffOnly(v === "desk")}
+              options={[
+                { value: "both", label: "Website + desk" },
+                { value: "desk", label: "Desk only" },
+              ]}
+            />
+            <Choice
+              label="Rooms"
+              value={someRooms ? "some" : "all"}
+              onChange={(v) => setSomeRooms(v === "some")}
+              options={[
+                { value: "all", label: "Every room" },
+                { value: "some", label: "Some rooms" },
+              ]}
+            />
+            {someRooms && (
+              <div className="promo-choice-indent">
+                <RoomPicker rooms={rooms} value={roomIds} onChange={setRoomIds} />
+              </div>
+            )}
+            <Choice
+              label="Dates"
+              value={someDates ? "some" : "any"}
+              onChange={(v) => setSomeDates(v === "some")}
+              options={[
+                { value: "any", label: "Any day" },
+                { value: "some", label: "Some dates" },
+              ]}
+            />
+            {someDates && (
+              <div className="promo-choice-indent">
+                <DatesPicker value={dates} onChange={setDates} />
+              </div>
+            )}
+            {/* A code can hand the customer a second code with their confirmation
+                text — the hotel guest who books at 10% off and gets 20% off for
+                the rest of the week. */}
+            <Choice
+              label="Follow-up code"
+              value={earns ? "yes" : "no"}
+              onChange={(v) => setEarns(v === "yes")}
+              options={[
+                { value: "no", label: "None" },
+                { value: "yes", label: "Text them one with their confirmation" },
+              ]}
+            />
+            {earns && (
+              <div className="promo-choice-extra">
               <div className="field">
                 <label htmlFor="promo-reward-percent">Follow-up discount (%)</label>
                 <input
@@ -304,16 +359,18 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
                   style={{ width: 100 }}
                 />
               </div>
-              <label className="checkbox-row" style={{ alignSelf: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={rewardMultiUse}
-                  onChange={(e) => setRewardMultiUse(e.target.checked)}
-                />
-                <span>They can use it on every game until it expires, not just once</span>
-              </label>
-            </>
-          )}
+              <Choice
+                label="Follow-up works"
+                value={rewardMultiUse ? "every" : "once"}
+                onChange={(v) => setRewardMultiUse(v === "every")}
+                options={[
+                  { value: "once", label: "Once" },
+                  { value: "every", label: "Every game until it expires" },
+                ]}
+              />
+              </div>
+            )}
+          </div>
           <button type="submit" className="btn" disabled={busy}>
             {busy ? "Adding…" : "Add code"}
           </button>
