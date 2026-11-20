@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiGuard } from "@/lib/auth";
 import { deletePromo, getPromo, logActivity, updatePromo } from "@/lib/db";
 import { PROMO_ROOMS_MIGRATION, parsePromoRooms } from "@/lib/promo-rooms";
+import { PROMO_DATES_MIGRATION, isPromoDatesColumnError, parsePromoDates, promoDatesSummary } from "@/lib/promo-dates";
 import { STAFF_ONLY_MIGRATION } from "../route";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +19,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
   } catch {
     return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
-  const d = body as { active?: unknown; staffOnly?: unknown; roomIds?: unknown };
+  const d = body as {
+    active?: unknown;
+    staffOnly?: unknown;
+    roomIds?: unknown;
+    dates?: { useFrom?: unknown; useUntil?: unknown; playFrom?: unknown; playUntil?: unknown };
+  };
   const active = typeof d.active === "boolean" ? d.active : undefined;
   const staffOnly = typeof d.staffOnly === "boolean" ? d.staffOnly : undefined;
   const changingRooms = d.roomIds !== undefined;
-  if (active === undefined && staffOnly === undefined && !changingRooms) {
+  // All four dates are sent together; a blank one clears that end.
+  const changingDates = d.dates !== undefined && d.dates !== null && typeof d.dates === "object";
+  const dates = changingDates ? parsePromoDates(d.dates!) : undefined;
+  if (dates && "error" in dates) return NextResponse.json({ error: dates.error }, { status: 400 });
+  if (active === undefined && staffOnly === undefined && !changingRooms && !changingDates) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
@@ -38,7 +48,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
     }
     // Bookings already made keep the discount they were sold with: they carry
     // their own copy of the rooms (pricing.promoRoomIds).
-    await updatePromo(code, { active, staffOnly, roomIds: rooms?.ids });
+    // ...and of the game dates (pricing.promoPlayFrom / promoPlayUntil).
+    await updatePromo(code, { active, staffOnly, roomIds: rooms?.ids, ...(dates ?? {}) });
+    if (dates) {
+      await logActivity("Promo code dates changed", `${code} — ${promoDatesSummary(dates) || "any day"}`);
+    }
     if (rooms) {
       await logActivity(
         "Promo code rooms changed",
@@ -54,6 +68,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ code: str
     console.error("updating promo failed:", err);
     if (staffOnly !== undefined && err instanceof Error && err.message.includes("staff_only")) {
       return NextResponse.json({ error: STAFF_ONLY_MIGRATION }, { status: 500 });
+    }
+    if (changingDates && isPromoDatesColumnError(err)) {
+      return NextResponse.json({ error: PROMO_DATES_MIGRATION }, { status: 500 });
     }
     if (changingRooms && err instanceof Error && err.message.includes("room_ids")) {
       return NextResponse.json({ error: PROMO_ROOMS_MIGRATION }, { status: 500 });

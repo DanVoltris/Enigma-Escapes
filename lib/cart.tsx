@@ -17,6 +17,9 @@ type AppliedPromo = {
   amountPerPerson?: boolean; // the amount comes off each person
   roomIds?: string[];
   roomNames?: string[];
+  // Game dates it discounts (lib/promo-dates.ts); absent = any day.
+  playFrom?: string | null;
+  playUntil?: string | null;
 };
 // A gift voucher is a prepaid balance, not a discount — it pays down the total
 // after tax. remainingCents is what the server said was left when it was applied.

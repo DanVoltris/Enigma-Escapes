@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SingleSelect from "@/components/SingleSelect";
 import { promoOffLabel } from "@/lib/promo-label";
+import { dateRangeLabel } from "@/lib/promo-dates";
 import type { Promo } from "@/lib/types";
 
 type Room = { id: string; name: string; location: string };
@@ -23,6 +24,65 @@ function RoomPicker({ rooms, value, onChange }: { rooms: Room[]; value: string[]
   );
 }
 
+type Dates = { useFrom: string; useUntil: string; playFrom: string; playUntil: string };
+const NO_DATES: Dates = { useFrom: "", useUntil: "", playFrom: "", playUntil: "" };
+const datesOf = (p: Promo): Dates => ({
+  useFrom: p.useFrom ?? "",
+  useUntil: p.useUntil ?? "",
+  playFrom: p.playFrom ?? "",
+  playUntil: p.playUntil ?? "",
+});
+
+// The two date ranges on a code, both optional (blank = no limit that side):
+// the days it can be typed in, and the days of the games it takes money off.
+// A Black Friday sale is usually one or the other; both is fine too.
+function DatesPicker({ value, onChange }: { value: Dates; onChange: (d: Dates) => void }) {
+  const field = (key: keyof Dates, label: string) => (
+    <div className="field">
+      <label htmlFor={`promo-${key}`}>{label}</label>
+      <input
+        id={`promo-${key}`}
+        type="date"
+        value={value[key]}
+        onChange={(e) => onChange({ ...value, [key]: e.target.value })}
+      />
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <p className="sub" style={{ margin: "0 0 4px" }}>
+          <strong>Can be used</strong> — the days customers (or the desk) can apply it, for a game any day.
+        </p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {field("useFrom", "From")}
+          {field("useUntil", "Until")}
+        </div>
+      </div>
+      <div>
+        <p className="sub" style={{ margin: "0 0 4px" }}>
+          <strong>Games played</strong> — only sessions on these days are discounted, whenever they're booked.
+        </p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {field("playFrom", "From")}
+          {field("playUntil", "Until")}
+        </div>
+      </div>
+      <p className="sub" style={{ margin: 0 }}>Leave a box empty for no limit on that side. Both ends count.</p>
+    </div>
+  );
+}
+
+// "Used Nov 27–29 · Games Nov 27–29", or "Any day".
+function datesText(p: Promo): string {
+  const parts: string[] = [];
+  const use = dateRangeLabel(p.useFrom, p.useUntil);
+  if (use) parts.push(`Used ${use}`);
+  const play = dateRangeLabel(p.playFrom, p.playUntil);
+  if (play) parts.push(`Games ${play}`);
+  return parts.length ? parts.join(" · ") : "Any day";
+}
+
 export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms: Room[] }) {
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -40,6 +100,10 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
   const [roomIds, setRoomIds] = useState<string[]>([]);
   // The code whose rooms are being changed in the list, and the ticks so far.
   const [editingRooms, setEditingRooms] = useState<{ code: string; ids: string[] } | null>(null);
+  // Only on some dates — a Black Friday weekend.
+  const [someDates, setSomeDates] = useState(false);
+  const [dates, setDates] = useState<Dates>(NO_DATES);
+  const [editingDates, setEditingDates] = useState<{ code: string; dates: Dates } | null>(null);
   const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "a removed room";
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,6 +114,10 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
     setError(null);
     if (someRooms && roomIds.length === 0) {
       setError("Tick the rooms this code works on, or untick “Only some rooms”.");
+      return;
+    }
+    if (someDates && !dates.useFrom && !dates.useUntil && !dates.playFrom && !dates.playUntil) {
+      setError("Pick the dates this code works for, or untick “Only on some dates”.");
       return;
     }
     setBusy(true);
@@ -67,6 +135,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
           rewardDays: earns ? Number(rewardDays) : 0,
           rewardMultiUse: earns && rewardMultiUse,
           roomIds: someRooms ? roomIds : [],
+          ...(someDates ? dates : NO_DATES),
         }),
       });
       const data = await res.json();
@@ -75,6 +144,8 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
       setStaffOnly(false);
       setSomeRooms(false);
       setRoomIds([]);
+      setSomeDates(false);
+      setDates(NO_DATES);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save the code.");
@@ -83,7 +154,10 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
     }
   }
 
-  async function toggle(promo: Promo, patch: { active?: boolean; staffOnly?: boolean; roomIds?: string[] }) {
+  async function toggle(
+    promo: Promo,
+    patch: { active?: boolean; staffOnly?: boolean; roomIds?: string[]; dates?: Dates }
+  ) {
     setError(null);
     try {
       const res = await fetch(`/api/manager/promos/${encodeURIComponent(promo.code)}`, {
@@ -94,6 +168,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not update the code.");
       if (patch.roomIds) setEditingRooms(null);
+      if (patch.dates) setEditingDates(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the code.");
@@ -189,6 +264,15 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
               <RoomPicker rooms={rooms} value={roomIds} onChange={setRoomIds} />
             </div>
           )}
+          <label className="checkbox-row" style={{ alignSelf: "center" }}>
+            <input type="checkbox" checked={someDates} onChange={(e) => setSomeDates(e.target.checked)} />
+            <span>Only on some dates</span>
+          </label>
+          {someDates && (
+            <div style={{ flexBasis: "100%" }}>
+              <DatesPicker value={dates} onChange={setDates} />
+            </div>
+          )}
           {/* A code can hand the customer a second code with their confirmation
               text — the hotel guest who books at 10% off and gets 20% off for
               the rest of the week. */}
@@ -253,6 +337,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
                   <th className="num">Discount</th>
                   <th>Works</th>
                   <th>Rooms</th>
+                  <th>Dates</th>
                   <th>Follow-up code</th>
                   <th>Status</th>
                   <th></th>
@@ -295,6 +380,39 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
                             type="button"
                             className="link-button"
                             onClick={() => setEditingRooms({ code: p.code, ids: p.roomIds })}
+                          >
+                            Change
+                          </button>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      {editingDates?.code === p.code ? (
+                        <div>
+                          <DatesPicker
+                            value={editingDates.dates}
+                            onChange={(d) => setEditingDates({ code: p.code, dates: d })}
+                          />
+                          <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => toggle(p, { dates: editingDates.dates })}
+                            >
+                              Save dates
+                            </button>
+                            <button type="button" className="link-button" onClick={() => setEditingDates(null)}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {datesText(p)}{" "}
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => setEditingDates({ code: p.code, dates: datesOf(p) })}
                           >
                             Change
                           </button>

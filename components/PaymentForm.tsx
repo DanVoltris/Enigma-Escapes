@@ -12,10 +12,9 @@ import {
   cardDueCents,
   computeTotals,
   discountOf,
-  promoMissesRooms,
-  promoRoomsMessage,
   voucherAppliedCents,
 } from "@/lib/pricing";
+import { promoLimited, promoMissMessage, promoScopeLabel, type PromoScope } from "@/lib/promo-dates";
 
 // The manager-approved token that lets the server accept a sub-4h booking.
 // Held in the cart (persisted), with the URL as a fallback for browsers where
@@ -86,7 +85,9 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
     if (items.length > 0 && !customer) router.replace("/checkout");
   }, [items.length, customer, router]);
 
-  const totals = computeTotals(items, discountOf(promo), taxPercent, pricingMode, 0, true, promo?.roomIds ?? []);
+  const promoScope: PromoScope = { roomIds: promo?.roomIds ?? [], playFrom: promo?.playFrom, playUntil: promo?.playUntil };
+  const totals = computeTotals(items, discountOf(promo), taxPercent, pricingMode, 0, true, promoScope);
+
   // Only offer the deposit option when it's actually less than the full amount
   // (an all-100%-deposit cart requires full payment up front).
   const depositOffered = totals.depositCents < totals.totalCents;
@@ -129,11 +130,15 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
       if (data.kind === "voucher") {
         setVoucher({ code: data.code, remainingCents: data.remainingCents });
       } else {
-        // A code for one room is no good on a cart without it — say so now,
-        // not after the booking is sent.
-        if (promoMissesRooms(data.roomIds ?? [], items)) {
-          throw new Error(promoRoomsMessage(data.code, data.roomNames ?? []));
-        }
+        // A code for one room, or some game dates, is no good on a cart
+        // without them — say so now, not after the booking is sent.
+        const miss = promoMissMessage(
+          data.code,
+          { roomIds: data.roomIds ?? [], playFrom: data.playFrom, playUntil: data.playUntil },
+          items,
+          data.roomNames ?? []
+        );
+        if (miss) throw new Error(miss);
         setPromo({
           code: data.code,
           percentOff: data.percentOff,
@@ -141,6 +146,8 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
           amountPerPerson: data.amountPerPerson,
           roomIds: data.roomIds,
           roomNames: data.roomNames,
+          playFrom: data.playFrom ?? null,
+          playUntil: data.playUntil ?? null,
         });
       }
       setPromoInput("");
@@ -284,7 +291,7 @@ export default function PaymentForm({ stripeEnabled, canceled }: { stripeEnabled
                 {promo && (
                   <p className="promo-note ok">
                     Code {promo.code} applied — you saved {formatMoney(totals.discountCents)}
-                    {promo.roomNames?.length ? ` on ${promo.roomNames.join(" and ")}` : ""}.{" "}
+                    {promoLimited(promoScope) ? ` on ${promoScopeLabel(promoScope, promo.roomNames ?? [])}` : ""}.{" "}
                     <button type="button" className="link-button" onClick={() => setPromo(null)}>
                       Remove
                     </button>

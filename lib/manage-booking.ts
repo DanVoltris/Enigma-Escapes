@@ -18,6 +18,15 @@ import { getSiteSettings } from "./site-settings";
 import { getLocationHours } from "./hours";
 import { computeTotals, lineCents, refundGoingBackCents, storedPriceFor, type Discount } from "./pricing";
 import { getPricingMode } from "./pricing-settings";
+import {
+  bookingPromoScope,
+  dateRangeLabel,
+  promoCovers,
+  promoLimited,
+  scopePricingFields,
+  shortDate,
+  type PromoScope,
+} from "./promo-dates";
 import { activeTaxPercent } from "./taxes";
 import { startTimesFor } from "./schedule";
 import { ONLINE_PAYMENT_ID, onlinePayment, refundBookingPayment } from "./refunds";
@@ -186,6 +195,16 @@ export async function rescheduleForCustomer(
     return { error: `${formatTime(time)} doesn't have room for ${item.quantity} any more — try another time.` };
   }
 
+  // A price that came with a date-limited promo (Black Friday games) is for
+  // those days: moving the game out of them is a phone call, so staff decide
+  // whether the price goes with it.
+  const scope = bookingPromoScope(booking.pricing);
+  if (booking.promoCode && promoCovers(scope, item) && !promoCovers(scope, { roomId: item.roomId, date })) {
+    return {
+      error: `Your ${booking.promoCode} price is for games ${dateRangeLabel(scope.playFrom, scope.playUntil)}. Pick a day in that range, or give us a call.`,
+    };
+  }
+
   const items: Booking["items"] = [{ ...item, date, time }];
   await rescheduleBooking(booking.id, items);
   await logActivity(
@@ -291,13 +310,15 @@ export async function cancelForStaff(
 function discountAsSold(booking: Booking): {
   discount: number | Discount;
   feeDiscountable: boolean;
-  promoRoomIds: string[];
+  promoScope: PromoScope;
 } {
-  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
-  const feeDiscountable = !booking.pricing.rewardCode && promoRoomIds.length === 0;
+  // Rooms and game dates alike (lib/promo-dates.ts): the sessions the code
+  // covered are the ones the rate is read back off.
+  const promoScope = bookingPromoScope(booking.pricing);
+  const feeDiscountable = !booking.pricing.rewardCode && !promoLimited(promoScope);
   const listedBefore =
     booking.items
-      .filter((i) => promoRoomIds.length === 0 || promoRoomIds.includes(i.roomId))
+      .filter((i) => promoCovers(promoScope, i))
       .reduce((sum, i) => sum + lineCents(i), 0) + (feeDiscountable ? (booking.pricing.flatFeeCents ?? 0) : 0);
   const percentOff = listedBefore > 0 ? (booking.pricing.discountCents / listedBefore) * 100 : 0;
   const amountOffCents = booking.pricing.promoAmountOffCents ?? 0;
@@ -306,7 +327,7 @@ function discountAsSold(booking: Booking): {
   return {
     discount: amountOffCents > 0 ? { percentOff: 0, amountOffCents, perPerson } : percentOff,
     feeDiscountable,
-    promoRoomIds,
+    promoScope,
   };
 }
 
@@ -359,7 +380,7 @@ export async function changePartySize(
   // effective discount rate this booking was sold at. The rate comes off the
   // whole booking, not this one session, or a two-room booking would have its
   // discount recalculated from a fraction of what it was sold at.
-  const { discount, feeDiscountable, promoRoomIds } = discountAsSold(booking);
+  const { discount, feeDiscountable, promoScope } = discountAsSold(booking);
   // Resized to the party that turned up; the minimum charge is re-applied, so
   // a booking cut from four to two still bills the venue's minimum.
   const minCharged = (await getPricingMode()).minChargedGuests;
@@ -379,7 +400,7 @@ export async function changePartySize(
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
     feeDiscountable,
-    promoRoomIds
+    promoScope
   );
 
   const paid = booking.pricing.paidCents;
@@ -457,7 +478,7 @@ export async function setSessionPrice(
     const { staffPriceFromCents: _was, ...rest } = i;
     return { ...rest, priceCents, ...(priceCents !== soldAt ? { staffPriceFromCents: soldAt } : {}) };
   });
-  const { discount, feeDiscountable, promoRoomIds } = discountAsSold(booking);
+  const { discount, feeDiscountable, promoScope } = discountAsSold(booking);
   const totals = computeTotals(
     items,
     discount,
@@ -465,7 +486,7 @@ export async function setSessionPrice(
     mode,
     booking.pricing.flatFeeCents ?? 0,
     feeDiscountable,
-    promoRoomIds
+    promoScope
   );
   const pricing: Booking["pricing"] = {
     ...booking.pricing,
@@ -562,7 +583,7 @@ export async function cancelItemForStaff(
   // change does: per-person prices stay, and the discount rate the booking was
   // sold at is carried across so a since-expired promo isn't taken away.
   const remaining = booking.items.filter((_, idx) => idx !== itemIndex);
-  const { discount, feeDiscountable, promoRoomIds } = discountAsSold(booking);
+  const { discount, feeDiscountable, promoScope } = discountAsSold(booking);
   // The corporate fee is charged once per booking, not per room, so it rides
   // through untouched — the group still gets the thing the fee paid for.
   const totals = computeTotals(
@@ -572,7 +593,7 @@ export async function cancelItemForStaff(
     await getPricingMode(),
     booking.pricing.flatFeeCents ?? 0,
     feeDiscountable,
-    promoRoomIds
+    promoScope
   );
   // paidCents records what was collected and is left alone — the refund side
   // carries the money going back, so the booking never starts showing a fresh
@@ -625,6 +646,13 @@ export async function cancelItemForStaff(
     owedCents,
     removed: { roomName: item.roomName, date: item.date, time: item.time },
   };
+}
+
+// A room-limited promo's list with the room a discounted session moved to
+// added, so the move keeps its price. Null when nothing needs to change.
+function widenRooms(scope: PromoScope, roomId: string): PromoScope | null {
+  if (scope.roomIds.length === 0 || scope.roomIds.includes(roomId)) return null;
+  return { ...scope, roomIds: [...scope.roomIds, roomId] };
 }
 
 export async function rescheduleForStaff(
@@ -732,13 +760,48 @@ export async function rescheduleForStaff(
   // The move keeps the price it was sold at, discount included. If that
   // discount came from a promo limited to the room being left, the new room
   // joins the promo's list, or a later resize would read the session as never
-  // discounted and quietly take it away.
-  const promoRoomIds = booking.pricing.promoRoomIds ?? [];
-  if (promoRoomIds.includes(item.roomId) && !promoRoomIds.includes(exp.id)) {
+  // discounted and quietly take it away. A promo limited to game dates is the
+  // other way round: the price was for those days, so a game moved outside
+  // them loses its discount and the booking is re-priced.
+  const scope = bookingPromoScope(booking.pricing);
+  const wasCovered = !!booking.promoCode && promoLimited(scope) && promoCovers(scope, item);
+  const roomsWidened = wasCovered ? widenRooms(scope, exp.id) : null;
+  const newScope = roomsWidened ?? scope;
+  const leavesDates = wasCovered && !promoCovers(newScope, { roomId: exp.id, date: target.date });
+  if (leavesDates) {
+    const { discount, feeDiscountable } = discountAsSold(booking);
+    const totals = computeTotals(
+      items,
+      discount,
+      await activeTaxPercent(),
+      await getPricingMode(),
+      booking.pricing.flatFeeCents ?? 0,
+      feeDiscountable,
+      newScope
+    );
+    const { promoRoomIds: _r, promoPlayFrom: _f, promoPlayUntil: _u, ...rest } = booking.pricing;
+    const pricing: Booking["pricing"] = {
+      ...rest,
+      ...scopePricingFields(newScope),
+      subtotalCents: totals.subtotalCents,
+      discountCents: totals.discountCents,
+      gstCents: totals.gstCents,
+      totalCents: totals.totalCents,
+      balanceCents: totals.totalCents - booking.pricing.paidCents,
+    };
+    await updateBookingPartySize(booking.id, items, pricing, "Rescheduling the booking");
+    await addBookingNote(
+      booking.id,
+      `${booking.promoCode} is for games ${dateRangeLabel(scope.playFrom, scope.playUntil)}, so moving ` +
+        `${item.roomName} to ${shortDate(target.date)} took its discount off. Total is now ${formatMoney(totals.totalCents)}` +
+        (pricing.balanceCents > 0 ? `; ${formatMoney(pricing.balanceCents)} to collect.` : ".")
+    );
+  } else if (roomsWidened) {
+    const { promoRoomIds: _r, promoPlayFrom: _f, promoPlayUntil: _u, ...rest } = booking.pricing;
     await updateBookingPartySize(
       booking.id,
       items,
-      { ...booking.pricing, promoRoomIds: [...promoRoomIds, exp.id] },
+      { ...rest, ...scopePricingFields(roomsWidened) },
       "Rescheduling the booking"
     );
   } else {

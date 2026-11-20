@@ -773,6 +773,11 @@ type PromoRow = {
   amount_off_cents?: number | null;
   // Migration 0021.
   amount_per_person?: boolean | null;
+  // Migration 0022.
+  use_from?: string | null;
+  use_until?: string | null;
+  play_from?: string | null;
+  play_until?: string | null;
 };
 
 function toPromo(r: PromoRow): Promo {
@@ -787,6 +792,10 @@ function toPromo(r: PromoRow): Promo {
     roomIds: r.room_ids ?? [],
     amountOffCents: r.amount_off_cents ?? 0,
     amountPerPerson: r.amount_per_person === true,
+    useFrom: r.use_from ?? null,
+    useUntil: r.use_until ?? null,
+    playFrom: r.play_from ?? null,
+    playUntil: r.play_until ?? null,
   };
 }
 
@@ -838,6 +847,11 @@ export async function createPromo(promo: Promo): Promise<void> {
       // Likewise only for a dollar code (0020).
       ...(promo.amountOffCents > 0 ? { amount_off_cents: promo.amountOffCents } : {}),
       ...(promo.amountOffCents > 0 && promo.amountPerPerson ? { amount_per_person: true } : {}),
+      // And dates only when set (0022).
+      ...(promo.useFrom ? { use_from: promo.useFrom } : {}),
+      ...(promo.useUntil ? { use_until: promo.useUntil } : {}),
+      ...(promo.playFrom ? { play_from: promo.playFrom } : {}),
+      ...(promo.playUntil ? { play_until: promo.playUntil } : {}),
     }),
   });
   if (!res.ok) throw await restError(res, "Creating the promo code");
@@ -853,6 +867,10 @@ export async function updatePromo(
     rewardDays?: number;
     rewardMultiUse?: boolean;
     roomIds?: string[];
+    useFrom?: string | null;
+    useUntil?: string | null;
+    playFrom?: string | null;
+    playUntil?: string | null;
   }
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -863,6 +881,10 @@ export async function updatePromo(
   if (patch.rewardDays !== undefined) row.reward_days = patch.rewardDays;
   if (patch.rewardMultiUse !== undefined) row.reward_multi_use = patch.rewardMultiUse;
   if (patch.roomIds !== undefined) row.room_ids = patch.roomIds;
+  if (patch.useFrom !== undefined) row.use_from = patch.useFrom;
+  if (patch.useUntil !== undefined) row.use_until = patch.useUntil;
+  if (patch.playFrom !== undefined) row.play_from = patch.playFrom;
+  if (patch.playUntil !== undefined) row.play_until = patch.playUntil;
   const res = await rest(`promo_codes?code=eq.${encodeURIComponent(code)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },

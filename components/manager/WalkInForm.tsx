@@ -8,6 +8,7 @@ import { addDaysISO, formatDateLong, formatMoney, formatTime, todayISO } from "@
 import { CORPORATE_LEAD_IN_MINUTES, STAFF_BOOKING_WINDOW_DAYS } from "@/lib/pricing";
 import { minutesOfTime, minutesToTime, STAFF_OVER_LIMIT } from "@/lib/capacity";
 import { promoOffLabel } from "@/lib/promo-label";
+import { promoCovers, promoLimited, promoScopeLabel, type PromoScope } from "@/lib/promo-dates";
 
 // Staff can book walk-ins of any size; the 4-person minimum is customer-only.
 const WALK_IN_MIN = 1;
@@ -117,6 +118,8 @@ export default function WalkInForm({
     amountPerPerson: boolean;
     roomIds: string[];
     roomNames: string[];
+    playFrom: string | null; // game dates it covers; null = open
+    playUntil: string | null;
   } | null>(null);
   const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; remainingCents: number } | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -349,11 +352,18 @@ export default function WalkInForm({
   // Preview only — the server reprices from the database at save time, with the
   // same rounding. A promo's cut of the corporate fee is left out here (the
   // preview can't tell a promo from a reward code), so it can only understate.
-  // A code limited to some rooms only discounts those sessions.
-  const discountable = appliedCode?.roomIds.length
+  // A code limited to some rooms or game dates only discounts those sessions.
+  const codeScope: PromoScope = appliedCode
+    ? { roomIds: appliedCode.roomIds, playFrom: appliedCode.playFrom, playUntil: appliedCode.playUntil }
+    : { roomIds: [] };
+  const covered = (x: (typeof sessions)[number]) => {
+    const exp = expFor(x);
+    return !!exp && promoCovers(codeScope, { roomId: exp.id, date: x.date });
+  };
+  const discountable = promoLimited(codeScope)
     ? sessions.reduce((sum, x) => {
         const exp = expFor(x);
-        return sum + (exp && appliedCode.roomIds.includes(exp.id) ? exp.priceCents * chargedFor(x.quantity) : 0);
+        return sum + (exp && covered(x) ? exp.priceCents * chargedFor(x.quantity) : 0);
       }, 0)
     : roomsTotal;
   const discount = !appliedCode
@@ -362,11 +372,7 @@ export default function WalkInForm({
       ? Math.min(
           appliedCode.amountPerPerson
             ? appliedCode.amountOffCents *
-                sessions.reduce((sum, x) => {
-                  const exp = expFor(x);
-                  const covered = exp && (!appliedCode.roomIds.length || appliedCode.roomIds.includes(exp.id));
-                  return sum + (covered ? chargedFor(x.quantity) : 0);
-                }, 0)
+                sessions.reduce((sum, x) => sum + (covered(x) ? chargedFor(x.quantity) : 0), 0)
             : appliedCode.amountOffCents,
           discountable
         )
@@ -413,6 +419,8 @@ export default function WalkInForm({
           amountPerPerson: data.amountPerPerson === true,
           roomIds: data.roomIds ?? [],
           roomNames: data.roomNames ?? [],
+          playFrom: data.playFrom ?? null,
+          playUntil: data.playUntil ?? null,
         });
       }
       setCodeInput("");
@@ -745,7 +753,7 @@ export default function WalkInForm({
         {appliedCode && (
           <p className="sub" style={{ margin: "8px 0 0" }}>
             <strong>{appliedCode.code}</strong> — {promoOffLabel(appliedCode)}
-            {appliedCode.roomNames.length > 0 ? `, ${appliedCode.roomNames.join(" and ")} only` : ""}{" "}
+            {promoLimited(codeScope) ? `, ${promoScopeLabel(codeScope, appliedCode.roomNames)} only` : ""}{" "}
             <button type="button" className="mgr-linklike danger" onClick={() => setAppliedCode(null)}>
               Remove
             </button>

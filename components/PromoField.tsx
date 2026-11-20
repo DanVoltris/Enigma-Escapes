@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/format";
-import { promoMissesRooms, promoRoomsMessage } from "@/lib/pricing";
+import { promoMissMessage, promoScopeLabel } from "@/lib/promo-dates";
 import { promoOffLabel } from "@/lib/promo-label";
 
 // Code entry for promo codes and gift vouchers alike — one box, because a
@@ -28,9 +28,13 @@ export default function PromoField() {
       if (data.kind === "voucher") {
         setVoucher({ code: data.code, remainingCents: data.remainingCents });
       } else {
-        if (promoMissesRooms(data.roomIds ?? [], items)) {
-          throw new Error(promoRoomsMessage(data.code, data.roomNames ?? []));
-        }
+        const miss = promoMissMessage(
+          data.code,
+          { roomIds: data.roomIds ?? [], playFrom: data.playFrom, playUntil: data.playUntil },
+          items,
+          data.roomNames ?? []
+        );
+        if (miss) throw new Error(miss);
         setPromo({
           code: data.code,
           percentOff: data.percentOff,
@@ -38,6 +42,8 @@ export default function PromoField() {
           amountPerPerson: data.amountPerPerson,
           roomIds: data.roomIds,
           roomNames: data.roomNames,
+          playFrom: data.playFrom ?? null,
+          playUntil: data.playUntil ?? null,
         });
       }
       setCode("");
@@ -54,7 +60,13 @@ export default function PromoField() {
           <div className="promo-applied">
             <span>
               <strong>{promo.code}</strong> applied — {promoOffLabel(promo)}
-              {promo.roomNames?.length ? ` ${promo.roomNames.join(" and ")}` : ""}
+              {(() => {
+                const label = promoScopeLabel(
+                  { roomIds: promo.roomIds ?? [], playFrom: promo.playFrom, playUntil: promo.playUntil },
+                  promo.roomNames ?? []
+                );
+                return label ? ` ${label}` : "";
+              })()}
             </span>
             <button type="button" className="link-button" onClick={() => setPromo(null)}>
               Remove
