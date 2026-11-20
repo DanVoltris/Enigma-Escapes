@@ -5416,11 +5416,13 @@ textarea:focus {
   background: var(--accent);
 }
 
-/* Tick boxes drawn by us, not by the operating system.
+/* Tick boxes drawn by us, not by the operating system (.vch-check too — the
+   lists of ticks on promo codes, vouchers, blocks, bookings and settings).
    The OS draws its own (a blue macOS square, a green Android one) and ignores
    the stylesheet, so the portal looked like three different apps. Same size and
    spacing as before, so nothing shifts. */
 .checkbox-row input[type="checkbox"],
+.vch-check input[type="checkbox"],
 .intg-toggle input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -5443,6 +5445,7 @@ textarea:focus {
   margin-right: 8px;
 }
 .checkbox-row input[type="checkbox"]::before,
+.vch-check input[type="checkbox"]::before,
 .intg-toggle input[type="checkbox"]::before {
   content: "";
   width: 10px;
@@ -5452,20 +5455,24 @@ textarea:focus {
   transform: rotate(-45deg) translate(1px, -1px) scale(0);
 }
 .checkbox-row input[type="checkbox"]:checked,
+.vch-check input[type="checkbox"]:checked,
 .intg-toggle input[type="checkbox"]:checked {
   background: var(--accent);
   border-color: var(--accent);
 }
 .checkbox-row input[type="checkbox"]:checked::before,
+.vch-check input[type="checkbox"]:checked::before,
 .intg-toggle input[type="checkbox"]:checked::before {
   transform: rotate(-45deg) translate(1px, -1px) scale(1);
 }
 .checkbox-row input[type="checkbox"]:focus-visible,
+.vch-check input[type="checkbox"]:focus-visible,
 .intg-toggle input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .checkbox-row input[type="checkbox"]:disabled,
+.vch-check input[type="checkbox"]:disabled,
 .intg-toggle input[type="checkbox"]:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -5523,4 +5530,3 @@ textarea:focus {
   .promo-choice-label { min-width: 0; flex-basis: 100%; }
   .promo-choice-extra, .promo-choice-indent { padding-left: 0; }
 }
-.promo-room-place { opacity: 0.75; font-weight: 400; }
