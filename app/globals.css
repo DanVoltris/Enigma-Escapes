@@ -5523,3 +5523,4 @@ textarea:focus {
   .promo-choice-label { min-width: 0; flex-basis: 100%; }
   .promo-choice-extra, .promo-choice-indent { padding-left: 0; }
 }
+.promo-room-place { opacity: 0.75; font-weight: 400; }
