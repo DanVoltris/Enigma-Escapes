@@ -9,16 +9,22 @@ import type { Promo } from "@/lib/types";
 
 type Room = { id: string; name: string; location: string };
 
-// Ticks for the rooms a code is limited to. None ticked = every room.
+// The rooms a code is limited to: one button per room, blue when picked.
+// Several can be picked; none = every room.
 function RoomPicker({ rooms, value, onChange }: { rooms: Room[]; value: string[]; onChange: (ids: string[]) => void }) {
   const toggle = (id: string) => onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
   return (
-    <div className="vch-items">
+    <div className="vch-filters" role="group" aria-label="Rooms this code works on">
       {rooms.map((r) => (
-        <label key={r.id} className="vch-check">
-          <input type="checkbox" checked={value.includes(r.id)} onChange={() => toggle(r.id)} />
-          {r.name} <span style={{ color: "var(--text-secondary)" }}>· {r.location}</span>
-        </label>
+        <button
+          key={r.id}
+          type="button"
+          className={`vch-chip${value.includes(r.id) ? " on" : ""}`}
+          aria-pressed={value.includes(r.id)}
+          onClick={() => toggle(r.id)}
+        >
+          {r.name} <span className="promo-room-place">· {r.location}</span>
+        </button>
       ))}
     </div>
   );
@@ -411,7 +417,7 @@ export default function PromoManager({ promos, rooms }: { promos: Promo[]; rooms
                     <td>
                       {editingRooms?.code === p.code ? (
                         <div>
-                          <p className="sub" style={{ margin: "0 0 6px" }}>None ticked = every room.</p>
+                          <p className="sub" style={{ margin: "0 0 6px" }}>None picked = every room.</p>
                           <RoomPicker
                             rooms={rooms}
                             value={editingRooms.ids}
